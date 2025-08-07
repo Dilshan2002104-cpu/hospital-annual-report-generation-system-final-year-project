@@ -90,7 +90,7 @@ export default function AdminLogin() {
 
       if (data.isSuccess) {
         // Store JWT token in localStorage
-        localStorage.setItem("adminTocken", data.jwtToken)
+        localStorage.setItem("adminToken", data.jwtToken)
         
         // Decode JWT to get user info
         const tokenPayload = JSON.parse(atob(data.jwtToken.split('.')[1]))
