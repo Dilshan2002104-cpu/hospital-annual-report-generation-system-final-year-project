@@ -1,6 +1,6 @@
 package com.HMS.HMS.Exception_Handler;
 
-import com.HMS.HMS.DTO.RegisterResponseDTO;
+import com.HMS.HMS.DTO.authDTO.RegisterResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;

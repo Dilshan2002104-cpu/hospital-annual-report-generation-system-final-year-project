@@ -1,9 +1,8 @@
 package com.HMS.HMS.config;
 
-import com.HMS.HMS.model.Role;
-import com.HMS.HMS.model.User;
+import com.HMS.HMS.model.User.Role;
+import com.HMS.HMS.model.User.User;
 import com.HMS.HMS.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;

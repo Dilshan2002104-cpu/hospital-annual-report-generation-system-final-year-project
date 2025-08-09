@@ -1,4 +1,4 @@
-package com.HMS.HMS.DTO;
+package com.HMS.HMS.DTO.authDTO;
 
 public class getAllUsersDTO {
     private String empId;

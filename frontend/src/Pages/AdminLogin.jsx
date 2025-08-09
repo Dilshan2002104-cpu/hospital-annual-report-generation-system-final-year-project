@@ -1,47 +1,125 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import axios from "axios"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { Heart, Shield, User, Lock, CheckCircle, XCircle, AlertCircle, LogIn, Loader2 } from "lucide-react";
+
+// Toast Component
+const Toast = ({ message, type, isVisible, onClose }) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 4000); // Auto close after 4 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onClose]);
+
+  if (!isVisible) return null;
+
+  const toastStyles = {
+    success: {
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      text: "text-emerald-800",
+      icon: <CheckCircle size={20} className="text-emerald-500" />,
+    },
+    error: {
+      bg: "bg-red-50",
+      border: "border-red-200",
+      text: "text-red-800",
+      icon: <XCircle size={20} className="text-red-500" />,
+    },
+    info: {
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      text: "text-blue-800",
+      icon: <AlertCircle size={20} className="text-blue-500" />,
+    },
+  };
+
+  const style = toastStyles[type] || toastStyles.info;
+
+  return (
+    <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-right-full duration-300">
+      <div
+        className={`max-w-sm rounded-2xl border-2 p-4 shadow-2xl backdrop-blur-sm ${style.bg} ${style.border}`}
+      >
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0">{style.icon}</div>
+          <div className="flex-1">
+            <p className={`text-sm font-semibold ${style.text}`}>{message}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className={`flex-shrink-0 rounded-lg p-1.5 hover:bg-white/50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors ${style.text}`}
+          >
+            <XCircle size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AdminLogin() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     employeeId: "",
     password: "",
-  })
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Toast state
+  const [toast, setToast] = useState({
+    isVisible: false,
+    message: "",
+    type: "info",
+  });
+
+  const showToast = (message, type = "info") => {
+    setToast({
+      isVisible: true,
+      message,
+      type,
+    });
+  };
+
+  const hideToast = () => {
+    setToast((prev) => ({ ...prev, isVisible: false }));
+  };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }))
+    }));
     // Clear error when user starts typing
-    if (error) setError("")
-  }
+    if (error) setError("");
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     // Validate empty fields with modern error display
     if (!formData.employeeId.trim() || !formData.password.trim()) {
       setError(
         <div className="flex items-center space-x-3">
           <div className="flex-shrink-0">
-            <svg 
-              className="w-5 h-5 text-red-500" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className="w-5 h-5 text-red-500"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
           </div>
@@ -51,25 +129,23 @@ export default function AdminLogin() {
                 ? "Authentication Required"
                 : !formData.employeeId.trim()
                 ? "Employee ID Missing"
-                : "Password Required"
-              }
+                : "Password Required"}
             </span>
             <p className="text-sm text-red-600 mt-0.5">
               {!formData.employeeId.trim() && !formData.password.trim()
                 ? "Please provide both your Employee ID and Password to continue"
                 : !formData.employeeId.trim()
                 ? "Please enter your Employee ID to proceed"
-                : "Please enter your password to secure access"
-              }
+                : "Please enter your password to secure access"}
             </p>
           </div>
         </div>
-      )
-      return
+      );
+      return;
     }
 
-    setIsLoading(true)
-    setError("")
+    setIsLoading(true);
+    setError("");
 
     try {
       const response = await axios.post(
@@ -84,284 +160,324 @@ export default function AdminLogin() {
           },
           timeout: 10000, // 10 second timeout
         }
-      )
+      );
 
-      const data = response.data
+      const data = response.data;
+
+      // In the handleSubmit function, replace the success handling part:
 
       if (data.isSuccess) {
-        // Store JWT token in localStorage
-        localStorage.setItem("adminToken", data.jwtToken)
-        
-        // Decode JWT to get user info
-        const tokenPayload = JSON.parse(atob(data.jwtToken.split('.')[1]))
-        localStorage.setItem("empId", tokenPayload.sub)
-        localStorage.setItem("role", tokenPayload.role)
+        // Decode JWT to check role BEFORE storing anything
+        const tokenPayload = JSON.parse(atob(data.jwtToken.split(".")[1]));
+        const userRole = tokenPayload.role;
 
-        navigate('/admin-dashboard')
-        alert("Login successful! Redirecting to dashboard...")
+        // Check if user has admin role
+        if (userRole !== "ADMIN") {
+          // Don't store any data for non-admin users
+          setError(
+            <div className="flex items-center space-x-2">
+              <Shield size={20} className="text-red-500" />
+              <span>Access denied. Admin privileges required.</span>
+            </div>
+          );
+          showToast(
+            "Access denied. This portal is for administrators only.",
+            "error"
+          );
+          return; // Exit without storing anything
+        }
+
+        // Only store data if user is an admin
+        localStorage.setItem("adminToken", data.jwtToken);
+        localStorage.setItem("empId", tokenPayload.sub);
+        localStorage.setItem("role", userRole);
+
+        // Show success toast
+        showToast(
+          "Admin login successful! Redirecting to dashboard...",
+          "success"
+        );
+
+        // Navigate after a short delay
+        setTimeout(() => {
+          navigate("/admin-dashboard");
+        }, 1500);
       } else {
-        setError(data.message || "Login failed. Please check your credentials.")
+        showToast(
+          data.message || "Login failed. Please check your credentials.",
+          "error"
+        );
       }
     } catch (err) {
-      console.error("Login error:", err)
-      
+      console.error("Login error:", err);
+
       // Enhanced error handling with specific messages
       if (err.response) {
-        const status = err.response.status
-        
+        const status = err.response.status;
+
         switch (status) {
           case 401:
             setError(
               <div className="flex items-center space-x-2">
-                <span>Invalid credentials. Please check your Employee ID and password.</span>
+                <span>
+                  Invalid credentials. Please check your Employee ID and
+                  password.
+                </span>
               </div>
-            )
-            break
+            );
+            showToast(
+              "Invalid credentials. Please check your Employee ID and password.",
+              "error"
+            );
+            break;
           case 403:
             setError(
               <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <Shield size={20} className="text-red-500" />
                 <span>Access denied. Admin privileges required.</span>
               </div>
-            )
-            break
+            );
+            showToast("Access denied. Admin privileges required.", "error");
+            break;
           default:
+            const errorMsg =
+              err.response.data?.message ||
+              "An error occurred. Please try again.";
             setError(
               <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>{err.response.data?.message || "An error occurred. Please try again."}</span>
+                <AlertCircle size={20} className="text-red-500" />
+                <span>{errorMsg}</span>
               </div>
-            )
+            );
+            showToast(errorMsg, "error");
         }
       } else if (err.request) {
+        const networkError =
+          "Network error. Please check your connection and try again.";
         setError(
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
-            </svg>
-            <span>Network error. Please check your connection and try again.</span>
+            <AlertCircle size={20} className="text-red-500" />
+            <span>{networkError}</span>
           </div>
-        )
+        );
+        showToast(networkError, "error");
       } else {
+        const unexpectedError =
+          "An unexpected error occurred. Please try again.";
         setError(
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>An unexpected error occurred. Please try again.</span>
+            <XCircle size={20} className="text-red-500" />
+            <span>{unexpectedError}</span>
           </div>
-        )
+        );
+        showToast(unexpectedError, "error");
       }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-    return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F8F9FA" }}>
-      <div className="w-full max-w-md">
-        {/* Hospital Logo/Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div
-              className="flex items-center justify-center w-16 h-16 rounded-full shadow-lg"
-              style={{ backgroundColor: "#007BFF" }}
-            >
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z"
-                />
-              </svg>
+  return (
+    <>
+      {/* Toast Component */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
+
+      <div className="h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4 overflow-hidden">
+        <div className="w-full max-w-lg">
+          {/* Hospital Logo/Header */}
+          <div className="text-center mb-6">
+            <div className="flex justify-center mb-4">
+              <div className="relative">
+                <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-2xl shadow-xl">
+                  <Heart size={24} className="text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center">
+                  <Shield size={10} className="text-white" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
+                HMS Admin Portal
+              </h1>
+              <div className="flex items-center justify-center space-x-2 text-gray-700">
+                <Shield size={14} className="text-blue-600" />
+                <p className="text-xs font-medium">
+                  National Institute of Nephrology, Dialysis and Transplantation
+                </p>
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-emerald-700 font-medium">System Online & Secure</span>
+              </div>
             </div>
           </div>
-          <h1 className="text-2xl font-bold mb-2" style={{ color: "#343A40" }}>
-            Hospital Admin Portal
-          </h1>
-          <p className="text-sm" style={{ color: "#6C757D" }}>
-            National Institute of Nephrology, Dialysis and Transplantation
-          </p>
-        </div>
 
-        {/* Login Form Card */}
-        <div className="rounded-lg shadow-lg p-8 border border-gray-200" style={{ backgroundColor: "#FFFFFF" }}>
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-center" style={{ color: "#343A40" }}>
-              Admin Login
-            </h2>
-            <p className="text-center text-sm mt-2" style={{ color: "#6C757D" }}>
-              Please sign in to access the admin dashboard
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
-            {error && (
-              <div className="p-3 rounded-md border border-red-300 bg-red-50">
-                <div className="flex">
-                  <p className="text-sm text-red-700">{error}</p>
+          {/* Login Form Card */}
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border-2 border-white/20 p-6">
+            <div className="mb-6">
+              <div className="flex items-center justify-center space-x-2 mb-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <User size={16} className="text-white" />
                 </div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Administrator Access
+                </h2>
               </div>
-            )}
-
-            {/* Employee ID Field */}
-            <div>
-              <label htmlFor="employeeId" className="block text-sm font-medium mb-2" style={{ color: "#343A40" }}>
-                Employee ID
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="w-5 h-5"
-                    style={{ color: "#6C757D" }}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  id="employeeId"
-                  name="employeeId"
-                  value={formData.employeeId}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="Enter your employee ID"
-                  required
-                />
-              </div>
+              <p className="text-center text-gray-600 text-sm font-medium">
+                Secure authentication required for system access
+              </p>
             </div>
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: "#343A40" }}>
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="w-5 h-5"
-                    style={{ color: "#6C757D" }}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                  </svg>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Error Message */}
+              {error && (
+                <div className="p-4 rounded-2xl border-2 border-red-200 bg-red-50/80 backdrop-blur-sm">
+                  <div className="flex">
+                    <p className="text-sm font-medium text-red-800">{error}</p>
+                  </div>
                 </div>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-            </div>
+              )}
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm" style={{ color: "#6C757D" }}>
-                  Remember me
+              {/* Employee ID Field */}
+              <div>
+                <label
+                  htmlFor="employeeId"
+                  className="block text-sm font-semibold mb-2 text-gray-800"
+                >
+                  Employee ID
                 </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User size={16} className="text-gray-500" />
+                  </div>
+                  <input
+                    type="text"
+                    id="employeeId"
+                    name="employeeId"
+                    value={formData.employeeId}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-3 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm font-medium"
+                    placeholder="Enter your employee ID"
+                    required
+                  />
+                </div>
               </div>
-              <div className="text-sm">
-                <a href="#" className="font-medium hover:underline transition-colors" style={{ color: "#007BFF" }}>
-                  Forgot Password?
-                </a>
+
+              {/* Password Field */}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-semibold mb-2 text-gray-800"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock size={16} className="text-gray-500" />
+                  </div>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-3 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm font-medium"
+                    placeholder="Enter your secure password"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label
+                    htmlFor="remember-me"
+                    className="ml-3 block text-sm font-medium text-gray-700"
+                  >
+                    Remember me
+                  </label>
+                </div>
+                <div className="text-sm">
+                  <a
+                    href="#"
+                    className="font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                  >
+                    Forgot Password?
+                  </a>
+                </div>
+              </div>
+
+              {/* Login Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`w-full flex justify-center items-center py-3 px-4 rounded-xl text-white font-bold text-sm transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-500/25 shadow-lg ${
+                    isLoading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 hover:shadow-xl hover:scale-105 active:scale-95'
+                  }`}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin mr-2" />
+                      <span>Authenticating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={18} className="mr-2" />
+                      <span>Access Admin Dashboard</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Footer */}
+            <div className="mt-4 text-center">
+              <div className="flex items-center justify-center space-x-2 text-emerald-700">
+                <Shield size={12} />
+                <p className="text-xs font-medium">
+                  256-bit SSL Encrypted • HIPAA Compliant
+                </p>
               </div>
             </div>
-
-            {/* Login Button */}
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-sm"
-                style={{
-                  backgroundColor: isLoading ? "#6C757D" : "#007BFF",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isLoading) e.target.style.backgroundColor = "#0056b3"
-                }}
-                onMouseLeave={(e) => {
-                  if (!isLoading) e.target.style.backgroundColor = "#007BFF"
-                }}
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Signing In...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
-                      />
-                    </svg>
-                    Sign In to Dashboard
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-xs" style={{ color: "#6C757D" }}>
-              Secure access to hospital management system
-            </p>
           </div>
-        </div>
 
-        {/* Bottom Text */}
-        <div className="mt-8 text-center">
-          <p className="text-xs" style={{ color: "#6C757D" }}>
-            © 2024 National Institute of Nephrology, Dialysis and Transplantation
-            <br />
-            All rights reserved. Authorized personnel only.
-          </p>
+          {/* Bottom Text */}
+          <div className="mt-4 text-center">
+            <div className="bg-white/30 backdrop-blur-sm rounded-xl p-3 border border-white/20">
+              <div className="flex items-center justify-center space-x-1 mb-1">
+                <Heart size={12} className="text-blue-600" />
+                <span className="text-xs font-semibold text-gray-800">
+                  HMS - Hospital Management System
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 leading-tight">
+                © {new Date().getFullYear()} National Institute of Nephrology, Dialysis and Transplantation
+                <br />
+                <span className="flex items-center justify-center mt-1 space-x-1">
+                  <Shield size={10} className="text-emerald-600" />
+                  <span>Secure • Authorized Personnel Only</span>
+                </span>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    </>
+  );
 }

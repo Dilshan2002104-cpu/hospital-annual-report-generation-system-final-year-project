@@ -1,13 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 export default function LoginForm() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     empId: '',
     password: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [successNotification, setSuccessNotification] = useState(null);
+
+  // Auto-hide success notification and navigate
+  useEffect(() => {
+    if (successNotification) {
+      const timer = setTimeout(() => {
+        setSuccessNotification(null);
+        navigateBasedOnRole(successNotification.role);
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [successNotification]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -40,6 +55,30 @@ export default function LoginForm() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Role-based navigation function
+  const navigateBasedOnRole = (role) => {
+    switch (role) {
+      case 'CLINIC_NURSE':
+        navigate('/ClinicManagement');
+        break;
+      case 'ADMIN':
+        navigate('/AdminDashboard');
+        break;
+      case 'DOCTOR':
+        navigate('/DoctorDashboard');
+        break;
+      case 'PHARMACIST':
+        navigate('/PharmacyManagement');
+        break;
+      case 'LAB_TECHNICIAN':
+        navigate('/LabManagement');
+        break;
+      default:
+        navigate('/Dashboard'); // Default dashboard
+        break;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
@@ -63,16 +102,22 @@ export default function LoginForm() {
         // Decode and store user info from JWT token
         try {
           const tokenPayload = JSON.parse(atob(data.jwtToken.split('.')[1]));
-          localStorage.setItem('empId', tokenPayload.sub);
-          localStorage.setItem('role', tokenPayload.role);
+          const userRole = tokenPayload.role;
+          const empId = tokenPayload.sub;
+          
+          localStorage.setItem('empId', empId);
+          localStorage.setItem('role', userRole);
+          
+          // Simple success notification
+          setSuccessNotification({
+            message: `Welcome ${formData.empId}!`,
+            role: userRole
+          });
+          
         } catch (decodeError) {
           console.warn('Could not decode JWT token:', decodeError);
+          setErrors({ general: 'Authentication error. Please contact IT support.' });
         }
-        
-        alert(`Login successful!\nWelcome ${formData.empId}\nRole: ${JSON.parse(atob(data.jwtToken.split('.')[1])).role}`);
-        
-        // Redirect to dashboard or main application
-        // window.location.href = '/dashboard';
         
       } else {
         setErrors({ general: data.message || 'Login failed' });
@@ -84,7 +129,14 @@ export default function LoginForm() {
         if (error.code === 'ERR_NETWORK') {
           setErrors({ general: 'Network error. Please check your connection and ensure the server is running.' });
         } else if (error.response) {
-          setErrors({ general: error.response.data.message || 'Login failed' });
+          const status = error.response.status;
+          if (status === 401) {
+            setErrors({ general: 'Invalid credentials. Please check your employee ID and password.' });
+          } else if (status === 403) {
+            setErrors({ general: 'Access denied. Please contact your administrator.' });
+          } else {
+            setErrors({ general: error.response.data.message || 'Login failed' });
+          }
         } else {
           setErrors({ general: 'An unexpected error occurred. Please try again.' });
         }
@@ -113,7 +165,14 @@ export default function LoginForm() {
         {/* Login Form */}
         <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
           <div className="space-y-6">
-            {/* General Error Message */}
+            {/* Success Notification */}
+            {successNotification && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800">{successNotification.message}</p>
+              </div>
+            )}
+
+            {/* Error Message */}
             {errors.general && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-600">{errors.general}</p>
@@ -196,6 +255,14 @@ export default function LoginForm() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   Logging in...
+                </>
+              ) : successNotification ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Redirecting...
                 </>
               ) : (
                 'Login'

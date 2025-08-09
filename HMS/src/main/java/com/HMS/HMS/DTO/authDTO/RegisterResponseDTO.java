@@ -1,20 +1,17 @@
-package com.HMS.HMS.DTO;
+package com.HMS.HMS.DTO.authDTO;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class AuthResponse {
+public class RegisterResponseDTO {
 
-    @JsonProperty("isSuccess")
+    @JsonProperty("isSuccess")  // This forces JSON key to be "isSuccess"
     private boolean isSuccess;
+
     private String message;
-    private String jwtToken;
 
-    public AuthResponse() {}
-
-    public AuthResponse(boolean isSuccess, String message, String jwtToken) {
+    public RegisterResponseDTO(boolean isSuccess, String message) {
         this.isSuccess = isSuccess;
         this.message = message;
-        this.jwtToken = jwtToken;
     }
 
     @JsonProperty("isSuccess")
@@ -32,13 +29,5 @@ public class AuthResponse {
 
     public void setMessage(String message) {
         this.message = message;
-    }
-
-    public String getJwtToken() {
-        return jwtToken;
-    }
-
-    public void setJwtToken(String jwtToken) {
-        this.jwtToken = jwtToken;
     }
 }

@@ -1,6 +1,6 @@
 package com.HMS.HMS.repository;
 
-import com.HMS.HMS.model.User;
+import com.HMS.HMS.model.User.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

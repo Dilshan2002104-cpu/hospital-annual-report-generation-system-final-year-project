@@ -4,6 +4,7 @@ import LoginForm from './Pages/LoginForm'
 import AdminDashboard from './Pages/AdminDashboard'
 import AdminLogin from './Pages/AdminLogin'
 import AdminProtectedRoute from './Pages/protected-routes/adminProtectedRoute'
+import ClinicDashboard from './Pages/Clinic/nurs/ClinicDashboard'
 
 const App = () => {
   return (
@@ -18,6 +19,7 @@ const App = () => {
         }/>
         
         <Route path='/admin-login' element={<AdminLogin/>}/>
+        <Route path='/ClinicManagement' element={<ClinicDashboard/>}/>
       </Routes>
     </Router>
   )

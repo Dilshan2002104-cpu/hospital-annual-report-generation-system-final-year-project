@@ -1,19 +1,19 @@
 package com.HMS.HMS.service;
 
-import com.HMS.HMS.DTO.*;
+import com.HMS.HMS.DTO.authDTO.AuthRequest;
+import com.HMS.HMS.DTO.authDTO.AuthResponse;
+import com.HMS.HMS.DTO.authDTO.UpdateUserRequestDTO;
+import com.HMS.HMS.DTO.authDTO.getAllUsersDTO;
 import com.HMS.HMS.Exception_Handler.EmployeeIdAlreadyExistsException;
 import com.HMS.HMS.Exception_Handler.InvalidPasswordException;
 import com.HMS.HMS.Exception_Handler.UserNotFoundException;
-import com.HMS.HMS.model.Role;
-import com.HMS.HMS.model.User;
+import com.HMS.HMS.model.User.Role;
+import com.HMS.HMS.model.User.User;
 import com.HMS.HMS.repository.UserRepository;
 import com.HMS.HMS.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,10 +32,10 @@ public class AuthService {
 
     public AuthResponse login(AuthRequest request){
         User user = userRepository.findByEmpId(request.getEmpId())
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("Invalid credentials. Please check your employee ID and password."));
 
         if(!passwordEncoder.matches(request.getPassword(),user.getPassword())){
-            throw new InvalidPasswordException("Invalid password");
+            throw new InvalidPasswordException("Invalid credentials. Please check your employee ID and password.");
         }
 
         String token = jwtUtil.generateToken(user.getEmpId(),user.getRole().name());

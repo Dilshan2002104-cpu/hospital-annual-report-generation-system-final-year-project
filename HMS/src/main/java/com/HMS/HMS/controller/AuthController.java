@@ -1,9 +1,9 @@
 package com.HMS.HMS.controller;
 
 import com.HMS.HMS.DTO.*;
-import com.HMS.HMS.model.User;
+import com.HMS.HMS.DTO.authDTO.*;
+import com.HMS.HMS.model.User.User;
 import com.HMS.HMS.service.AuthService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +53,7 @@ public class AuthController {
         CommonResponseDTO response = new CommonResponseDTO(true, "User deleted successfully");
         return ResponseEntity.ok(response);
     }
+
 
 
 }

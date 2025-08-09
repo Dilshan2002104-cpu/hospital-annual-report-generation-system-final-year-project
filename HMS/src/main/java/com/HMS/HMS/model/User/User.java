@@ -1,9 +1,6 @@
-package com.HMS.HMS.model;
+package com.HMS.HMS.model.User;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
 public class User {
@@ -14,6 +11,7 @@ public class User {
     private String password;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "role",length = 50)
     private Role role;
 
     public User() {
