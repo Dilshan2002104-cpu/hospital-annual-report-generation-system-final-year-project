@@ -1,6 +1,27 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 
+// Add custom CSS animations
+const customStyles = `
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+  .animation-delay-150 {
+    animation-delay: 150ms;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.innerText = customStyles;
+  document.head.appendChild(styleSheet);
+}
+
 // Toast notification types
 const TOAST_TYPES = {
   SUCCESS: 'success',
@@ -193,34 +214,40 @@ const Toast = ({ toast, onClose }) => {
   }, [toast.id, toast.duration, onClose]);
 
   return (
-    <div className={`max-w-sm w-full rounded-lg overflow-hidden transform transition-all duration-300 ease-in-out ${getToastStyles(toast.type)}`}>
-      {/* Progress bar */}
-      <div className="relative">
-        <div className={`h-1 ${getProgressBarColor(toast.type)} animate-pulse`}></div>
+    <div className={`max-w-sm w-full rounded-xl overflow-hidden transform transition-all duration-500 ease-out hover:scale-105 ${getToastStyles(toast.type)} animate-in slide-in-from-right-full`}>
+      {/* Enhanced Progress bar */}
+      <div className="relative overflow-hidden">
+        <div className={`h-1.5 ${getProgressBarColor(toast.type)}`}>
+          <div className="h-full bg-white opacity-30 animate-pulse"></div>
+        </div>
+        <div className="absolute top-0 left-0 h-full bg-white opacity-20 animate-shimmer"></div>
       </div>
       
-      {/* Content */}
-      <div className="p-4">
+      {/* Enhanced Content */}
+      <div className="p-5">
         <div className="flex items-start">
-          {getToastIcon(toast.type)}
-          <div className="ml-3 w-0 flex-1">
+          <div className="relative">
+            {getToastIcon(toast.type)}
+            <div className="absolute -inset-1 bg-white opacity-20 rounded-full animate-ping"></div>
+          </div>
+          <div className="ml-4 w-0 flex-1">
             {toast.title && (
-              <p className="text-sm font-semibold text-gray-900 mb-1">
+              <p className="text-sm font-bold text-gray-900 mb-2 tracking-wide">
                 {toast.title}
               </p>
             )}
-            <p className="text-sm text-gray-700 leading-relaxed">
+            <p className="text-sm text-gray-700 leading-relaxed font-medium">
               {toast.message}
             </p>
           </div>
           <div className="ml-4 flex-shrink-0 flex">
             <button
               onClick={() => onClose(toast.id)}
-              className="inline-flex text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded-md p-1 transition-colors"
+              className="inline-flex text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded-lg p-2 transition-all duration-200 hover:bg-gray-100 hover:scale-110"
               aria-label="Close notification"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -230,16 +257,24 @@ const Toast = ({ toast, onClose }) => {
   );
 };
 
-// Toast Container
+// Enhanced Toast Container
 const ToastContainer = ({ toasts, onRemoveToast }) => {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-4">
-      {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onClose={onRemoveToast}
-        />
+    <div className="fixed top-6 right-6 z-50 space-y-3 pointer-events-none">
+      {toasts.map((toast, index) => (
+        <div 
+          key={toast.id} 
+          className="pointer-events-auto"
+          style={{
+            transform: `translateY(${index * -8}px)`,
+            zIndex: 50 - index
+          }}
+        >
+          <Toast
+            toast={toast}
+            onClose={onRemoveToast}
+          />
+        </div>
       ))}
     </div>
   );
@@ -714,37 +749,59 @@ export default function AdminDashboard() {
   }, [newUser.password]);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)'
+        }}></div>
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10">
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
       
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      {/* Enhanced Header with Gradient */}
+      <header className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center justify-center w-12 h-12 bg-blue-500 rounded-lg">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
-                </svg>
+          <div className="flex justify-between items-center py-8">
+            <div className="flex items-center space-x-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-white opacity-20 rounded-xl blur-md"></div>
+                <div className="relative flex items-center justify-center w-16 h-16 bg-white bg-opacity-10 backdrop-blur-sm rounded-xl border border-white border-opacity-20">
+                  <svg className="w-9 h-9 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
+                  </svg>
+                </div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Hospital Admin Dashboard</h1>
-                <p className="text-gray-600 text-sm">National Institute of Nephrology, Dialysis and Transplantation</p>
+                <h1 className="text-3xl font-bold text-white drop-shadow-sm">Hospital Admin Dashboard</h1>
+                <p className="text-blue-100 text-sm font-medium mt-1 drop-shadow-sm">National Institute of Nephrology, Dialysis and Transplantation</p>
+                <div className="flex items-center mt-2 text-blue-200 text-xs">
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                  Last updated: {new Date().toLocaleTimeString()}
+                </div>
               </div>
             </div>
             
-            {/* Enhanced Statistics */}
-            <div className="grid grid-cols-4 gap-4">
+            {/* Enhanced Mini Statistics */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { label: 'Total', value: statistics.total, color: 'bg-blue-100 text-blue-700' },
-                { label: 'Doctors', value: statistics.doctors, color: 'bg-blue-100 text-blue-700' },
-                { label: 'Nurses', value: statistics.nurses, color: 'bg-green-100 text-green-700' },
-                { label: 'Support', value: statistics.support, color: 'bg-yellow-100 text-yellow-700' }
+                { label: 'Total Staff', value: statistics.total, color: 'from-emerald-400 to-emerald-600', icon: '👥' },
+                { label: 'Doctors', value: statistics.doctors, color: 'from-blue-400 to-blue-600', icon: '👨‍⚕️' },
+                { label: 'Nurses', value: statistics.nurses, color: 'from-pink-400 to-pink-600', icon: '👩‍⚕️' },
+                { label: 'Support', value: statistics.support, color: 'from-orange-400 to-orange-600', icon: '🔧' }
               ].map((stat) => (
-                <div key={stat.label} className={`${stat.color} rounded-lg px-3 py-2 text-center`}>
-                  <div className="text-lg font-bold">{isLoadingUsers ? '...' : stat.value}</div>
-                  <div className="text-xs font-medium">{stat.label}</div>
+                <div key={stat.label} className="group relative">
+                  <div className="absolute inset-0 bg-white opacity-10 rounded-lg blur-sm group-hover:opacity-20 transition-opacity"></div>
+                  <div className={`relative bg-gradient-to-br ${stat.color} text-white rounded-lg px-4 py-3 text-center shadow-lg backdrop-blur-sm border border-white border-opacity-20 hover:scale-105 transition-all duration-200`}>
+                    <div className="text-lg font-bold drop-shadow-sm">{isLoadingUsers ? '...' : stat.value}</div>
+                    <div className="text-xs font-medium opacity-90 mt-1">{stat.label}</div>
+                    <div className="absolute top-1 right-2 text-lg opacity-60">{stat.icon}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -755,173 +812,110 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Page Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-              <p className="text-gray-600 mt-1">Manage staff members and their system access</p>
-            </div>
-          </div>
 
-          {/* Detailed Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          {/* Enhanced Search and Filters */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center w-full lg:w-auto">
+                {/* Enhanced Search */}
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Admin</p>
-                  <p className="text-2xl font-semibold text-gray-900">{statistics.admin}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">All Doctors</p>
-                  <p className="text-2xl font-semibold text-gray-900">{statistics.doctors}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">All Nurses</p>
-                  <p className="text-2xl font-semibold text-gray-900">{statistics.nurses}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Support Staff</p>
-                  <p className="text-2xl font-semibold text-gray-900">{statistics.support}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Staff</p>
-                  <p className="text-2xl font-semibold text-gray-900">{statistics.total}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Search and Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex flex-wrap gap-4 items-center justify-between">
-              <div className="flex flex-wrap gap-4 items-center">
-                {/* Search */}
-                <div className="relative">
-                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
                   <input
                     type="text"
                     placeholder="Search by Employee ID or Username..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-80"
+                    className="pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 w-80 shadow-sm"
                   />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
-                {/* Category Filter */}
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => {
-                    setCategoryFilter(e.target.value);
-                    setRoleFilter(''); // Clear role filter when category changes
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {ROLE_CATEGORIES.map(category => (
-                    <option key={category.value} value={category.value}>{category.label}</option>
-                  ))}
-                </select>
-
-                {/* Role Filter */}
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">All Specific Roles</option>
-                  {ROLES
-                    .filter(role => !categoryFilter || role.category === categoryFilter)
-                    .map(role => (
-                      <option key={role.value} value={role.value}>{role.label}</option>
+                {/* Enhanced Category Filter */}
+                <div className="relative">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setRoleFilter('');
+                    }}
+                    className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 shadow-sm font-medium"
+                  >
+                    {ROLE_CATEGORIES.map(category => (
+                      <option key={category.value} value={category.value}>{category.label}</option>
                     ))}
-                </select>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Enhanced Role Filter */}
+                <div className="relative">
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 shadow-sm font-medium"
+                  >
+                    <option value="">All Specific Roles</option>
+                    {ROLES
+                      .filter(role => !categoryFilter || role.category === categoryFilter)
+                      .map(role => (
+                        <option key={role.value} value={role.value}>{role.label}</option>
+                      ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center space-x-3">
+              {/* Enhanced Action Buttons */}
+              <div className="flex items-center gap-3 flex-wrap">
                 {/* Bulk Actions */}
                 {selectedUsers.size > 0 && (
                   <button
                     onClick={handleBulkDelete}
                     disabled={isLoading}
-                    className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-red-300 disabled:to-red-400 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-red-200 transform hover:scale-105 disabled:transform-none"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    <span>Delete Selected ({selectedUsers.size})</span>
+                    <span>Delete ({selectedUsers.size})</span>
                   </button>
                 )}
 
                 <button
                   onClick={exportUsers}
-                  className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-emerald-200 transform hover:scale-105"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span>Export CSV</span>
+                  <span>Export</span>
                 </button>
 
                 <button
                   onClick={fetchUsers}
                   disabled={isLoadingUsers}
-                  className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                  className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-slate-200 transform hover:scale-105 disabled:transform-none"
                 >
                   <svg className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -931,7 +925,7 @@ export default function AdminDashboard() {
 
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-blue-200 transform hover:scale-105"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -941,53 +935,75 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Active Filters Display */}
+            {/* Enhanced Active Filters Display */}
             {(searchTerm || categoryFilter || roleFilter) && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="text-sm text-gray-500">Active filters:</span>
-                {searchTerm && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Search: "{searchTerm}"
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
-                    >
-                      ×
-                    </button>
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-600 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Active filters:
                   </span>
-                )}
-                {categoryFilter && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Category: {ROLE_CATEGORIES.find(c => c.value === categoryFilter)?.label}
-                    <button
-                      onClick={() => setCategoryFilter('')}
-                      className="ml-1 text-green-600 hover:text-green-800"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                {roleFilter && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    Role: {ROLES.find(r => r.value === roleFilter)?.label}
-                    <button
-                      onClick={() => setRoleFilter('')}
-                      className="ml-1 text-purple-600 hover:text-purple-800"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setCategoryFilter('');
-                    setRoleFilter('');
-                  }}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline"
-                >
-                  Clear all
-                </button>
+                  {searchTerm && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 shadow-sm border border-blue-300">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Search: "{searchTerm}"
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="ml-2 text-blue-600 hover:text-blue-800 hover:bg-blue-300 rounded-full p-0.5 transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  {categoryFilter && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-800 shadow-sm border border-emerald-300">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      Category: {ROLE_CATEGORIES.find(c => c.value === categoryFilter)?.label}
+                      <button
+                        onClick={() => setCategoryFilter('')}
+                        className="ml-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-300 rounded-full p-0.5 transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  {roleFilter && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 shadow-sm border border-purple-300">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Role: {ROLES.find(r => r.value === roleFilter)?.label}
+                      <button
+                        onClick={() => setRoleFilter('')}
+                        className="ml-2 text-purple-600 hover:text-purple-800 hover:bg-purple-300 rounded-full p-0.5 transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setCategoryFilter('');
+                      setRoleFilter('');
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 py-1 rounded-md transition-colors font-medium border border-gray-200"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1010,102 +1026,136 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* User Table */}
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+          {/* Enhanced User Table */}
+          <div className="bg-white shadow-xl rounded-2xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
+              <table className="min-w-full">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
+                    <th className="px-6 py-4 text-left">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectAll}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 rounded border-2 border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all"
+                        />
+                        {selectedUsers.size > 0 && (
+                          <span className="ml-2 text-xs font-medium text-blue-600">({selectedUsers.size})</span>
+                        )}
+                      </div>
                     </th>
                     {[
-                      { key: 'empId', label: 'Employee ID' },
-                      { key: 'username', label: 'Username' },
-                      { key: 'role', label: 'Role' },
-                      { key: 'createdAt', label: 'Created' }
-                    ].map(({ key, label }) => (
+                      { key: 'empId', label: 'Employee ID', icon: '🆔' },
+                      { key: 'username', label: 'Username', icon: '👤' },
+                      { key: 'role', label: 'Role', icon: '🏥' },
+                      { key: 'createdAt', label: 'Created', icon: '📅' }
+                    ].map(({ key, label, icon }) => (
                       <th
                         key={key}
                         onClick={() => handleSort(key)}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-all duration-200 select-none group"
                       >
-                        <div className="flex items-center space-x-1">
-                          <span>{label}</span>
-                          {sortBy === key && (
-                            <svg className={`w-4 h-4 transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm opacity-60">{icon}</span>
+                          <span className="group-hover:text-blue-600 transition-colors">{label}</span>
+                          {sortBy === key ? (
+                            <svg className={`w-4 h-4 text-blue-600 transform transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                             </svg>
                           )}
                         </div>
                       </th>
                     ))}
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <span className="flex items-center justify-end space-x-1">
+                        <span>⚙️</span>
+                        <span>Actions</span>
+                      </span>
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {isLoadingUsers ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                        <div className="flex flex-col items-center">
-                          <svg className="animate-spin w-8 h-8 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <p className="text-lg font-medium">Loading users...</p>
+                      <td colSpan="6" className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center space-y-4">
+                          <div className="relative">
+                            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-blue-400 rounded-full animate-spin animation-delay-150"></div>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-xl font-semibold text-gray-700">Loading users...</p>
+                            <p className="text-sm text-gray-500">Please wait while we fetch the latest data</p>
+                          </div>
                         </div>
                       </td>
                     </tr>
                   ) : paginatedUsers.length > 0 ? (
-                    paginatedUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
+                    paginatedUsers.map((user, index) => (
+                      <tr key={user.id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 group">
+                        <td className="px-6 py-5">
                           <input
                             type="checkbox"
                             checked={selectedUsers.has(user.empId)}
                             onChange={() => handleSelectUser(user.empId)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="w-4 h-4 rounded border-2 border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all"
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{user.empId}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center mr-3">
-                              <span className="text-white font-medium text-sm">{user.username[0].toUpperCase()}</span>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
                             </div>
-                            {user.username}
+                            <span className="text-sm font-bold text-gray-900 font-mono">{user.empId}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getRoleBadgeColor(user.role)}`}>
-                            {ROLES.find(r => r.value === user.role)?.label || user.role}
-                          </span>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex items-center space-x-4">
+                            <div className="relative">
+                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-300 transition-shadow">
+                                <span className="text-white font-bold text-sm">{user.username[0].toUpperCase()}</span>
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{user.username}</div>
+                              <div className="text-xs text-gray-500">Active user</div>
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="inline-flex items-center">
+                            <span className={`inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full border-2 ${getRoleBadgeColor(user.role)} shadow-sm`}>
+                              <span className="w-2 h-2 rounded-full bg-current opacity-60 mr-2"></span>
+                              {ROLES.find(r => r.value === user.role)?.label || user.role}
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-medium">{new Date(user.createdAt).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleTimeString()}</div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-right">
                           <div className="flex justify-end space-x-2">
                             <button
                               onClick={() => handleEditUser(user)}
-                              className="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-md text-sm transition-colors border border-blue-200"
+                              className="group/btn relative inline-flex items-center justify-center w-10 h-10 text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 rounded-xl transition-all duration-200 border-2 border-blue-200 hover:border-blue-500 shadow-sm hover:shadow-blue-200 transform hover:scale-105"
                               title="Edit user"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 transition-transform group-hover/btn:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
                             </button>
                             <button
                               onClick={() => handleDeleteUser(user.empId, user.username)}
-                              className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-md text-sm transition-colors border border-red-200"
+                              className="group/btn relative inline-flex items-center justify-center w-10 h-10 text-red-600 hover:text-white bg-red-50 hover:bg-red-500 rounded-xl transition-all duration-200 border-2 border-red-200 hover:border-red-500 shadow-sm hover:shadow-red-200 transform hover:scale-105"
                               title="Delete user"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 transition-transform group-hover/btn:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
@@ -1115,29 +1165,46 @@ export default function AdminDashboard() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                        <div className="flex flex-col items-center">
-                          <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          <p className="text-lg font-medium mb-2">
-                            {searchTerm || roleFilter || categoryFilter ? 'No users match your filters' : 'No users found'}
-                          </p>
-                          <p className="text-sm">
-                            {searchTerm || roleFilter || categoryFilter ? 'Try adjusting your search criteria' : 'Get started by creating a new user'}
-                          </p>
-                          {(searchTerm || roleFilter || categoryFilter) && (
+                      <td colSpan="6" className="px-6 py-20">
+                        <div className="flex flex-col items-center space-y-6">
+                          <div className="relative">
+                            <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center">
+                              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                            </div>
+                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                              <span className="text-xl">🔍</span>
+                            </div>
+                          </div>
+                          <div className="text-center space-y-3">
+                            <p className="text-xl font-bold text-gray-700">
+                              {searchTerm || roleFilter || categoryFilter ? 'No users match your filters' : 'No users found'}
+                            </p>
+                            <p className="text-gray-500 max-w-md">
+                              {searchTerm || roleFilter || categoryFilter ? 'Try adjusting your search criteria or clear the filters to see all users.' : 'Get started by creating your first user account for the hospital staff.'}
+                            </p>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            {(searchTerm || roleFilter || categoryFilter) && (
+                              <button
+                                onClick={() => {
+                                  setSearchTerm('');
+                                  setRoleFilter('');
+                                  setCategoryFilter('');
+                                }}
+                                className="px-6 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium border border-blue-200"
+                              >
+                                Clear all filters
+                              </button>
+                            )}
                             <button
-                              onClick={() => {
-                                setSearchTerm('');
-                                setRoleFilter('');
-                                setCategoryFilter('');
-                              }}
-                              className="mt-2 text-blue-600 hover:text-blue-800 underline"
+                              onClick={() => setIsCreateModalOpen(true)}
+                              className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all font-medium shadow-lg hover:shadow-blue-200 transform hover:scale-105"
                             >
-                              Clear filters
+                              Create your first user
                             </button>
-                          )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -1146,9 +1213,9 @@ export default function AdminDashboard() {
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* Enhanced Pagination */}
             {totalPages > 1 && (
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 flex items-center justify-between border-t border-gray-200">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -1236,17 +1303,22 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Create User Modal */}
+      {/* Enhanced Create User Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-25 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md border border-gray-200">
-            <div className="bg-blue-500 px-6 py-4 rounded-t-lg flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Create New User</span>
-              </h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-gray-200 transform animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Create New User</h3>
+                  <p className="text-blue-100 text-sm">Add a new staff member to the system</p>
+                </div>
+              </div>
               <button 
                 onClick={() => {
                   setIsCreateModalOpen(false);
@@ -1254,7 +1326,7 @@ export default function AdminDashboard() {
                   setValidationErrors({});
                   setPasswordStrength(0);
                 }}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-white hover:text-gray-200 transition-colors hover:bg-white hover:bg-opacity-10 rounded-xl p-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1262,36 +1334,55 @@ export default function AdminDashboard() {
               </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleCreateUser(); }} className="p-6 space-y-4">
-              {/* General Error */}
+            <form onSubmit={(e) => { e.preventDefault(); handleCreateUser(); }} className="p-8 space-y-6">
+              {/* Enhanced General Error */}
               {validationErrors.general && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <div className="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-500 rounded-xl p-4 animate-in slide-in-from-top-2">
                   <div className="flex items-center">
-                    <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-red-700 text-sm">{validationErrors.general}</span>
+                    <div className="flex-shrink-0 w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-semibold text-red-800">Error</p>
+                      <p className="text-sm text-red-700">{validationErrors.general}</p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Employee ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Employee ID <span className="text-red-500">*</span>
+              {/* Enhanced Employee ID */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-gray-800 flex items-center space-x-1">
+                  <span>🆔</span>
+                  <span>Employee ID</span>
+                  <span className="text-red-500 text-xs">*</span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g., EMP-2024-001"
-                  value={newUser.empId}
-                  onChange={(e) => setNewUser({ ...newUser, empId: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
-                    validationErrors.empId ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                  aria-describedby={validationErrors.empId ? 'empId-error' : undefined}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="e.g., EMP-2024-001"
+                    value={newUser.empId}
+                    onChange={(e) => setNewUser({ ...newUser, empId: e.target.value })}
+                    className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white transition-all duration-200 font-mono ${
+                      validationErrors.empId ? 'border-red-300 focus:ring-red-500 bg-red-50' : 'border-gray-200 focus:ring-blue-500 hover:border-gray-300'
+                    }`}
+                    aria-describedby={validationErrors.empId ? 'empId-error' : undefined}
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className={`w-5 h-5 ${validationErrors.empId ? 'text-red-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                </div>
                 {validationErrors.empId && (
-                  <p id="empId-error" className="mt-1 text-sm text-red-600">{validationErrors.empId}</p>
+                  <p id="empId-error" className="text-sm text-red-600 flex items-center space-x-1 animate-in slide-in-from-left-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{validationErrors.empId}</span>
+                  </p>
                 )}
               </div>
 
@@ -1397,8 +1488,8 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+              {/* Enhanced Action Buttons */}
+              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
@@ -1407,22 +1498,19 @@ export default function AdminDashboard() {
                     setValidationErrors({});
                     setPasswordStrength(0);
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 border border-gray-300 hover:border-gray-400 transform hover:scale-105"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed rounded-md transition-colors flex items-center space-x-2"
+                  className="px-8 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-blue-300 disabled:to-blue-400 disabled:cursor-not-allowed rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-blue-200 transform hover:scale-105 disabled:transform-none"
                 >
                   {isLoading && (
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   )}
-                  <span>{isLoading ? 'Creating...' : 'Create User'}</span>
+                  <span>{isLoading ? 'Creating Account...' : 'Create User Account'}</span>
                 </button>
               </div>
             </form>
@@ -1430,24 +1518,29 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Edit User Modal */}
+      {/* Enhanced Edit User Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-25 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-md border border-gray-200">
-            <div className="bg-blue-500 px-6 py-4 rounded-t-lg flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span>Edit User</span>
-              </h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-gray-200 transform animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Edit User</h3>
+                  <p className="text-indigo-100 text-sm">Update staff member information</p>
+                </div>
+              </div>
               <button 
                 onClick={() => {
                   setIsEditModalOpen(false);
                   setEditingUser(null);
                   setValidationErrors({});
                 }}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-white hover:text-gray-200 transition-colors hover:bg-white hover:bg-opacity-10 rounded-xl p-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1593,6 +1686,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
