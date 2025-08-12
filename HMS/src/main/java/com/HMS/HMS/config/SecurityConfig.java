@@ -50,15 +50,18 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        
+                        // Auth endpoints
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/register").hasRole("ADMIN")
                         .requestMatchers("/api/auth/allUsers").hasRole("ADMIN")
                         .requestMatchers("/api/auth/update/**").hasRole("ADMIN")
                         .requestMatchers("/api/auth/delete/**").hasRole("ADMIN")
 
+                        // Patient endpoints - all require CLINIC_NURSE role
                         .requestMatchers("/api/patients/register").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/patients/all").hasRole("CLINIC_NURSE")
+                        .requestMatchers("/api/patients/**").hasRole("CLINIC_NURSE")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

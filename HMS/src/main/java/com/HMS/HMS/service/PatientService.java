@@ -7,6 +7,7 @@ import com.HMS.HMS.repository.PatientRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,7 +35,6 @@ public class PatientService {
         patient.setGender(dto.getGender());
 
         patientRepository.save(patient);
-
     }
 
     public List<PatientResponseDTO> getAllPatients(){
@@ -44,6 +44,47 @@ public class PatientService {
                 .collect(Collectors.toList());
     }
 
+    public PatientResponseDTO getPatientByNationalId(String nationalId){
+        Patient patient = patientRepository.findByNationalId(nationalId);
+        if (patient != null){
+            return convertToResponseDTO(patient);
+        } else {
+            throw new RuntimeException("Patient not found with National ID: " + nationalId);
+        }
+    }
+
+    public void updatePatient(String nationalId, PatientRequestDTO dto){
+        Patient existingPatient = patientRepository.findByNationalId(nationalId);
+        if (existingPatient == null){
+            throw new RuntimeException("Patient not found with National ID: " + nationalId);
+        }
+
+        // Check if the national ID is being changed and if it already exists
+        if (!existingPatient.getNationalId().equals(dto.getNationalId())) {
+            if (patientRepository.existsByNationalId(dto.getNationalId())) {
+                throw new RuntimeException("Patient with this National ID already exists.");
+            }
+        }
+
+        // Update patient fields
+        existingPatient.setNationalId(dto.getNationalId());
+        existingPatient.setFullName(dto.getFullName());
+        existingPatient.setAddress(dto.getAddress());
+        existingPatient.setDateOfBirth(dto.getDateOfBirth());
+        existingPatient.setContactNumber(dto.getContactNumber());
+        existingPatient.setEmergencyContactNumber(dto.getEmergencyContactNumber());
+        existingPatient.setGender(dto.getGender());
+
+        patientRepository.save(existingPatient);
+    }
+
+    public void deletePatient(String nationalId){
+        Patient patient = patientRepository.findByNationalId(nationalId);
+        if (patient == null){
+            throw new RuntimeException("Patient not found with National ID: " + nationalId);
+        }
+        patientRepository.delete(patient);
+    }
 
     private PatientResponseDTO convertToResponseDTO(Patient patient){
         return new PatientResponseDTO(

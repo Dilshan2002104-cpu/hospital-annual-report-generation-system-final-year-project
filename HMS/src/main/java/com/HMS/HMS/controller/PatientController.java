@@ -39,4 +39,24 @@ public class PatientController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
+    @PutMapping("/{nationalId}")
+    public CommonResponseDTO updatePatient(@PathVariable String nationalId, @RequestBody PatientRequestDTO patientRequestDTO){
+        try{
+            patientService.updatePatient(nationalId,patientRequestDTO);
+            return new CommonResponseDTO(true,"Patient updated successfully.");
+        }catch (RuntimeException e){
+            return new CommonResponseDTO(false, e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{nationalId}")
+    public CommonResponseDTO deletePatient(@PathVariable String nationalId){
+        try{
+            patientService.deletePatient(nationalId);
+            return new CommonResponseDTO(true,"Patient deleted successfully.");
+        }catch (RuntimeException e){
+            return new CommonResponseDTO(false,e.getMessage());
+        }
+    }
 }
