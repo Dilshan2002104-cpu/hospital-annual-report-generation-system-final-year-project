@@ -749,7 +749,7 @@ export default function AdminDashboard() {
   }, [newUser.password]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute inset-0" style={{
@@ -763,22 +763,22 @@ export default function AdminDashboard() {
       <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
       
       {/* Enhanced Header with Gradient */}
-      <header className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 shadow-lg">
+      <header className="bg-white/80 backdrop-blur-md shadow-lg border-b-2 border-blue-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-8">
             <div className="flex items-center space-x-6">
               <div className="relative">
                 <div className="absolute inset-0 bg-white opacity-20 rounded-xl blur-md"></div>
-                <div className="relative flex items-center justify-center w-16 h-16 bg-white bg-opacity-10 backdrop-blur-sm rounded-xl border border-white border-opacity-20">
+                <div className="relative flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
                   <svg className="w-9 h-9 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
                   </svg>
                 </div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white drop-shadow-sm">Hospital Admin Dashboard</h1>
-                <p className="text-blue-100 text-sm font-medium mt-1 drop-shadow-sm">National Institute of Nephrology, Dialysis and Transplantation</p>
-                <div className="flex items-center mt-2 text-blue-200 text-xs">
+                <h1 className="text-3xl font-bold text-gray-800">Hospital Admin Dashboard</h1>
+                <p className="text-gray-600 text-sm font-medium mt-1">National Institute of Nephrology, Dialysis and Transplantation</p>
+                <div className="flex items-center mt-2 text-gray-500 text-xs">
                   <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                   </svg>
@@ -790,16 +790,16 @@ export default function AdminDashboard() {
             {/* Enhanced Mini Statistics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { label: 'Total Staff', value: statistics.total, color: 'from-emerald-400 to-emerald-600', icon: '👥' },
-                { label: 'Doctors', value: statistics.doctors, color: 'from-blue-400 to-blue-600', icon: '👨‍⚕️' },
-                { label: 'Nurses', value: statistics.nurses, color: 'from-pink-400 to-pink-600', icon: '👩‍⚕️' },
-                { label: 'Support', value: statistics.support, color: 'from-orange-400 to-orange-600', icon: '🔧' }
+                { label: 'Total Staff', value: statistics.total, color: 'bg-white border border-gray-200 text-gray-800 shadow-sm', icon: '👥' },
+                { label: 'Doctors', value: statistics.doctors, color: 'bg-blue-50 border border-blue-200 text-blue-800 shadow-sm', icon: '👨‍⚕️' },
+                { label: 'Nurses', value: statistics.nurses, color: 'bg-green-50 border border-green-200 text-green-800 shadow-sm', icon: '👩‍⚕️' },
+                { label: 'Support', value: statistics.support, color: 'bg-gray-50 border border-gray-200 text-gray-800 shadow-sm', icon: '🔧' }
               ].map((stat) => (
                 <div key={stat.label} className="group relative">
                   <div className="absolute inset-0 bg-white opacity-10 rounded-lg blur-sm group-hover:opacity-20 transition-opacity"></div>
-                  <div className={`relative bg-gradient-to-br ${stat.color} text-white rounded-lg px-4 py-3 text-center shadow-lg backdrop-blur-sm border border-white border-opacity-20 hover:scale-105 transition-all duration-200`}>
-                    <div className="text-lg font-bold drop-shadow-sm">{isLoadingUsers ? '...' : stat.value}</div>
-                    <div className="text-xs font-medium opacity-90 mt-1">{stat.label}</div>
+                  <div className={`relative ${stat.color} rounded-lg px-4 py-3 text-center hover:scale-105 transition-all duration-200`}>
+                    <div className="text-lg font-bold">{isLoadingUsers ? '...' : stat.value}</div>
+                    <div className="text-xs font-medium mt-1">{stat.label}</div>
                     <div className="absolute top-1 right-2 text-lg opacity-60">{stat.icon}</div>
                   </div>
                 </div>
@@ -893,7 +893,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={handleBulkDelete}
                     disabled={isLoading}
-                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-red-300 disabled:to-red-400 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-red-200 transform hover:scale-105 disabled:transform-none"
+                    className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white font-semibold py-3 px-5 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md transform hover:scale-105 disabled:transform-none"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -904,7 +904,7 @@ export default function AdminDashboard() {
 
                 <button
                   onClick={exportUsers}
-                  className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-emerald-200 transform hover:scale-105"
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-5 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md transform hover:scale-105"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -915,7 +915,7 @@ export default function AdminDashboard() {
                 <button
                   onClick={fetchUsers}
                   disabled={isLoadingUsers}
-                  className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-slate-200 transform hover:scale-105 disabled:transform-none"
+                  className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white font-semibold py-3 px-5 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md transform hover:scale-105 disabled:transform-none"
                 >
                   <svg className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -925,7 +925,7 @@ export default function AdminDashboard() {
 
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 px-5 rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-blue-200 transform hover:scale-105"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-5 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md transform hover:scale-105"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -1030,7 +1030,7 @@ export default function AdminDashboard() {
           <div className="bg-white shadow-xl rounded-2xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left">
                       <div className="flex items-center">
@@ -1097,7 +1097,7 @@ export default function AdminDashboard() {
                     </tr>
                   ) : paginatedUsers.length > 0 ? (
                     paginatedUsers.map((user, index) => (
-                      <tr key={user.id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 group">
+                      <tr key={user.id} className="hover:bg-gray-50 transition-all duration-200 group">
                         <td className="px-6 py-5">
                           <input
                             type="checkbox"
@@ -1116,7 +1116,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center space-x-4">
                             <div className="relative">
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-300 transition-shadow">
+                              <div className="h-12 w-12 rounded-lg bg-blue-500 flex items-center justify-center shadow-sm transition-shadow">
                                 <span className="text-white font-bold text-sm">{user.username[0].toUpperCase()}</span>
                               </div>
                               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
@@ -1215,7 +1215,7 @@ export default function AdminDashboard() {
 
             {/* Enhanced Pagination */}
             {totalPages > 1 && (
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+              <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -1307,7 +1307,7 @@ export default function AdminDashboard() {
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-gray-200 transform animate-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+            <div className="bg-blue-600 px-8 py-6 rounded-t-lg flex justify-between items-center">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1505,7 +1505,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-8 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-blue-300 disabled:to-blue-400 disabled:cursor-not-allowed rounded-xl transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-blue-200 transform hover:scale-105 disabled:transform-none"
+                  className="px-8 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md transform hover:scale-105 disabled:transform-none"
                 >
                   {isLoading && (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1522,7 +1522,7 @@ export default function AdminDashboard() {
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-gray-200 transform animate-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 px-8 py-6 rounded-t-3xl flex justify-between items-center">
+            <div className="bg-indigo-600 px-8 py-6 rounded-t-lg flex justify-between items-center">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

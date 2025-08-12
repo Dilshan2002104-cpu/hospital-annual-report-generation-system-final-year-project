@@ -1,9 +1,9 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import LoginForm from './Pages/LoginForm'
-import AdminDashboard from './Pages/AdminDashboard'
+import AdminDashboard from './Pages/admin/AdminDashboard'
 import AdminLogin from './Pages/AdminLogin'
-import AdminProtectedRoute from './Pages/protected-routes/adminProtectedRoute'
+import AdminProtectedRoute from './Pages/admin/protected-routes/adminProtectedRoute'
 import ClinicDashboard from './Pages/Clinic/nurs/ClinicDashboard'
 
 const App = () => {
