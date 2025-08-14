@@ -1,14 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, User, Clock, Plus, UserCheck, Search, Stethoscope, IdCard, X, Edit, Trash2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import { ToastContainer } from './Toast';
+import ConfirmModal from './ConfirmModal';
+import useDoctors from '../hooks/useDoctors';
 
 const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment }) => {
+  const { doctors, loading, addDoctor, updateDoctor, deleteDoctor, submitting } = useDoctors();
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
   const [showAddDoctorForm, setShowAddDoctorForm] = useState(false);
   const [showEditDoctorForm, setShowEditDoctorForm] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState(null);
   const [patientSearch, setPatientSearch] = useState('');
+  const [toasts, setToasts] = useState([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [doctorToDelete, setDoctorToDelete] = useState(null);
   const [newAppointment, setNewAppointment] = useState({
     patientNationalId: '',
     date: '',
@@ -20,53 +27,16 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     specialization: ''
   });
 
-  // Doctors state - initialized with mock data
-  const [doctors, setDoctors] = useState([
-    {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      empId: 'EMP001',
-      specialization: 'Nephrology',
-      avatar: 'SJ',
-      color: 'from-blue-200 to-blue-300',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-700',
-      available: true
-    },
-    {
-      id: 2,
-      name: 'Dr. Michael Chen',
-      empId: 'EMP002',
-      specialization: 'Dialysis Specialist',
-      avatar: 'MC',
-      color: 'from-green-200 to-green-300',
-      bgColor: 'bg-green-50',
-      textColor: 'text-green-700',
-      available: true
-    },
-    {
-      id: 3,
-      name: 'Dr. Emily Davis',
-      empId: 'EMP003',
-      specialization: 'Transplant Surgery',
-      avatar: 'ED',
-      color: 'from-purple-200 to-purple-300',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-700',
-      available: false
-    },
-    {
-      id: 4,
-      name: 'Dr. Ahmed Hassan',
-      empId: 'EMP004',
-      specialization: 'Internal Medicine',
-      avatar: 'AH',
-      color: 'from-orange-200 to-orange-300',
-      bgColor: 'bg-orange-50',
-      textColor: 'text-orange-700',
-      available: true
-    }
-  ]);
+  const showToast = (type, title, message, duration = 4000) => {
+    const id = Date.now() + Math.random();
+    const newToast = { id, type, title, message, duration };
+    setToasts(prev => [...prev, newToast]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -132,57 +102,20 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     'Urology'
   ];
 
-  const getRandomColor = () => {
-    const colors = [
-      'from-blue-200 to-blue-300',
-      'from-green-200 to-green-300',
-      'from-purple-200 to-purple-300',
-      'from-orange-200 to-orange-300',
-      'from-pink-200 to-pink-300',
-      'from-indigo-200 to-indigo-300'
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
-
-  const getRandomBgColor = () => {
-    const colors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-orange-50', 'bg-pink-50', 'bg-indigo-50'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
-
-  const getRandomTextColor = () => {
-    const colors = ['text-blue-700', 'text-green-700', 'text-purple-700', 'text-orange-700', 'text-pink-700', 'text-indigo-700'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
-
-  const handleAddDoctor = (e) => {
+  const handleAddDoctor = async (e) => {
     e.preventDefault();
     
     if (!newDoctor.name || !newDoctor.empId || !newDoctor.specialization) {
-      alert('Please fill in all fields');
+      showToast('warning', 'Missing Information', 'Please fill in all fields');
       return;
     }
 
-    const doctorExists = doctors.some(doc => doc.empId === newDoctor.empId);
-    if (doctorExists) {
-      alert('A doctor with this Employee ID already exists');
-      return;
+    const success = await addDoctor(newDoctor, showToast);
+    
+    if (success) {
+      setNewDoctor({ name: '', empId: '', specialization: '' });
+      setShowAddDoctorForm(false);
     }
-
-    const doctor = {
-      id: Math.max(...doctors.map(d => d.id), 0) + 1,
-      name: newDoctor.name,
-      empId: newDoctor.empId,
-      specialization: newDoctor.specialization,
-      avatar: newDoctor.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-      color: getRandomColor(),
-      bgColor: getRandomBgColor(),
-      textColor: getRandomTextColor(),
-      available: true
-    };
-
-    setDoctors([...doctors, doctor]);
-    setNewDoctor({ name: '', empId: '', specialization: '' });
-    setShowAddDoctorForm(false);
   };
 
   const handleCloseDoctorForm = () => {
@@ -195,25 +128,20 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     setShowEditDoctorForm(true);
   };
 
-  const handleUpdateDoctor = (e) => {
+  const handleUpdateDoctor = async (e) => {
     e.preventDefault();
     
-    if (!editingDoctor.name || !editingDoctor.empId || !editingDoctor.specialization) {
-      alert('Please fill in all fields');
+    if (!editingDoctor.name || !editingDoctor.specialization) {
+      showToast('warning', 'Missing Information', 'Please fill in all fields');
       return;
     }
 
-    const empIdExists = doctors.some(doc => doc.empId === editingDoctor.empId && doc.id !== editingDoctor.id);
-    if (empIdExists) {
-      alert('A doctor with this Employee ID already exists');
-      return;
+    const success = await updateDoctor(editingDoctor, showToast);
+    
+    if (success) {
+      setEditingDoctor(null);
+      setShowEditDoctorForm(false);
     }
-
-    setDoctors(doctors.map(doctor => 
-      doctor.id === editingDoctor.id ? editingDoctor : doctor
-    ));
-    setEditingDoctor(null);
-    setShowEditDoctorForm(false);
   };
 
   const handleCloseEditForm = () => {
@@ -222,12 +150,20 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
   };
 
   const handleDeleteDoctor = (doctor) => {
-    if (window.confirm(`Are you sure you want to remove Dr. ${doctor.name}? This action cannot be undone.`)) {
-      setDoctors(doctors.filter(d => d.id !== doctor.id));
-      if (selectedDoctor?.id === doctor.id) {
-        setSelectedDoctor(null);
-      }
+    setDoctorToDelete(doctor);
+    setShowConfirmModal(true);
+  };
+
+  const confirmDeleteDoctor = async () => {
+    if (doctorToDelete) {
+      await deleteDoctor(doctorToDelete.id, showToast);
+      setDoctorToDelete(null);
     }
+  };
+
+  const cancelDeleteDoctor = () => {
+    setShowConfirmModal(false);
+    setDoctorToDelete(null);
   };
 
   return (
@@ -246,9 +182,21 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
           <span>Add Doctor</span>
         </button>
       </div>
-          {/* Doctors Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {doctors.map((doctor) => (
+      {/* Doctors Grid */}
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading doctors...</p>
+        </div>
+      ) : doctors.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <User size={48} className="mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No doctors found</p>
+          <p className="text-sm">Add a doctor to get started</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {doctors.map((doctor) => (
           <div
             key={doctor.id}
             onClick={() => setSelectedDoctor(doctor)}
@@ -309,9 +257,10 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
                 </div>
               </div>
             )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Selected Doctor Section */}
       {selectedDoctor && (
@@ -579,9 +528,10 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
               <div className="flex space-x-2 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                  disabled={submitting}
+                  className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium transition-colors text-sm"
                 >
-                  Add Doctor
+                  {submitting ? 'Adding...' : 'Add Doctor'}
                 </button>
                 <button
                   type="button"
@@ -638,12 +588,12 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g., EMP001"
                   value={editingDoctor.empId}
-                  onChange={(e) => setEditingDoctor({...editingDoctor, empId: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
+                  disabled
+                  readOnly
                 />
+                <p className="text-xs text-gray-500 mt-1">Employee ID cannot be changed</p>
               </div>
               
               <div>
@@ -680,6 +630,21 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
           </div>
         </div>
       )}
+      
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={cancelDeleteDoctor}
+        onConfirm={confirmDeleteDoctor}
+        title="Delete Doctor"
+        message={`Are you sure you want to remove ${doctorToDelete?.name}? This action cannot be undone.`}
+        confirmText="Delete Doctor"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 };

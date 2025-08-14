@@ -1,6 +1,7 @@
 package com.HMS.HMS.service;
 
 
+import com.HMS.HMS.Exception_Handler.DuplicateEmployeeIdException;
 import com.HMS.HMS.model.doctor.Doctor;
 import com.HMS.HMS.repository.DoctorRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -18,6 +19,9 @@ public class DoctorService {
     }
 
     public Doctor addDoctor(Doctor doctor){
+        if (doctorRepository.existsById(doctor.getEmployeeId())){
+            throw new DuplicateEmployeeIdException("Doctor with Employee ID "+doctor.getEmployeeId() + " already exists");
+        }
         return doctorRepository.save(doctor);
     }
 

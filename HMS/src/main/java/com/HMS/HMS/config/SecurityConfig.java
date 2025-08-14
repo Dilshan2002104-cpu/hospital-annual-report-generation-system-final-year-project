@@ -61,6 +61,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/patients/register").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/patients/all").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/patients/**").hasRole("CLINIC_NURSE")
+                        .requestMatchers("/api/doctors/**").hasRole("CLINIC_NURSE")
 
                         .anyRequest().authenticated()
                 )

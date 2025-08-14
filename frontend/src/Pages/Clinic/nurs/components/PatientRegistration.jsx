@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { UserPlus, User, XCircle } from 'lucide-react';
+import { UserPlus, User, XCircle, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ToastContainer } from './Toast';
 
-const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting }) => {
+const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting, lastError }) => {
   const [showPatientForm, setShowPatientForm] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [errors, setErrors] = useState({});
   const [newPatient, setNewPatient] = useState({
     nationalId: '',
     fullName: '',
@@ -13,20 +16,117 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
     gender: ''
   });
 
+  // Toast utility functions
+  const addToast = (toast) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { ...toast, id }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // National ID validation (Sri Lankan format)
+    if (!newPatient.nationalId) {
+      newErrors.nationalId = 'National ID is required';
+    } else if (!/^\d{9}[Vv]|\d{12}$/.test(newPatient.nationalId)) {
+      newErrors.nationalId = 'Invalid National ID format';
+    }
+
+    // Full name validation
+    if (!newPatient.fullName || newPatient.fullName.trim().length < 2) {
+      newErrors.fullName = 'Full name must be at least 2 characters';
+    }
+
+    // Phone number validation
+    if (!newPatient.contactNumber) {
+      newErrors.contactNumber = 'Contact number is required';
+    } else if (!/^0\d{9}$/.test(newPatient.contactNumber)) {
+      newErrors.contactNumber = 'Invalid phone number format (0XXXXXXXXX)';
+    }
+
+    // Emergency contact validation
+    if (!newPatient.emergencyContactNumber) {
+      newErrors.emergencyContactNumber = 'Emergency contact is required';
+    } else if (!/^0\d{9}$/.test(newPatient.emergencyContactNumber)) {
+      newErrors.emergencyContactNumber = 'Invalid phone number format (0XXXXXXXXX)';
+    }
+
+    // Date of birth validation
+    if (!newPatient.dateOfBirth) {
+      newErrors.dateOfBirth = 'Date of birth is required';
+    } else {
+      const birthDate = new Date(newPatient.dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      if (age > 150 || birthDate > today) {
+        newErrors.dateOfBirth = 'Please enter a valid date of birth';
+      }
+    }
+
+    // Address validation
+    if (!newPatient.address || newPatient.address.trim().length < 10) {
+      newErrors.address = 'Address must be at least 10 characters';
+    }
+
+    // Gender validation
+    if (!newPatient.gender) {
+      newErrors.gender = 'Gender selection is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = await onRegisterPatient(newPatient);
-    if (success) {
-      setNewPatient({
-        nationalId: '',
-        fullName: '',
-        address: '',
-        dateOfBirth: '',
-        contactNumber: '',
-        emergencyContactNumber: '',
-        gender: ''
+    
+    if (!validateForm()) {
+      addToast({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please correct the errors in the form before submitting.',
       });
-      setShowPatientForm(false);
+      return;
+    }
+
+    try {
+      const success = await onRegisterPatient(newPatient);
+      if (success) {
+        addToast({
+          type: 'success',
+          title: 'Registration Successful',
+          message: `${newPatient.fullName} has been successfully registered.`,
+        });
+        
+        setNewPatient({
+          nationalId: '',
+          fullName: '',
+          address: '',
+          dateOfBirth: '',
+          contactNumber: '',
+          emergencyContactNumber: '',
+          gender: ''
+        });
+        setErrors({});
+        setShowPatientForm(false);
+      } else {
+        addToast({
+          type: 'error',
+          title: 'Registration Failed',
+          message: lastError || 'Failed to register patient. Please try again.',
+        });
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'System Error',
+        message: 'An unexpected error occurred. Please contact support.',
+      });
     }
   };
 
@@ -84,10 +184,20 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                     type="text"
                     value={newPatient.nationalId}
                     onChange={(e) => setNewPatient({...newPatient, nationalId: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="200112345678"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.nationalId 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                    placeholder="200112345678 or 123456789V"
                     required
                   />
+                  {errors.nationalId && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.nationalId}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
@@ -95,10 +205,20 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                     type="text"
                     value={newPatient.fullName}
                     onChange={(e) => setNewPatient({...newPatient, fullName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Full Name"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.fullName 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                    placeholder="Enter full name"
                     required
                   />
+                  {errors.fullName && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.fullName}
+                    </p>
+                  )}
                 </div>
               </div>
               
@@ -107,11 +227,21 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                 <textarea
                   value={newPatient.address}
                   onChange={(e) => setNewPatient({...newPatient, address: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Full Address"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                    errors.address 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
+                  placeholder="Enter complete address"
                   rows="2"
                   required
                 />
+                {errors.address && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertTriangle size={14} className="mr-1" />
+                    {errors.address}
+                  </p>
+                )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -121,16 +251,30 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                     type="date"
                     value={newPatient.dateOfBirth}
                     onChange={(e) => setNewPatient({...newPatient, dateOfBirth: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.dateOfBirth 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
                     required
                   />
+                  {errors.dateOfBirth && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.dateOfBirth}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                   <select
                     value={newPatient.gender}
                     onChange={(e) => setNewPatient({...newPatient, gender: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.gender 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
                     required
                   >
                     <option value="">Select Gender</option>
@@ -138,6 +282,12 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
+                  {errors.gender && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.gender}
+                    </p>
+                  )}
                 </div>
               </div>
               
@@ -148,10 +298,20 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                     type="tel"
                     value={newPatient.contactNumber}
                     onChange={(e) => setNewPatient({...newPatient, contactNumber: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.contactNumber 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
                     placeholder="0771234567"
                     required
                   />
+                  {errors.contactNumber && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.contactNumber}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
@@ -159,10 +319,20 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
                     type="tel"
                     value={newPatient.emergencyContactNumber}
                     onChange={(e) => setNewPatient({...newPatient, emergencyContactNumber: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.emergencyContactNumber 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
                     placeholder="0712345678"
                     required
                   />
+                  {errors.emergencyContactNumber && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.emergencyContactNumber}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
@@ -240,6 +410,9 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting 
           )}
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 };

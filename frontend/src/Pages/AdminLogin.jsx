@@ -303,7 +303,7 @@ export default function AdminLogin() {
             </div>
             <div className="space-y-2">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
-                HMS Admin Portal
+                Hospital Management Admin Portal
               </h1>
               <div className="flex items-center justify-center space-x-2 text-gray-700">
                 <Shield size={14} className="text-blue-600" />
@@ -463,7 +463,7 @@ export default function AdminLogin() {
               <div className="flex items-center justify-center space-x-1 mb-1">
                 <Heart size={12} className="text-blue-600" />
                 <span className="text-xs font-semibold text-gray-800">
-                  HMS - Hospital Management System
+                  Hospital Management System
                 </span>
               </div>
               <p className="text-xs text-gray-600 leading-tight">

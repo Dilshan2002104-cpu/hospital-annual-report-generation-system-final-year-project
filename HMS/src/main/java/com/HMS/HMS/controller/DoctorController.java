@@ -26,6 +26,8 @@ public class DoctorController {
         try{
             Doctor savedDoctor = doctorService.addDoctor(doctor);
             return new ResponseEntity<>(savedDoctor, HttpStatus.CREATED);
+        }catch (IllegalArgumentException e){
+            return new ResponseEntity<>("Registration failed: " + e.getMessage(), HttpStatus.CONFLICT);
         }catch (Exception e){
             return new ResponseEntity<>("Error adding doctor: "+ e.getMessage(),HttpStatus.BAD_REQUEST);
         }
@@ -46,7 +48,7 @@ public class DoctorController {
         return new ResponseEntity<>("Doctor not found with Employee ID: "+employeeId,HttpStatus.NOT_FOUND);
     }
 
-    @PutMapping("/{employeeId}")
+    @PutMapping("/update/{employeeId}")
     public ResponseEntity<?> updateDoctor(@PathVariable Long employeeId,@RequestBody Doctor doctorDetails){
         try{
             Doctor updatedDoctor = doctorService.updateDoctor(employeeId,doctorDetails);
@@ -62,7 +64,7 @@ public class DoctorController {
         }
     }
 
-    @DeleteMapping("/{employeeId}")
+    @DeleteMapping("/delete/{employeeId}")
     public ResponseEntity<?> deleteDoctor(@PathVariable Long employeeId){
         boolean deleted = doctorService.deleteDoctor(employeeId);
         if (deleted){

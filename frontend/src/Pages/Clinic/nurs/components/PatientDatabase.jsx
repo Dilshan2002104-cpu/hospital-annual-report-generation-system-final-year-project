@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Users, UserPlus, Search, User, Phone, MapPin, AlertCircle, Eye, Edit, Trash2 } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
+import { ToastContainer } from './Toast';
 
 const PatientDatabase = ({ 
   patients, 
@@ -16,6 +18,19 @@ const PatientDatabase = ({
   const [showEditForm, setShowEditForm] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [editingPatient, setEditingPatient] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  // Toast utility functions
+  const addToast = (toast) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { ...toast, id }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
   
   const [newPatient, setNewPatient] = useState({
     nationalId: '',
@@ -57,6 +72,12 @@ const PatientDatabase = ({
     e.preventDefault();
     const success = await onRegisterPatient(newPatient);
     if (success) {
+      addToast({
+        type: 'success',
+        title: 'Registration Successful',
+        message: `${newPatient.fullName} has been successfully registered.`,
+      });
+      
       setNewPatient({
         nationalId: '',
         fullName: '',
@@ -67,6 +88,12 @@ const PatientDatabase = ({
         gender: ''
       });
       setShowPatientForm(false);
+    } else {
+      addToast({
+        type: 'error',
+        title: 'Registration Failed',
+        message: 'Failed to register patient. Please check the information and try again.',
+      });
     }
   };
 
@@ -84,13 +111,46 @@ const PatientDatabase = ({
     e.preventDefault();
     const success = await onUpdatePatient(editingPatient.nationalId, editingPatient);
     if (success) {
+      addToast({
+        type: 'success',
+        title: 'Update Successful',
+        message: `${editingPatient.fullName} has been successfully updated.`,
+      });
+      
       setShowEditForm(false);
       setEditingPatient(null);
+    } else {
+      addToast({
+        type: 'error',
+        title: 'Update Failed',
+        message: 'Failed to update patient. Please check the information and try again.',
+      });
     }
   };
 
-  const handleDeletePatient = async (patient) => {
-    await onDeletePatient(patient.nationalId, patient.fullName);
+  const handleDeletePatient = (patient) => {
+    setPatientToDelete(patient);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeletePatient = async () => {
+    if (patientToDelete) {
+      const success = await onDeletePatient(patientToDelete.nationalId, patientToDelete.fullName);
+      if (success) {
+        addToast({
+          type: 'success',
+          title: 'Delete Successful',
+          message: `${patientToDelete.fullName} has been successfully deleted.`,
+        });
+      } else {
+        addToast({
+          type: 'error',
+          title: 'Delete Failed',
+          message: 'Failed to delete patient. Please try again.',
+        });
+      }
+      setPatientToDelete(null);
+    }
   };
 
   return (
@@ -1182,6 +1242,28 @@ const PatientDatabase = ({
         </div>,
         document.body
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPatientToDelete(null);
+        }}
+        onConfirm={confirmDeletePatient}
+        title="Delete Patient"
+        message={
+          patientToDelete ? 
+          `Are you sure you want to delete patient "${patientToDelete.fullName}"? This action cannot be undone and will permanently remove all patient data from the system.` :
+          ""
+        }
+        confirmText="Delete Patient"
+        cancelText="Keep Patient"
+        type="danger"
+      />
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </>
   );
 };

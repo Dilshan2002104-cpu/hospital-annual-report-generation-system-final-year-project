@@ -12,9 +12,21 @@ import AppointmentScheduler from './components/AppointmentScheduler';
 import PatientRegistration from './components/PatientRegistration';
 import PatientDatabase from './components/PatientDatabase';
 import ReportsModule from './components/ReportsModule';
+import { ToastContainer } from './components/Toast';
 
 export default function ClinicDashboard() {
   const [activeTab, setActiveTab] = useState('status');
+  const [toasts, setToasts] = useState([]);
+
+  // Toast utility functions
+  const addToast = (type, title, message) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, type, title, message }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
   const [doctors] = useState([
     {
       id: 1,
@@ -60,10 +72,11 @@ export default function ClinicDashboard() {
     patients,
     loading,
     submitting,
+    lastError,
     registerPatient,
     updatePatient,
     deletePatient
-  } = usePatients();
+  } = usePatients(addToast);
 
   // Statistics calculations
   const todayStats = useMemo(() => {
@@ -129,6 +142,7 @@ export default function ClinicDashboard() {
             patients={patients}
             loading={loading}
             submitting={submitting}
+            lastError={lastError}
             onRegisterPatient={registerPatient}
           />
         );
@@ -197,7 +211,7 @@ export default function ClinicDashboard() {
                 <Heart size={16} className="text-white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">HMS - Hospital Management System</p>
+                <p className="text-sm font-semibold text-gray-900">Hospital Management System</p>
                 <p className="text-xs text-gray-500">National Institute of Nephrology, Dialysis and Transplantation</p>
               </div>
             </div>
@@ -212,6 +226,9 @@ export default function ClinicDashboard() {
           </div>
         </footer>
       </main>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }
