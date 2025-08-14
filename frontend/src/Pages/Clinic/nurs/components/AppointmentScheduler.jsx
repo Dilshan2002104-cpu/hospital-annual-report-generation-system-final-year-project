@@ -1,22 +1,31 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar, User, Clock, Plus, UserCheck, Search } from 'lucide-react';
+import { Calendar, User, Clock, Plus, UserCheck, Search, Stethoscope, IdCard, X, Edit, Trash2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
 const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment }) => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [showAddDoctorForm, setShowAddDoctorForm] = useState(false);
+  const [showEditDoctorForm, setShowEditDoctorForm] = useState(false);
+  const [editingDoctor, setEditingDoctor] = useState(null);
   const [patientSearch, setPatientSearch] = useState('');
   const [newAppointment, setNewAppointment] = useState({
     patientNationalId: '',
     date: '',
     time: ''
   });
+  const [newDoctor, setNewDoctor] = useState({
+    name: '',
+    empId: '',
+    specialization: ''
+  });
 
-  // Mock 4 doctors data
-  const doctors = [
+  // Doctors state - initialized with mock data
+  const [doctors, setDoctors] = useState([
     {
       id: 1,
       name: 'Dr. Sarah Johnson',
+      empId: 'EMP001',
       specialization: 'Nephrology',
       avatar: 'SJ',
       color: 'from-blue-200 to-blue-300',
@@ -27,6 +36,7 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     {
       id: 2,
       name: 'Dr. Michael Chen',
+      empId: 'EMP002',
       specialization: 'Dialysis Specialist',
       avatar: 'MC',
       color: 'from-green-200 to-green-300',
@@ -37,6 +47,7 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     {
       id: 3,
       name: 'Dr. Emily Davis',
+      empId: 'EMP003',
       specialization: 'Transplant Surgery',
       avatar: 'ED',
       color: 'from-purple-200 to-purple-300',
@@ -47,6 +58,7 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     {
       id: 4,
       name: 'Dr. Ahmed Hassan',
+      empId: 'EMP004',
       specialization: 'Internal Medicine',
       avatar: 'AH',
       color: 'from-orange-200 to-orange-300',
@@ -54,7 +66,7 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
       textColor: 'text-orange-700',
       available: true
     }
-  ];
+  ]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -110,16 +122,132 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
     });
   };
 
+  const specializations = [
+    'Nephrology',
+    'Dialysis Specialist',
+    'Transplant Surgery',
+    'Internal Medicine',
+    'Cardiology',
+    'Endocrinology',
+    'Urology'
+  ];
+
+  const getRandomColor = () => {
+    const colors = [
+      'from-blue-200 to-blue-300',
+      'from-green-200 to-green-300',
+      'from-purple-200 to-purple-300',
+      'from-orange-200 to-orange-300',
+      'from-pink-200 to-pink-300',
+      'from-indigo-200 to-indigo-300'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  const getRandomBgColor = () => {
+    const colors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-orange-50', 'bg-pink-50', 'bg-indigo-50'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  const getRandomTextColor = () => {
+    const colors = ['text-blue-700', 'text-green-700', 'text-purple-700', 'text-orange-700', 'text-pink-700', 'text-indigo-700'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  const handleAddDoctor = (e) => {
+    e.preventDefault();
+    
+    if (!newDoctor.name || !newDoctor.empId || !newDoctor.specialization) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    const doctorExists = doctors.some(doc => doc.empId === newDoctor.empId);
+    if (doctorExists) {
+      alert('A doctor with this Employee ID already exists');
+      return;
+    }
+
+    const doctor = {
+      id: Math.max(...doctors.map(d => d.id), 0) + 1,
+      name: newDoctor.name,
+      empId: newDoctor.empId,
+      specialization: newDoctor.specialization,
+      avatar: newDoctor.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+      color: getRandomColor(),
+      bgColor: getRandomBgColor(),
+      textColor: getRandomTextColor(),
+      available: true
+    };
+
+    setDoctors([...doctors, doctor]);
+    setNewDoctor({ name: '', empId: '', specialization: '' });
+    setShowAddDoctorForm(false);
+  };
+
+  const handleCloseDoctorForm = () => {
+    setShowAddDoctorForm(false);
+    setNewDoctor({ name: '', empId: '', specialization: '' });
+  };
+
+  const handleEditDoctor = (doctor) => {
+    setEditingDoctor({ ...doctor });
+    setShowEditDoctorForm(true);
+  };
+
+  const handleUpdateDoctor = (e) => {
+    e.preventDefault();
+    
+    if (!editingDoctor.name || !editingDoctor.empId || !editingDoctor.specialization) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    const empIdExists = doctors.some(doc => doc.empId === editingDoctor.empId && doc.id !== editingDoctor.id);
+    if (empIdExists) {
+      alert('A doctor with this Employee ID already exists');
+      return;
+    }
+
+    setDoctors(doctors.map(doctor => 
+      doctor.id === editingDoctor.id ? editingDoctor : doctor
+    ));
+    setEditingDoctor(null);
+    setShowEditDoctorForm(false);
+  };
+
+  const handleCloseEditForm = () => {
+    setShowEditDoctorForm(false);
+    setEditingDoctor(null);
+  };
+
+  const handleDeleteDoctor = (doctor) => {
+    if (window.confirm(`Are you sure you want to remove Dr. ${doctor.name}? This action cannot be undone.`)) {
+      setDoctors(doctors.filter(d => d.id !== doctor.id));
+      if (selectedDoctor?.id === doctor.id) {
+        setSelectedDoctor(null);
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Appointment Scheduling</h2>
-        <p className="text-gray-600">Select a doctor to view and schedule appointments</p>
+      <div className="flex items-center justify-between">
+        <div className="text-center flex-1">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Appointment Scheduling</h2>
+          <p className="text-gray-600">Select a doctor to view and schedule appointments</p>
+        </div>
+        <button
+          onClick={() => setShowAddDoctorForm(true)}
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors shadow-sm"
+        >
+          <Plus size={16} />
+          <span>Add Doctor</span>
+        </button>
       </div>
-
-      {/* Doctors Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Doctors Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {doctors.map((doctor) => (
           <div
             key={doctor.id}
@@ -149,9 +277,33 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
               </div>
             </div>
             
+            {/* Action Buttons */}
+            <div className="absolute top-3 right-3 flex space-x-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditDoctor(doctor);
+                }}
+                className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+                title="Edit Doctor"
+              >
+                <Edit size={12} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteDoctor(doctor);
+                }}
+                className="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+                title="Delete Doctor"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+
             {/* Selection Indicator */}
             {selectedDoctor?.id === doctor.id && (
-              <div className="absolute top-3 right-3">
+              <div className="absolute top-3 left-3">
                 <div className={`w-6 h-6 ${doctor.bgColor} rounded-full flex items-center justify-center border-2 border-${doctor.textColor.split('-')[1]}-200`}>
                   <UserCheck size={14} className={doctor.textColor} />
                 </div>
@@ -350,6 +502,176 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
                   type="button"
                   onClick={handleCloseForm}
                   className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 py-3 rounded-xl font-medium transition-colors border border-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Doctor Form Modal */}
+      {showAddDoctorForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm border border-gray-100">
+            <div className="bg-green-50 p-4 rounded-t-xl border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800">Add New Doctor</h4>
+                  <p className="text-sm text-gray-600">Enter doctor information</p>
+                </div>
+                <button
+                  onClick={handleCloseDoctorForm}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <form onSubmit={handleAddDoctor} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <User size={14} className="inline mr-1" />
+                  Doctor Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Dr. John Smith"
+                  value={newDoctor.name}
+                  onChange={(e) => setNewDoctor({...newDoctor, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <IdCard size={14} className="inline mr-1" />
+                  Employee ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., EMP001"
+                  value={newDoctor.empId}
+                  onChange={(e) => setNewDoctor({...newDoctor, empId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Stethoscope size={14} className="inline mr-1" />
+                  Specialization
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Nephrology, Cardiology"
+                  value={newDoctor.specialization}
+                  onChange={(e) => setNewDoctor({...newDoctor, specialization: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  required
+                />
+              </div>
+              
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Add Doctor
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseDoctorForm}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Doctor Form Modal */}
+      {showEditDoctorForm && editingDoctor && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm border border-gray-100">
+            <div className="bg-blue-50 p-4 rounded-t-xl border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800">Edit Doctor</h4>
+                  <p className="text-sm text-gray-600">Update doctor information</p>
+                </div>
+                <button
+                  onClick={handleCloseEditForm}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <form onSubmit={handleUpdateDoctor} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <User size={14} className="inline mr-1" />
+                  Doctor Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Dr. John Smith"
+                  value={editingDoctor.name}
+                  onChange={(e) => setEditingDoctor({...editingDoctor, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <IdCard size={14} className="inline mr-1" />
+                  Employee ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., EMP001"
+                  value={editingDoctor.empId}
+                  onChange={(e) => setEditingDoctor({...editingDoctor, empId: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Stethoscope size={14} className="inline mr-1" />
+                  Specialization
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Nephrology, Cardiology"
+                  value={editingDoctor.specialization}
+                  onChange={(e) => setEditingDoctor({...editingDoctor, specialization: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  required
+                />
+              </div>
+              
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Update Doctor
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseEditForm}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-2 rounded-lg font-medium transition-colors text-sm"
                 >
                   Cancel
                 </button>

@@ -1030,7 +1030,7 @@ export default function AdminDashboard() {
           <div className="bg-white shadow-xl rounded-2xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
                     <th className="px-6 py-4 text-left">
                       <div className="flex items-center">
@@ -1116,7 +1116,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center space-x-4">
                             <div className="relative">
-                              <div className="h-12 w-12 rounded-lg bg-blue-500 flex items-center justify-center shadow-sm transition-shadow">
+                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-300 transition-shadow">
                                 <span className="text-white font-bold text-sm">{user.username[0].toUpperCase()}</span>
                               </div>
                               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
@@ -1215,7 +1215,7 @@ export default function AdminDashboard() {
 
             {/* Enhanced Pagination */}
             {totalPages > 1 && (
-              <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 flex items-center justify-between border-t border-gray-200">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}

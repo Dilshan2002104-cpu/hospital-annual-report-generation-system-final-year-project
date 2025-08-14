@@ -5,7 +5,6 @@ import com.HMS.HMS.DTO.PatientDTO.PatientRequestDTO;
 import com.HMS.HMS.DTO.PatientDTO.PatientResponseDTO;
 import com.HMS.HMS.service.PatientService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
