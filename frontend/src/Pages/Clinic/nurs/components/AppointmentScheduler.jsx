@@ -4,9 +4,11 @@ import StatusBadge from './StatusBadge';
 import { ToastContainer } from './Toast';
 import ConfirmModal from './ConfirmModal';
 import useDoctors from '../hooks/useDoctors';
+import useAppointments from '../hooks/useAppointments';
 
-const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment }) => {
+const AppointmentScheduler = ({ patients }) => {
   const { doctors, loading, addDoctor, updateDoctor, deleteDoctor, submitting } = useDoctors();
+  const { appointments, createAppointment, fetchAppointments, submitting: appointmentSubmitting } = useAppointments();
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
   const [showAddDoctorForm, setShowAddDoctorForm] = useState(false);
@@ -16,6 +18,10 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
   const [toasts, setToasts] = useState([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [doctorToDelete, setDoctorToDelete] = useState(null);
+  const [appointmentFilter, setAppointmentFilter] = useState('today'); // 'today' or 'all'
+  const [appointmentSearch, setAppointmentSearch] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Current month (YYYY-MM)
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'scheduled', 'completed'
   const [newAppointment, setNewAppointment] = useState({
     patientNationalId: '',
     date: '',
@@ -38,42 +44,80 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
   };
 
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const selectedPatient = patients.find(p => p.nationalId === newAppointment.patientNationalId);
     
     if (selectedPatient && selectedDoctor) {
-      const appointment = {
-        id: appointments.length + 1,
-        patientName: selectedPatient.fullName,
-        patientNationalId: selectedPatient.nationalId,
-        doctorName: selectedDoctor.name,
-        doctorId: selectedDoctor.id,
-        date: newAppointment.date,
-        time: newAppointment.time,
-        status: 'scheduled'
+      const appointmentData = {
+        doctorEmployeeId: parseInt(selectedDoctor.empId),
+        patientNationalId: parseInt(selectedPatient.nationalId),
+        appointmentDate: newAppointment.date,
+        appointmentTime: newAppointment.time
       };
-      onScheduleAppointment(appointment);
-      setNewAppointment({
-        patientNationalId: '',
-        date: '',
-        time: ''
-      });
-      setPatientSearch('');
-      setShowAppointmentForm(false);
+      
+      const result = await createAppointment(appointmentData);
+      
+      if (result) {
+        setNewAppointment({
+          patientNationalId: '',
+          date: '',
+          time: ''
+        });
+        setPatientSearch('');
+        setShowAppointmentForm(false);
+      }
     }
   };
 
   const getDoctorAppointments = (doctorId) => {
-    return appointments.filter(apt => apt.doctorId === doctorId);
+    let doctorAppointments = appointments.filter(apt => apt.doctorEmployeeId === doctorId);
+    
+    // Apply date filter
+    if (appointmentFilter === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      doctorAppointments = doctorAppointments.filter(apt => apt.date === today);
+    } else if (appointmentFilter === 'month') {
+      // Filter by selected month
+      doctorAppointments = doctorAppointments.filter(apt => {
+        if (!apt.date) return false;
+        return apt.date.slice(0, 7) === selectedMonth; // Compare YYYY-MM
+      });
+    }
+    
+    // Apply status filter (only for today and month views)
+    if ((appointmentFilter === 'today' || appointmentFilter === 'month') && statusFilter !== 'all') {
+      doctorAppointments = doctorAppointments.filter(apt => {
+        const appointmentStatus = apt.status?.toLowerCase();
+        if (statusFilter === 'scheduled') {
+          return appointmentStatus === 'scheduled' || appointmentStatus === 'pending';
+        } else if (statusFilter === 'completed') {
+          return appointmentStatus === 'completed' || appointmentStatus === 'done';
+        }
+        return true;
+      });
+    }
+    
+    // Apply search filter
+    if (appointmentSearch.trim()) {
+      const searchTerm = appointmentSearch.toLowerCase();
+      doctorAppointments = doctorAppointments.filter(apt => 
+        apt.patientName?.toLowerCase().includes(searchTerm) ||
+        String(apt.patientNationalId).includes(searchTerm) ||
+        apt.time?.includes(searchTerm) ||
+        apt.date?.includes(searchTerm)
+      );
+    }
+    
+    return doctorAppointments;
   };
 
   // Filter patients based on search
   const filteredPatients = useMemo(() => {
     return patients.filter(patient =>
       patient.fullName.toLowerCase().includes(patientSearch.toLowerCase()) ||
-      patient.nationalId.includes(patientSearch) ||
-      patient.contactNumber.includes(patientSearch)
+      String(patient.nationalId).includes(patientSearch) ||
+      String(patient.contactNumber).includes(patientSearch)
     );
   }, [patients, patientSearch]);
 
@@ -220,7 +264,7 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
                     {doctor.available ? 'Available' : 'Unavailable'}</span>
                 </div>
                 <div className="mt-4 text-xs text-gray-500">
-                  {getDoctorAppointments(doctor.id).length} appointments today
+                  {getDoctorAppointments(doctor.empId).length} appointments today
                 </div>
               </div>
             </div>
@@ -291,35 +335,273 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
 
           {/* Appointments List */}
           <div className="p-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Calendar size={20} className="mr-2" />
-              Today's Appointments
-            </h4>
+            <div className="space-y-4 mb-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Calendar size={20} className="mr-2" />
+                  Appointments
+                </h4>
+                
+                {/* Filter Buttons */}
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setAppointmentFilter('today')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      appointmentFilter === 'today'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    onClick={() => setAppointmentFilter('month')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      appointmentFilter === 'month'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Month
+                  </button>
+                  <button
+                    onClick={() => setAppointmentFilter('all')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      appointmentFilter === 'all'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+              
+              {/* Month Selector (only visible when Month filter is selected) */}
+              {appointmentFilter === 'month' && (
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-medium text-gray-700">Select Month:</label>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+              )}
+              
+              {/* Status Filter (only visible for today and month views) */}
+              {(appointmentFilter === 'today' || appointmentFilter === 'month') && (
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-medium text-gray-700">Status:</label>
+                  <div className="flex bg-gray-50 rounded-lg p-1">
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        statusFilter === 'all'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('scheduled')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        statusFilter === 'scheduled'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Scheduled
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('completed')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        statusFilter === 'completed'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Completed
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Search Bar */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search appointments by patient name, ID, time, or date..."
+                  value={appointmentSearch}
+                  onChange={(e) => setAppointmentSearch(e.target.value)}
+                  className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+                <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                {appointmentSearch && (
+                  <button
+                    onClick={() => setAppointmentSearch('')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
             
-            {getDoctorAppointments(selectedDoctor.id).length === 0 ? (
+            {getDoctorAppointments(selectedDoctor.empId).length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Clock size={48} className="mx-auto mb-4 text-gray-300" />
-                <p className="text-lg font-medium">No appointments scheduled</p>
-                <p className="text-sm">Schedule a patient to get started</p>
+                <p className="text-lg font-medium">
+                  {appointmentSearch.trim() 
+                    ? 'No appointments match your search'
+                    : appointmentFilter === 'today' 
+                      ? (statusFilter === 'all' 
+                          ? 'No appointments for today'
+                          : statusFilter === 'scheduled'
+                            ? 'No scheduled appointments for today'
+                            : 'No completed appointments for today')
+                      : appointmentFilter === 'month'
+                        ? (statusFilter === 'all'
+                            ? `No appointments for ${new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+                            : statusFilter === 'scheduled'
+                              ? `No scheduled appointments for ${new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+                              : `No completed appointments for ${new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`)
+                        : 'No appointments scheduled'
+                  }
+                </p>
+                <p className="text-sm">
+                  {appointmentSearch.trim() 
+                    ? 'Try adjusting your search terms'
+                    : (appointmentFilter === 'today' || appointmentFilter === 'month') && statusFilter !== 'all'
+                      ? 'Try changing the status filter or schedule new appointments'
+                      : appointmentFilter === 'month'
+                        ? 'Try selecting a different month or schedule new appointments'
+                        : 'Schedule a patient to get started'
+                  }
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {getDoctorAppointments(selectedDoctor.id).map((appointment) => (
-                  <div key={appointment.id} className="bg-gray-25 rounded-xl p-4 flex items-center justify-between border border-gray-50">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-2xl font-bold text-gray-500">{appointment.time}</div>
-                      <div>
-                        <div className="font-medium text-gray-800">{appointment.patientName}</div>
-                        <div className="text-sm text-gray-400">ID: {appointment.patientNationalId}</div>
+                {getDoctorAppointments(selectedDoctor.empId).map((appointment) => {
+                  // Format time to user-friendly format
+                  const formatTime = (timeString) => {
+                    if (!timeString) return 'N/A';
+                    try {
+                      const [hours, minutes] = timeString.split(':');
+                      const hour24 = parseInt(hours);
+                      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+                      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+                      return `${hour12}:${minutes} ${ampm}`;
+                    } catch {
+                      return timeString;
+                    }
+                  };
+
+                  // Format date to user-friendly format
+                  const formatDate = (dateString) => {
+                    if (!dateString) return 'N/A';
+                    try {
+                      const date = new Date(dateString);
+                      const today = new Date();
+                      const tomorrow = new Date(today);
+                      tomorrow.setDate(today.getDate() + 1);
+                      
+                      // Check if it's today, tomorrow, or another date
+                      if (date.toDateString() === today.toDateString()) {
+                        return 'Today';
+                      } else if (date.toDateString() === tomorrow.toDateString()) {
+                        return 'Tomorrow';
+                      } else {
+                        return date.toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+                        });
+                      }
+                    } catch {
+                      return dateString;
+                    }
+                  };
+
+                  // Check if appointment is today
+                  const isToday = () => {
+                    if (!appointment.date) return false;
+                    try {
+                      const appointmentDate = new Date(appointment.date);
+                      const today = new Date();
+                      return appointmentDate.toDateString() === today.toDateString();
+                    } catch {
+                      return false;
+                    }
+                  };
+
+                  const handleCompleteAppointment = async (appointmentId) => {
+                    try {
+                      const jwtToken = localStorage.getItem('jwtToken');
+                      
+                      if (!jwtToken) {
+                        showToast('error', 'Authentication Required', 'Please log in again.');
+                        return;
+                      }
+
+                      const response = await fetch(`http://localhost:8080/api/appointments/${appointmentId}/complete`, {
+                        method: 'PUT',
+                        headers: {
+                          'Authorization': `Bearer ${jwtToken}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+
+                      if (response.ok) {
+                        showToast('success', 'Success', 'Appointment completed successfully!');
+                        // Refresh appointments to get updated status without page reload
+                        await fetchAppointments();
+                      } else if (response.status === 401) {
+                        showToast('error', 'Authentication Failed', 'Please log in again.');
+                      } else if (response.status === 403) {
+                        showToast('error', 'Access Denied', 'You do not have permission to complete appointments.');
+                      } else if (response.status === 404) {
+                        showToast('error', 'Not Found', 'Appointment not found.');
+                      } else {
+                        showToast('error', 'Error', 'Failed to complete appointment. Please try again.');
+                      }
+                    } catch (error) {
+                      console.error('Error completing appointment:', error);
+                      showToast('error', 'Network Error', 'Failed to complete appointment. Please check your connection.');
+                    }
+                  };
+
+                  return (
+                    <div key={appointment.id} className="bg-gray-25 rounded-xl p-4 flex items-center justify-between border border-gray-50">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-center min-w-[80px]">
+                          <div className="text-lg font-bold text-gray-700">{formatTime(appointment.time)}</div>
+                          <div className="text-sm font-medium text-gray-600">{formatDate(appointment.date)}</div>
+                          <div className="text-xs text-gray-500 bg-blue-100 px-2 py-1 rounded-full mt-1">Scheduled</div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-800">{appointment.patientName}</div>
+                          <div className="text-sm text-gray-400">ID: {appointment.patientNationalId}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <StatusBadge status={appointment.status} />
+                        {isToday() && (
+                          <button
+                            onClick={() => handleCompleteAppointment(appointment.id)}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Complete
+                          </button>
+                        )}
+                        <button className="text-blue-400 hover:text-blue-600 font-medium text-sm">Edit</button>
+                        <button className="text-red-400 hover:text-red-600 font-medium text-sm">Cancel</button>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <StatusBadge status={appointment.status} />
-                      <button className="text-blue-400 hover:text-blue-600 font-medium text-sm">Edit</button>
-                      <button className="text-red-400 hover:text-red-600 font-medium text-sm">Cancel</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -443,9 +725,10 @@ const AppointmentScheduler = ({ patients, appointments, onScheduleAppointment })
               <div className="flex space-x-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-400 hover:bg-blue-500 text-white py-3 rounded-xl font-medium transition-colors shadow-sm"
+                  disabled={appointmentSubmitting}
+                  className="flex-1 bg-blue-400 hover:bg-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed text-white py-3 rounded-xl font-medium transition-colors shadow-sm"
                 >
-                  Schedule Appointment
+                  {appointmentSubmitting ? 'Scheduling...' : 'Schedule Appointment'}
                 </button>
                 <button
                   type="button"

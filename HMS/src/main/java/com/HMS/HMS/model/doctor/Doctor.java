@@ -1,6 +1,11 @@
 package com.HMS.HMS.model.doctor;
 
+import com.HMS.HMS.model.Appointment.Appointment;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "doctors")
@@ -12,6 +17,10 @@ public class Doctor {
     private String doctorName;
     private String specialization;
 
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("doctor-appointments") // This prevents circular reference
+    private List<Appointment> appointments = new ArrayList<>();
+
     public Doctor() {
     }
 
@@ -21,6 +30,17 @@ public class Doctor {
         this.specialization = specialization;
     }
 
+    public void addAppointment(Appointment appointment){
+        appointments.add(appointment);
+        appointment.setDoctor(this);
+    }
+
+    public void removeAppointment(Appointment appointment){
+        appointments.remove(appointment);
+        appointment.setDoctor(null);
+    }
+
+    // Getters and Setters
     public Long getEmployeeId() {
         return employeeId;
     }
@@ -43,5 +63,13 @@ public class Doctor {
 
     public void setSpecialization(String specialization) {
         this.specialization = specialization;
+    }
+
+    public List<Appointment> getAppointments(){
+        return appointments;
+    }
+
+    public void setAppointments(List<Appointment> appointments){
+        this.appointments = appointments;
     }
 }

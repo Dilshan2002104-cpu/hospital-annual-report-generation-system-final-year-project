@@ -2,8 +2,28 @@ import React from 'react';
 import { Users, UserPlus, Calendar, Activity, Shield, Stethoscope, Clipboard, UserCheck } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
+import useDoctors from '../hooks/useDoctors';
+import useAppointments from '../hooks/useAppointments';
 
-const ClinicOverview = ({ todayStats, doctors, onTabChange }) => {
+const ClinicOverview = ({ todayStats, onTabChange }) => {
+  const { doctors, loading: doctorsLoading } = useDoctors();
+  const { appointments } = useAppointments();
+
+  // Calculate real-time doctor statistics
+  const getDoctorStats = (doctorId) => {
+    const today = new Date().toISOString().split('T')[0];
+    const doctorAppointments = appointments.filter(apt => 
+      apt.doctorEmployeeId === doctorId && apt.date === today
+    );
+    
+    const todayPatients = doctorAppointments.length;
+    const completed = doctorAppointments.filter(apt => 
+      apt.status?.toLowerCase() === 'completed' || apt.status?.toLowerCase() === 'done'
+    ).length;
+    
+    return { todayPatients, completed };
+  };
+
   return (
     <div className="space-y-8">
       {/* Key Performance Indicators */}
@@ -111,7 +131,6 @@ const ClinicOverview = ({ todayStats, doctors, onTabChange }) => {
             <thead className="bg-gradient-to-r from-gray-25 to-gray-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Medical Professional</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Department</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Current Status</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Today's Load</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Completed</th>
@@ -119,18 +138,28 @@ const ClinicOverview = ({ todayStats, doctors, onTabChange }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-50">
-              {doctors.length === 0 ? (
+              {doctorsLoading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
+                  <td colSpan="5" className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                      <p className="text-gray-500">Loading medical staff data...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : doctors.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
                       <Users size={48} className="text-gray-200 mb-4" />
                       <p className="text-gray-400 text-lg font-medium">No medical staff data available</p>
-                      <p className="text-gray-300 text-sm mt-2">Connect your data source to view doctor information</p>
+                      <p className="text-gray-300 text-sm mt-2">Add doctors to view their information</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 doctors.map((doctor, index) => {
+                  const stats = getDoctorStats(doctor.empId);
                   const colors = [
                     { bg: 'from-blue-200 to-blue-300', text: 'text-blue-700' },
                     { bg: 'from-green-200 to-green-300', text: 'text-green-700' },
@@ -143,8 +172,8 @@ const ClinicOverview = ({ todayStats, doctors, onTabChange }) => {
                   <tr key={doctor.id} className="hover:bg-blue-25/30 transition-colors duration-200">
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${doctorColor.bg} flex items-center justify-center shadow-sm`}>
-                          <span className={`${doctorColor.text} font-bold text-sm`}>
+                        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${doctor.color || doctorColor.bg} flex items-center justify-center shadow-sm`}>
+                          <span className={`${doctor.textColor || doctorColor.text} font-bold text-sm`}>
                             {doctor.avatar || doctor.name.split(' ').map(n => n[0]).join('')}
                           </span>
                         </div>
@@ -152,29 +181,26 @@ const ClinicOverview = ({ todayStats, doctors, onTabChange }) => {
                           <div className="text-sm font-bold text-gray-800">{doctor.name}</div>
                           <div className="text-xs text-gray-400 flex items-center mt-1">
                             <UserCheck size={12} className="mr-1" />
-                            Licensed Professional
+                            {doctor.specialization} • ID: {doctor.empId}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-5 whitespace-nowrap">
-                      <span className={`px-3 py-1 text-xs font-medium ${doctorColor.bg.includes('blue') ? 'bg-blue-50 text-blue-600' : 
-                        doctorColor.bg.includes('green') ? 'bg-green-50 text-green-600' :
-                        doctorColor.bg.includes('purple') ? 'bg-purple-50 text-purple-600' :
-                        'bg-orange-50 text-orange-600'} rounded-full`}>
-                        {doctor.specialization}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${doctor.available ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                        <span className={`text-xs font-medium ${doctor.available ? 'text-green-600' : 'text-red-600'}`}>
+                          {doctor.available ? 'Available' : 'Unavailable'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-5 whitespace-nowrap">
-                      <StatusBadge status={doctor.status} />
+                      <div className="text-sm font-bold text-gray-700">{stats.todayPatients}</div>
+                      <div className="text-xs text-gray-400">appointments</div>
                     </td>
                     <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-700">{doctor.todayPatients}</div>
-                      <div className="text-xs text-gray-400">patients</div>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="text-sm font-bold text-emerald-500">{doctor.completed}</div>
-                      <div className="text-xs text-gray-400">treatments</div>
+                      <div className="text-sm font-bold text-emerald-500">{stats.completed}</div>
+                      <div className="text-xs text-gray-400">completed</div>
                     </td>
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
@@ -185,12 +211,12 @@ const ClinicOverview = ({ todayStats, doctors, onTabChange }) => {
                                 doctorColor.bg.includes('green') ? 'from-green-300 to-green-400' :
                                 doctorColor.bg.includes('purple') ? 'from-purple-300 to-purple-400' :
                                 'from-orange-300 to-orange-400'} h-2.5 rounded-full transition-all duration-300`}
-                              style={{ width: `${doctor.todayPatients > 0 ? (doctor.completed / doctor.todayPatients) * 100 : 0}%` }}
+                              style={{ width: `${stats.todayPatients > 0 ? (stats.completed / stats.todayPatients) * 100 : 0}%` }}
                             ></div>
                           </div>
                         </div>
                         <span className="text-sm font-bold text-gray-600 min-w-[3rem]">
-                          {doctor.todayPatients > 0 ? Math.round((doctor.completed / doctor.todayPatients) * 100) : 0}%
+                          {stats.todayPatients > 0 ? Math.round((stats.completed / stats.todayPatients) * 100) : 0}%
                         </span>
                       </div>
                     </td>

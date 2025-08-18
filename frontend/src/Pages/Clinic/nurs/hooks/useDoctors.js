@@ -47,6 +47,7 @@ const useDoctors = () => {
       
       if (!jwtToken) {
         console.warn('No JWT token found');
+        setDoctors([]); // Set empty array if no token
         return;
       }
 
@@ -56,10 +57,25 @@ const useDoctors = () => {
         }
       });
 
-      const transformedDoctors = response.data.map(transformDoctorData);
-      setDoctors(transformedDoctors);
+      // Add proper response validation
+      console.log('API Response:', response.data); // Debug log
+      
+      // Check if response.data is an array
+      if (Array.isArray(response.data)) {
+        const transformedDoctors = response.data.map(transformDoctorData);
+        setDoctors(transformedDoctors);
+      } else if (response.data && Array.isArray(response.data.data)) {
+        // Handle case where data is nested
+        const transformedDoctors = response.data.data.map(transformDoctorData);
+        setDoctors(transformedDoctors);
+      } else {
+        console.warn('Unexpected API response structure:', response.data);
+        setDoctors([]); // Set empty array for unexpected structure
+      }
+      
     } catch (error) {
       console.error('Error fetching doctors:', error);
+      setDoctors([]); // Set empty array on error
       
       let errorMessage = 'Failed to load doctors data. ';
       

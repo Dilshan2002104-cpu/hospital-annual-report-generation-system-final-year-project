@@ -61,8 +61,8 @@ export default function LoginForm() {
       case 'CLINIC_NURSE':
         navigate('/ClinicManagement');
         break;
-      case 'ADMIN':
-        navigate('/AdminDashboard');
+      case 'WARD_NURSE':
+        navigate('/wardManagement');
         break;
       case 'DOCTOR':
         navigate('/DoctorDashboard');

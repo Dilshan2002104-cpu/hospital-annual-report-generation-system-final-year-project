@@ -44,7 +44,7 @@ public class PatientService {
                 .collect(Collectors.toList());
     }
 
-    public PatientResponseDTO getPatientByNationalId(String nationalId){
+    public PatientResponseDTO getPatientByNationalId(Long nationalId){
         Patient patient = patientRepository.findByNationalId(nationalId);
         if (patient != null){
             return convertToResponseDTO(patient);
@@ -53,7 +53,7 @@ public class PatientService {
         }
     }
 
-    public void updatePatient(String nationalId, PatientRequestDTO dto){
+    public void updatePatient(Long nationalId, PatientRequestDTO dto){
         Patient existingPatient = patientRepository.findByNationalId(nationalId);
         if (existingPatient == null){
             throw new RuntimeException("Patient not found with National ID: " + nationalId);
@@ -78,7 +78,7 @@ public class PatientService {
         patientRepository.save(existingPatient);
     }
 
-    public void deletePatient(String nationalId){
+    public void deletePatient(Long nationalId){
         Patient patient = patientRepository.findByNationalId(nationalId);
         if (patient == null){
             throw new RuntimeException("Patient not found with National ID: " + nationalId);
@@ -88,7 +88,6 @@ public class PatientService {
 
     private PatientResponseDTO convertToResponseDTO(Patient patient){
         return new PatientResponseDTO(
-                patient.getId(),
                 patient.getNationalId(),
                 patient.getFullName(),
                 patient.getAddress(),
