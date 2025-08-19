@@ -1,109 +1,124 @@
-import React, { useState } from 'react';
-import { UserPlus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { UserPlus, Search, User, ChevronDown, Check } from 'lucide-react';
+import usePatients from '../hooks/usePatients';
+import useWards from '../hooks/useWards';
 
 const AdmitPatientModal = ({ isOpen, onClose }) => {
+  const { patients, loading, fetchPatients, searchPatients, calculateAge } = usePatients();
+  const { wards } = useWards();
+  const [filteredPatients, setFilteredPatients] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [showPatientSearch, setShowPatientSearch] = useState(false);
+  const [showWardDropdown, setShowWardDropdown] = useState(false);
+  
   const [admission, setAdmission] = useState({
     patientId: '',
-    firstName: '',
-    lastName: '',
-    age: '',
-    gender: '',
-    contactNumber: '',
-    emergencyContact: '',
-    emergencyContactNumber: '',
-    address: '',
-    admissionDate: new Date().toISOString().split('T')[0],
+    admissionDate: '',
     admissionTime: '',
     wardId: '',
-    bedNumber: '',
-    primaryDiagnosis: '',
-    secondaryDiagnosis: '',
-    admissionType: 'emergency',
-    referringDoctor: '',
-    assignedDoctor: '',
-    allergies: '',
-    medications: '',
-    medicalHistory: '',
-    insurance: '',
-    insuranceNumber: '',
-    notes: ''
+    bedNumber: ''
   });
 
-  const wards = [
-    { id: 1, name: 'Ward 1 - General', available: 8 },
-    { id: 2, name: 'Ward 2 - General', available: 6 },
-    { id: 3, name: 'Ward 2 - ICU', available: 2 },
-    { id: 4, name: 'Ward 3 - Dialysis', available: 2 }
-  ];
+
+  // Search and filter patients
+  const handleSearchChange = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    const filtered = searchPatients(term);
+    setFilteredPatients(filtered);
+  };
+
+  // Select a patient and populate form
+  const handlePatientSelect = (patient) => {
+    setSelectedPatient(patient);
+    
+    setAdmission(prev => ({
+      ...prev,
+      patientId: patient.nationalId.toString()
+    }));
+    
+    setShowPatientSearch(false);
+    setSearchTerm('');
+  };
+
+  // Reset form
+  const resetForm = () => {
+    const now = new Date();
+    setAdmission({
+      patientId: '',
+      admissionDate: now.toISOString().split('T')[0],
+      admissionTime: now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      wardId: '',
+      bedNumber: ''
+    });
+    setSelectedPatient(null);
+    setSearchTerm('');
+    setShowPatientSearch(false);
+  };
+
+  // Fetch patients and set current date/time when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchPatients();
+      // Set current date and time when modal opens
+      const now = new Date();
+      setAdmission(prev => ({
+        ...prev,
+        admissionDate: now.toISOString().split('T')[0],
+        admissionTime: now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+      }));
+    }
+  }, [isOpen, fetchPatients]);
+
+  // Update filtered patients when patients data changes
+  useEffect(() => {
+    setFilteredPatients(patients);
+  }, [patients]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.patient-search') && !event.target.closest('.ward-dropdown')) {
+        setShowPatientSearch(false);
+        setShowWardDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Patient admission submitted:', admission);
+    
+    if (!selectedPatient) {
+      alert('Please select a patient before submitting the admission.');
+      return;
+    }
+    
+    const admissionData = {
+      ...admission,
+      patient: selectedPatient
+    };
+    
+    console.log('Patient admission submitted:', admissionData);
+    resetForm();
     onClose();
-    // Reset form after submission
-    setAdmission({
-      patientId: '',
-      firstName: '',
-      lastName: '',
-      age: '',
-      gender: '',
-      contactNumber: '',
-      emergencyContact: '',
-      emergencyContactNumber: '',
-      address: '',
-      admissionDate: new Date().toISOString().split('T')[0],
-      admissionTime: '',
-      wardId: '',
-      bedNumber: '',
-      primaryDiagnosis: '',
-      secondaryDiagnosis: '',
-      admissionType: 'emergency',
-      referringDoctor: '',
-      assignedDoctor: '',
-      allergies: '',
-      medications: '',
-      medicalHistory: '',
-      insurance: '',
-      insuranceNumber: '',
-      notes: ''
-    });
   };
 
   const handleClose = () => {
-    setAdmission({
-      patientId: '',
-      firstName: '',
-      lastName: '',
-      age: '',
-      gender: '',
-      contactNumber: '',
-      emergencyContact: '',
-      emergencyContactNumber: '',
-      address: '',
-      admissionDate: new Date().toISOString().split('T')[0],
-      admissionTime: '',
-      wardId: '',
-      bedNumber: '',
-      primaryDiagnosis: '',
-      secondaryDiagnosis: '',
-      admissionType: 'emergency',
-      referringDoctor: '',
-      assignedDoctor: '',
-      allergies: '',
-      medications: '',
-      medicalHistory: '',
-      insurance: '',
-      insuranceNumber: '',
-      notes: ''
-    });
+    resetForm();
     onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full m-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full m-4 max-h-[90vh] overflow-y-auto relative">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900 flex items-center">
             <UserPlus size={20} className="mr-2 text-green-600" />
@@ -114,112 +129,98 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
         
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Patient Information */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-medium text-blue-800 mb-4">Patient Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Patient ID</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.patientId}
-                    onChange={(e) => setAdmission({...admission, patientId: e.target.value})}
-                    placeholder="P001234"
-                  />
+            {/* Patient Search Section */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-800 mb-4">
+                Search Existing Patient <span className="text-red-500">*</span>
+              </h3>
+              <div className="flex gap-4">
+                <div className="flex-1 relative patient-search">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Search by name, national ID, or phone..."
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      onFocus={() => setShowPatientSearch(true)}
+                    />
+                  </div>
+                  
+                  {/* Patient Search Results */}
+                  {showPatientSearch && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {loading ? (
+                        <div className="p-4 text-center text-gray-500">Loading patients...</div>
+                      ) : filteredPatients.length > 0 ? (
+                        filteredPatients.map((patient) => (
+                          <div
+                            key={patient.nationalId}
+                            onClick={() => handlePatientSelect(patient)}
+                            className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium text-gray-900">{patient.fullName}</div>
+                                <div className="text-sm text-gray-600">
+                                  ID: {patient.nationalId} | {patient.gender} | Age: {calculateAge(patient.dateOfBirth)}
+                                </div>
+                                <div className="text-xs text-gray-500">{patient.contactNumber}</div>
+                              </div>
+                              <User className="text-blue-500" size={16} />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-gray-500">
+                          {searchTerm ? 'No patients found' : 'Type to search patients...'}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.firstName}
-                    onChange={(e) => setAdmission({...admission, firstName: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.lastName}
-                    onChange={(e) => setAdmission({...admission, lastName: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    max="120"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.age}
-                    onChange={(e) => setAdmission({...admission, age: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.gender}
-                    onChange={(e) => setAdmission({...admission, gender: e.target.value})}
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                  <input
-                    type="tel"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.contactNumber}
-                    onChange={(e) => setAdmission({...admission, contactNumber: e.target.value})}
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPatientSearch(!showPatientSearch)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                >
+                  <Search size={16} className="mr-2" />
+                  {showPatientSearch ? 'Hide' : 'Search'}
+                </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.emergencyContact}
-                    onChange={(e) => setAdmission({...admission, emergencyContact: e.target.value})}
-                  />
+              
+              {/* Selected Patient Info */}
+              {selectedPatient ? (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-green-800">Selected: {selectedPatient.fullName}</div>
+                      <div className="text-sm text-green-600">
+                        ID: {selectedPatient.nationalId} | Registered: {new Date(selectedPatient.registrationDate).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPatient(null);
+                        resetForm();
+                      }}
+                      className="text-green-600 hover:text-green-800 text-sm underline"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Number</label>
-                  <input
-                    type="tel"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.emergencyContactNumber}
-                    onChange={(e) => setAdmission({...admission, emergencyContactNumber: e.target.value})}
-                  />
+              ) : (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="text-red-700 text-sm">
+                    ⚠️ Please select a patient from the search results above to proceed with admission.
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <textarea
-                  required
-                  rows="2"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={admission.address}
-                  onChange={(e) => setAdmission({...admission, address: e.target.value})}
-                  placeholder="Full address..."
-                />
-              </div>
+              )}
             </div>
+
 
             {/* Admission Details */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -230,9 +231,9 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
                   <input
                     type="date"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
                     value={admission.admissionDate}
-                    onChange={(e) => setAdmission({...admission, admissionDate: e.target.value})}
+                    readOnly
                   />
                 </div>
                 <div>
@@ -240,26 +241,81 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
                   <input
                     type="time"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
                     value={admission.admissionTime}
-                    onChange={(e) => setAdmission({...admission, admissionTime: e.target.value})}
+                    readOnly
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ward</label>
-                  <select
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.wardId}
-                    onChange={(e) => setAdmission({...admission, wardId: e.target.value})}
-                  >
-                    <option value="">Select Ward</option>
-                    {wards.map(ward => (
-                      <option key={ward.id} value={ward.id}>
-                        {ward.name} ({ward.available} beds available)
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ward <span className="text-red-500">*</span></label>
+                  <div className="relative ward-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => setShowWardDropdown(!showWardDropdown)}
+                      className="w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        {admission.wardId ? (
+                          <div>
+                            <span className="font-medium text-gray-900">
+                              {wards.find(w => w.wardId.toString() === admission.wardId)?.wardName || 'Selected Ward'}
+                            </span>
+                            <span className="text-sm text-gray-500 ml-2">
+                              ({wards.find(w => w.wardId.toString() === admission.wardId)?.wardType || 'Type'})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500">Select a ward...</span>
+                        )}
+                      </div>
+                      <ChevronDown 
+                        size={20} 
+                        className={`text-gray-400 transition-transform ${showWardDropdown ? 'rotate-180' : ''}`} 
+                      />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showWardDropdown && (
+                      <div className="absolute z-40 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-hidden">
+                        <div className="max-h-40 overflow-y-auto">
+                          {wards && wards.length > 0 ? (
+                            wards.map(ward => {
+                              if (!ward || !ward.wardId) return null;
+                              
+                              const isSelected = admission.wardId === ward.wardId.toString();
+                              
+                              return (
+                                <div
+                                  key={ward.wardId}
+                                  onClick={() => {
+                                    setAdmission({...admission, wardId: ward.wardId.toString()});
+                                    setShowWardDropdown(false);
+                                  }}
+                                  className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition-colors ${
+                                    isSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <div className="font-medium">{ward.wardName}</div>
+                                      <div className="text-sm text-gray-500">{ward.wardType}</div>
+                                    </div>
+                                    {isSelected && (
+                                      <Check size={16} className="text-blue-600" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="px-4 py-3 text-center text-gray-500">
+                              {wards ? 'No wards available' : 'Loading wards...'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bed Number</label>
@@ -273,136 +329,9 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Admission Type</label>
-                  <select
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.admissionType}
-                    onChange={(e) => setAdmission({...admission, admissionType: e.target.value})}
-                  >
-                    <option value="emergency">Emergency</option>
-                    <option value="planned">Planned</option>
-                    <option value="transfer">Transfer</option>
-                    <option value="outpatient">Outpatient</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Referring Doctor</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.referringDoctor}
-                    onChange={(e) => setAdmission({...admission, referringDoctor: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Doctor</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.assignedDoctor}
-                    onChange={(e) => setAdmission({...admission, assignedDoctor: e.target.value})}
-                  />
-                </div>
-              </div>
             </div>
 
-            {/* Medical Information */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <h3 className="font-medium text-purple-800 mb-4">Medical Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Primary Diagnosis</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.primaryDiagnosis}
-                    onChange={(e) => setAdmission({...admission, primaryDiagnosis: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Diagnosis</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.secondaryDiagnosis}
-                    onChange={(e) => setAdmission({...admission, secondaryDiagnosis: e.target.value})}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Known Allergies</label>
-                  <textarea
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.allergies}
-                    onChange={(e) => setAdmission({...admission, allergies: e.target.value})}
-                    placeholder="List any known allergies..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Medications</label>
-                  <textarea
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.medications}
-                    onChange={(e) => setAdmission({...admission, medications: e.target.value})}
-                    placeholder="Current medications and dosages..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Medical History</label>
-                  <textarea
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.medicalHistory}
-                    onChange={(e) => setAdmission({...admission, medicalHistory: e.target.value})}
-                    placeholder="Previous medical conditions..."
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Insurance Information */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h3 className="font-medium text-yellow-800 mb-4">Insurance Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Provider</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.insurance}
-                    onChange={(e) => setAdmission({...admission, insurance: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Number</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.insuranceNumber}
-                    onChange={(e) => setAdmission({...admission, insuranceNumber: e.target.value})}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-              <textarea
-                rows="3"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={admission.notes}
-                onChange={(e) => setAdmission({...admission, notes: e.target.value})}
-                placeholder="Any additional notes or observations..."
-              />
-            </div>
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
@@ -415,7 +344,12 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                disabled={!selectedPatient}
+                className={`px-6 py-2 rounded-lg transition-colors flex items-center ${
+                  selectedPatient 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <UserPlus size={16} className="mr-2" />
                 Admit Patient

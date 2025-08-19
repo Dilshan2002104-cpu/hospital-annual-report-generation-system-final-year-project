@@ -57,13 +57,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/update/**").hasRole("ADMIN")
                         .requestMatchers("/api/auth/delete/**").hasRole("ADMIN")
 
+                        // Specific patient endpoint for WARD_NURSE
+                        .requestMatchers("/api/patients/all").hasRole("WARD_NURSE")
+
                         // Patient endpoints - all require CLINIC_NURSE role
-                        .requestMatchers("/api/patients/register").hasRole("CLINIC_NURSE")
-                        .requestMatchers("/api/patients/all").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/patients/**").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/doctors/**").hasRole("CLINIC_NURSE")
-//                        .requestMatchers("/api/appointments/**").hasRole("CLINIC_NURSE")
-
+                        .requestMatchers("/api/appointments/**").hasRole("CLINIC_NURSE")
+                        .requestMatchers("/api/admissions/**").hasRole("WARD_NURSE")
+                        .requestMatchers("/api/wards/getAll").hasRole("WARD_NURSE")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

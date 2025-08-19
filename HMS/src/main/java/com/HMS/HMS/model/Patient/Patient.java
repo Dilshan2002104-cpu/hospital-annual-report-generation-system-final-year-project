@@ -1,5 +1,6 @@
 package com.HMS.HMS.model.Patient;
 
+import com.HMS.HMS.model.Admission.Admission;
 import com.HMS.HMS.model.Appointment.Appointment;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
@@ -32,6 +33,10 @@ public class Patient {
     @JsonManagedReference("patient-appointments") // This prevents circular reference
     private List<Appointment> appointments = new ArrayList<>();
 
+    @OneToMany(mappedBy = "patient",cascade = CascadeType.ALL,fetch = FetchType.LAZY)
+    @JsonManagedReference("patient-admissions")
+    private List<Admission> admissions  = new ArrayList<>();
+
     public Patient() {
     }
 
@@ -54,6 +59,28 @@ public class Patient {
     public void removeAppointment(Appointment appointment){
         appointments.remove(appointment);
         appointment.setPatient(null);
+    }
+
+    public void addAdmission(Admission admission){
+        admissions.add(admission);
+        admission.setPatient(this);
+    }
+
+    public void removeAdmission(Admission admission){
+        admissions.add(admission);
+        admission.setPatient(this);
+    }
+
+    public boolean isCurrentlyAdmitted(){
+        return admissions.stream()
+                .anyMatch(admission -> admission.getStatus().toString().equals("ACTIVE"));
+    }
+
+    public Admission getCurrentAdmission(){
+        return admissions.stream()
+                .filter(admission -> admission.getStatus().toString().equals("ACTIVE"))
+                .findFirst()
+                .orElse(null);
     }
 
     // Getters and Setters
