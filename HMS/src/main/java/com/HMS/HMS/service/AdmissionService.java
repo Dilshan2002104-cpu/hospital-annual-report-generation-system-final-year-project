@@ -25,7 +25,6 @@ public class AdmissionService {
     private final PatientRepository patientRepository;
     private final WardRepository wardRepository;
 
-
     public AdmissionService(AdmissionRepository admissionRepository, PatientRepository patientRepository, WardRepository wardRepository) {
         this.admissionRepository = admissionRepository;
         this.patientRepository = patientRepository;
@@ -33,29 +32,42 @@ public class AdmissionService {
     }
 
     public AdmissionResponseDTO admitPatient(AdmissionRequestDTO request) {
+        // Validate patient exists
         Optional<Patient> patientOpt = patientRepository.findById(request.getPatientNationalId());
         if (patientOpt.isEmpty()) {
             throw new IllegalArgumentException("Patient with National ID " + request.getPatientNationalId() + " not found");
-
         }
         Patient patient = patientOpt.get();
 
+        // Check if patient is already admitted
         if (patient.isCurrentlyAdmitted()) {
             throw new IllegalArgumentException("Patient is already admitted");
         }
 
+        // Validate ward exists
         Optional<Ward> wardOpt = wardRepository.findById(request.getWardId());
         if (wardOpt.isEmpty()) {
             throw new IllegalArgumentException("Ward with ID " + request.getWardId() + " not found");
         }
-
         Ward ward = wardOpt.get();
 
-        Admission admission = new Admission(patient, ward);
+        // Validate bed number is provided
+        if (request.getBedNumber() == null || request.getBedNumber().trim().isEmpty()) {
+            throw new IllegalArgumentException("Bed number is required");
+        }
+
+        // Check if bed is already occupied
+        if (isBedOccupied(request.getWardId(), request.getBedNumber())) {
+            throw new IllegalArgumentException("Bed " + request.getBedNumber() + " in ward " + ward.getWardName() + " is already occupied");
+        }
+
+        // Create new admission
+        Admission admission = new Admission(patient, ward, request.getBedNumber().trim());
         admission.setStatus(AdmissionStatus.ACTIVE);
 
         Admission savedAdmission = admissionRepository.save(admission);
 
+        // Update relationships
         patient.addAdmission(savedAdmission);
         ward.addAdmission(savedAdmission);
 
@@ -76,7 +88,7 @@ public class AdmissionService {
         return convertToResponseDTO(savedAdmission);
     }
 
-    public AdmissionResponseDTO transferPatient(Long admissionId, Long newWardId) {
+    public AdmissionResponseDTO transferPatient(Long admissionId, Long newWardId, String newBedNumber) {
         Admission currentAdmission = getAdmissionByIdOrThrow(admissionId);
 
         if (currentAdmission.getStatus() != AdmissionStatus.ACTIVE) {
@@ -87,8 +99,17 @@ public class AdmissionService {
         if (newWardOpt.isEmpty()) {
             throw new IllegalArgumentException("Ward with ID " + newWardId + " not found");
         }
-
         Ward newWard = newWardOpt.get();
+
+        // Validate bed number is provided
+        if (newBedNumber == null || newBedNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("Bed number is required for transfer");
+        }
+
+        // Check if new bed is already occupied
+        if (isBedOccupied(newWardId, newBedNumber)) {
+            throw new IllegalArgumentException("Bed " + newBedNumber + " in ward " + newWard.getWardName() + " is already occupied");
+        }
 
         // Mark current admission as transferred
         currentAdmission.setStatus(AdmissionStatus.TRANSFERRED);
@@ -96,7 +117,7 @@ public class AdmissionService {
         admissionRepository.save(currentAdmission);
 
         // Create new admission in the new ward
-        Admission newAdmission = new Admission(currentAdmission.getPatient(), newWard);
+        Admission newAdmission = new Admission(currentAdmission.getPatient(), newWard, newBedNumber.trim());
         newAdmission.setStatus(AdmissionStatus.ACTIVE);
 
         Admission savedAdmission = admissionRepository.save(newAdmission);
@@ -141,6 +162,16 @@ public class AdmissionService {
                 .map(this::convertToResponseDTO);
     }
 
+    public List<String> getAvailableBedsInWard(Long wardId) {
+        // This method would need to be implemented based on your bed management logic
+        // For now, it returns occupied beds so you can determine available ones
+        return admissionRepository.findOccupiedBedsByWard(wardId);
+    }
+
+    private boolean isBedOccupied(Long wardId, String bedNumber) {
+        return admissionRepository.existsByWardWardIdAndBedNumberAndStatus(wardId, bedNumber.trim(), AdmissionStatus.ACTIVE);
+    }
+
     private Admission getAdmissionByIdOrThrow(Long admissionId) {
         Optional<Admission> admissionOpt = admissionRepository.findById(admissionId);
         if (admissionOpt.isEmpty()) {
@@ -156,6 +187,7 @@ public class AdmissionService {
                 admission.getPatient().getFullName(),
                 admission.getWard().getWardId(),
                 admission.getWard().getWardName(),
+                admission.getBedNumber(),
                 admission.getAdmissionDate(),
                 admission.getDischargeDate(),
                 admission.getStatus()

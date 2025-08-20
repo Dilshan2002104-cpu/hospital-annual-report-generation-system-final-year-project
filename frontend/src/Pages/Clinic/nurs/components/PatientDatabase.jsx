@@ -242,8 +242,8 @@ const PatientDatabase = ({
                   </td>
                 </tr>
               ) : (
-                filteredPatients.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-blue-50/30 transition-colors duration-200 group">
+                filteredPatients.map((patient, index) => (
+                  <tr key={patient.nationalId || patient.id || index} className="hover:bg-blue-50/30 transition-colors duration-200 group">
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">

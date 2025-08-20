@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus, Search, User, ChevronDown, Check } from 'lucide-react';
 import usePatients from '../hooks/usePatients';
 import useWards from '../hooks/useWards';
+import useAdmissions from '../hooks/useAdmissions';
 
-const AdmitPatientModal = ({ isOpen, onClose }) => {
+const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   const { patients, loading, fetchPatients, searchPatients, calculateAge } = usePatients();
   const { wards } = useWards();
+  const { loading: isSubmitting, lastError, admitPatient, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions } = useAdmissions();
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -57,10 +59,11 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
     setShowPatientSearch(false);
   };
 
-  // Fetch patients and set current date/time when modal opens
+  // Fetch patients and recent admissions, set current date/time when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchPatients();
+      fetchActiveAdmissions();
       // Set current date and time when modal opens
       const now = new Date();
       setAdmission(prev => ({
@@ -69,7 +72,7 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
         admissionTime: now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
       }));
     }
-  }, [isOpen, fetchPatients]);
+  }, [isOpen, fetchPatients, fetchActiveAdmissions]);
 
   // Update filtered patients when patients data changes
   useEffect(() => {
@@ -93,7 +96,7 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!selectedPatient) {
@@ -101,17 +104,52 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
       return;
     }
     
-    const admissionData = {
-      ...admission,
-      patient: selectedPatient
-    };
+    if (!admission.wardId) {
+      alert('Please select a ward for the patient.');
+      return;
+    }
     
-    console.log('Patient admission submitted:', admissionData);
-    resetForm();
-    onClose();
+    if (!admission.bedNumber.trim()) {
+      alert('Please enter a bed number.');
+      return;
+    }
+    
+    try {
+      const admissionData = {
+        patientNationalId: parseInt(selectedPatient.nationalId),
+        wardId: parseInt(admission.wardId),
+        bedNumber: admission.bedNumber.trim()
+      };
+      
+      console.log('Submitting admission:', admissionData);
+      
+      const response = await admitPatient(admissionData);
+      
+      console.log('Admission successful:', response);
+      
+      // Show success message
+      alert(`✅ Patient admission successful!\nAdmission ID: ${response.admissionId}\nPatient: ${response.patientName}\nWard: ${response.wardName}\nBed: ${response.bedNumber}`);
+      
+      // Refresh recent admissions in the dashboard
+      if (onAdmissionSuccess) {
+        onAdmissionSuccess();
+      }
+      
+      resetForm();
+      onClose();
+      
+    } catch (error) {
+      // Error handling is done in the hook, but we can show user-friendly messages here
+      if (lastError?.isAlreadyAdmitted) {
+        alert(`❌ Admission Failed\n\n${lastError.message}\n\nSuggestions:\n• Check if patient is currently in another ward\n• Discharge patient from current admission first\n• Verify patient identity`);
+      } else if (lastError?.message) {
+        alert(`❌ Admission Failed\n\n${lastError.message}`);
+      }
+    }
   };
 
   const handleClose = () => {
+    if (isSubmitting) return; // Prevent closing while submitting
     resetForm();
     onClose();
   };
@@ -331,28 +369,95 @@ const AdmitPatientModal = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-
+            {/* Recent Admissions Section */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-medium text-blue-800 mb-4 flex items-center">
+                <User className="mr-2" size={16} />
+                Recent Admitted Patients
+              </h3>
+              
+              {fetchingAdmissions ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-blue-600 text-sm">Loading recent admissions...</p>
+                </div>
+              ) : activeAdmissions && activeAdmissions.length > 0 ? (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {activeAdmissions
+                    .sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate))
+                    .slice(0, 5)
+                    .map((admission) => (
+                      <div
+                        key={admission.admissionId}
+                        className="bg-white p-3 rounded-lg border border-blue-100 hover:border-blue-300 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{admission.patientName}</div>
+                            <div className="text-sm text-gray-600">
+                              ID: {admission.patientNationalId} | {admission.wardName} - Bed {admission.bedNumber}
+                            </div>
+                            <div className="text-xs text-blue-600">
+                              Admitted: {new Date(admission.admissionDate).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {admission.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-blue-600">
+                  <User className="mx-auto mb-2" size={24} />
+                  <p className="text-sm">No recent admissions found</p>
+                </div>
+              )}
+            </div>
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={isSubmitting}
+                className={`px-6 py-2 border border-gray-300 rounded-lg transition-colors ${
+                  isSubmitting 
+                    ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={!selectedPatient}
+                disabled={!selectedPatient || isSubmitting}
                 className={`px-6 py-2 rounded-lg transition-colors flex items-center ${
-                  selectedPatient 
+                  selectedPatient && !isSubmitting
                     ? 'bg-green-600 text-white hover:bg-green-700' 
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                <UserPlus size={16} className="mr-2" />
-                Admit Patient
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Admitting...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={16} className="mr-2" />
+                    Admit Patient
+                  </>
+                )}
               </button>
             </div>
           </form>

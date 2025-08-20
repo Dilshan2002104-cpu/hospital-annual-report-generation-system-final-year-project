@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   Search, 
   Filter, 
@@ -15,6 +15,7 @@ import {
 
 const PatientList = ({
   patients,
+  loading,
   searchTerm,
   setSearchTerm,
   filterBy,
@@ -25,20 +26,44 @@ const PatientList = ({
   onDischargePatient,
   onViewLabResults
 }) => {
+  // Filter patients based on search and filter criteria
+  const filteredPatients = useMemo(() => {
+    if (!patients || patients.length === 0) return [];
+    
+    let filtered = patients;
+
+    if (searchTerm) {
+      filtered = filtered.filter(patient =>
+        patient.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.bedNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.wardName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.patientNationalId.toString().includes(searchTerm)
+      );
+    }
+
+    if (filterBy !== 'all') {
+      filtered = filtered.filter(patient => patient.status.toLowerCase() === filterBy.toLowerCase());
+    }
+
+    return filtered;
+  }, [patients, searchTerm, filterBy]);
+
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'critical': return 'text-red-600 bg-red-100';
       case 'stable': return 'text-green-600 bg-green-100';
       case 'improving': return 'text-blue-600 bg-blue-100';
+      case 'active': return 'text-green-600 bg-green-100';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
 
   const getStatusIcon = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'critical': return <XCircle size={16} />;
       case 'stable': return <CheckCircle size={16} />;
       case 'improving': return <Activity size={16} />;
+      case 'active': return <CheckCircle size={16} />;
       default: return <Clock size={16} />;
     }
   };
@@ -67,6 +92,7 @@ const PatientList = ({
               onChange={(e) => setFilterBy(e.target.value)}
             >
               <option value="all">All Patients</option>
+              <option value="active">Active</option>
               <option value="critical">Critical</option>
               <option value="stable">Stable</option>
               <option value="improving">Improving</option>
@@ -100,84 +126,91 @@ const PatientList = ({
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Diagnosis
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Doctor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {patients.map((patient) => (
-                <tr key={patient.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{patient.name}</div>
-                      <div className="text-sm text-gray-500">{patient.age}y, {patient.gender}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {patient.bedNumber}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {patient.ward}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
-                      {getStatusIcon(patient.status)}
-                      <span className="ml-1 capitalize">{patient.status}</span>
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {patient.diagnosis}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {patient.doctor}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                        onClick={() => onViewPatient(patient)}
-                        title="View Details"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        className="text-green-600 hover:text-green-900 p-1 rounded"
-                        onClick={() => onPrescribeMedication(patient)}
-                        title="Prescribe Medication"
-                      >
-                        <Stethoscope size={16} />
-                      </button>
-                      <button
-                        className="text-yellow-600 hover:text-yellow-900 p-1 rounded"
-                        onClick={() => onTransferPatient(patient)}
-                        title="Transfer Patient"
-                      >
-                        <ArrowUpDown size={16} />
-                      </button>
-                      <button
-                        className="text-purple-600 hover:text-purple-900 p-1 rounded"
-                        onClick={() => onDischargePatient(patient)}
-                        title="Discharge Patient"
-                      >
-                        <UserCheck size={16} />
-                      </button>
-                      <button
-                        className="text-gray-600 hover:text-gray-900 p-1 rounded"
-                        onClick={() => onViewLabResults(patient)}
-                        title="Lab Results"
-                      >
-                        <FileText size={16} />
-                      </button>
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+                      <p className="text-gray-500">Loading patients...</p>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : filteredPatients.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center">
+                    <p className="text-gray-500">
+                      {searchTerm || filterBy !== 'all' ? 'No patients found matching your criteria' : 'No patients currently admitted'}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredPatients.map((patient) => (
+                  <tr key={patient.admissionId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{patient.patientName}</div>
+                        <div className="text-sm text-gray-500">ID: {patient.patientNationalId}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {patient.bedNumber}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {patient.wardName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
+                        {getStatusIcon(patient.status)}
+                        <span className="ml-1 capitalize">{patient.status}</span>
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                          onClick={() => onViewPatient(patient)}
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          className="text-green-600 hover:text-green-900 p-1 rounded"
+                          onClick={() => onPrescribeMedication(patient)}
+                          title="Prescribe Medication"
+                        >
+                          <Stethoscope size={16} />
+                        </button>
+                        <button
+                          className="text-yellow-600 hover:text-yellow-900 p-1 rounded"
+                          onClick={() => onTransferPatient(patient)}
+                          title="Transfer Patient"
+                        >
+                          <ArrowUpDown size={16} />
+                        </button>
+                        <button
+                          className="text-purple-600 hover:text-purple-900 p-1 rounded"
+                          onClick={() => onDischargePatient(patient)}
+                          title="Discharge Patient"
+                        >
+                          <UserCheck size={16} />
+                        </button>
+                        <button
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded"
+                          onClick={() => onViewLabResults(patient)}
+                          title="Lab Results"
+                        >
+                          <FileText size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

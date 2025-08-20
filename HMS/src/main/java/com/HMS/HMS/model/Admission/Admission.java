@@ -25,6 +25,7 @@ public class Admission {
     @JsonBackReference("ward-admissions")
     private Ward ward;
 
+    @Column(nullable = false)
     private String bedNumber;
 
     @CreationTimestamp
@@ -38,11 +39,23 @@ public class Admission {
 
     public Admission(){}
 
-    public Admission(Patient patient, Ward ward) {
+    public Admission(Patient patient, Ward ward, String bedNumber) {
         this.patient = patient;
         this.ward = ward;
+        this.bedNumber = bedNumber;
     }
 
+    public Admission(Long admissionId, Patient patient, Ward ward, String bedNumber, LocalDateTime admissionDate, LocalDateTime dischargeDate, AdmissionStatus status) {
+        this.admissionId = admissionId;
+        this.patient = patient;
+        this.ward = ward;
+        this.bedNumber = bedNumber;
+        this.admissionDate = admissionDate;
+        this.dischargeDate = dischargeDate;
+        this.status = status;
+    }
+
+    // Getters and Setters
     public Long getAdmissionId() {
         return admissionId;
     }
@@ -67,6 +80,14 @@ public class Admission {
         this.ward = ward;
     }
 
+    public String getBedNumber() {
+        return bedNumber;
+    }
+
+    public void setBedNumber(String bedNumber) {
+        this.bedNumber = bedNumber;
+    }
+
     public LocalDateTime getAdmissionDate() {
         return admissionDate;
     }
@@ -89,13 +110,5 @@ public class Admission {
 
     public void setStatus(AdmissionStatus status) {
         this.status = status;
-    }
-
-    public String getBedNumber() {
-        return bedNumber;
-    }
-
-    public void setBedNumber(String bedNumber) {
-        this.bedNumber = bedNumber;
     }
 }

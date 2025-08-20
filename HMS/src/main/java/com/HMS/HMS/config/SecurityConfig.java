@@ -58,10 +58,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/delete/**").hasRole("ADMIN")
 
                         // Specific patient endpoint for WARD_NURSE
-                        .requestMatchers("/api/patients/all").hasRole("WARD_NURSE")
+//                        .requestMatchers("/api/patients/all").hasRole("WARD_NURSE")
 
                         // Patient endpoints - all require CLINIC_NURSE role
-                        .requestMatchers("/api/patients/**").hasRole("CLINIC_NURSE")
+                        .requestMatchers("/api/patients/**").hasAnyRole("CLINIC_NURSE","WARD_NURSE")
                         .requestMatchers("/api/doctors/**").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/appointments/**").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/admissions/**").hasRole("WARD_NURSE")

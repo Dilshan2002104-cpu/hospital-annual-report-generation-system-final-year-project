@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Activity, 
   FileText, 
@@ -18,6 +18,7 @@ import DischargeModal from './components/DischargeModal';
 import LabResultsModal from './components/LabResultsModal';
 import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
+import useAdmissions from './hooks/useAdmissions';
 
 const WardDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -29,6 +30,9 @@ const WardDashboard = () => {
   const [dischargeModal, setDischargeModal] = useState(false);
   const [labResultsModal, setLabResultsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
+  
+  // Use the admissions hook to get recent admissions
+  const { activeAdmissions, fetchingAdmissions, fetchActiveAdmissions } = useAdmissions();
 
   // Sample ward data
   const [wards] = useState([
@@ -38,100 +42,25 @@ const WardDashboard = () => {
     { id: 4, name: 'Ward 3 - Dialysis', occupied: 6, total: 8, type: 'specialty' }
   ]);
 
-  // Sample patient data
-  const [patients] = useState([
-    {
-      id: 1,
-      name: 'John Smith',
-      age: 45,
-      gender: 'Male',
-      bedNumber: 'A101',
-      ward: 'Ward 1 - General',
-      admissionDate: '2025-01-15',
-      diagnosis: 'Chronic Kidney Disease',
-      status: 'stable',
-      doctor: 'Dr. Johnson',
-      lastVitals: '2025-01-18 08:00',
-      pendingTests: ['Blood Test', 'Urine Analysis'],
-      prescriptions: [
-        { drug: 'Lisinopril', dose: '10mg', frequency: 'Once daily', route: 'Oral' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Mary Johnson',
-      age: 62,
-      gender: 'Female',
-      bedNumber: 'B205',
-      ward: 'Ward 2 - ICU',
-      admissionDate: '2025-01-16',
-      diagnosis: 'Acute Kidney Failure',
-      status: 'critical',
-      doctor: 'Dr. Chen',
-      lastVitals: '2025-01-18 09:30',
-      pendingTests: ['CT Scan', 'Blood Culture'],
-      prescriptions: [
-        { drug: 'Furosemide', dose: '40mg', frequency: 'Twice daily', route: 'IV' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Robert Wilson',
-      age: 38,
-      gender: 'Male',
-      bedNumber: 'C301',
-      ward: 'Ward 3 - Dialysis',
-      admissionDate: '2025-01-17',
-      diagnosis: 'Kidney Stones',
-      status: 'improving',
-      doctor: 'Dr. Davis',
-      lastVitals: '2025-01-18 07:45',
-      pendingTests: [],
-      prescriptions: [
-        { drug: 'Hydrocodone', dose: '5mg', frequency: 'As needed', route: 'Oral' }
-      ]
-    }
-  ]);
 
   // Calculate statistics
   const wardStats = useMemo(() => {
     const totalBeds = wards.reduce((sum, ward) => sum + ward.total, 0);
-    const occupiedBeds = wards.reduce((sum, ward) => sum + ward.occupied, 0);
-    const occupancyRate = Math.round((occupiedBeds / totalBeds) * 100);
-    const criticalPatients = patients.filter(p => p.status === 'critical').length;
-    const stablePatients = patients.filter(p => p.status === 'stable').length;
-    const improvingPatients = patients.filter(p => p.status === 'improving').length;
+    const occupiedBeds = activeAdmissions.length;
+    const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
     return {
       totalBeds,
       occupiedBeds,
       availableBeds: totalBeds - occupiedBeds,
       occupancyRate,
-      totalPatients: patients.length,
-      criticalPatients,
-      stablePatients,
-      improvingPatients
+      totalPatients: activeAdmissions.length,
+      criticalPatients: 0, // Will be updated when we have patient status data
+      stablePatients: 0,
+      improvingPatients: 0
     };
-  }, [wards, patients]);
+  }, [wards, activeAdmissions]);
 
-  // Filter patients based on search and filter criteria
-  const filteredPatients = useMemo(() => {
-    let filtered = patients;
-
-    if (searchTerm) {
-      filtered = filtered.filter(patient =>
-        patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.bedNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filterBy !== 'all') {
-      filtered = filtered.filter(patient => patient.status === filterBy);
-    }
-
-    return filtered;
-  }, [patients, searchTerm, filterBy]);
 
   const tabs = [
     { id: 'overview', label: 'Ward Overview', icon: Activity },
@@ -167,6 +96,11 @@ const WardDashboard = () => {
     setLabResultsModal(true);
   };
 
+  // Fetch recent admissions when component mounts
+  useEffect(() => {
+    fetchActiveAdmissions();
+  }, [fetchActiveAdmissions]);
+
 
   const renderContent = () => {
     switch (activeTab) {
@@ -175,7 +109,8 @@ const WardDashboard = () => {
       case 'patients':
         return (
           <PatientList
-            patients={filteredPatients}
+            patients={activeAdmissions}
+            loading={fetchingAdmissions}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             filterBy={filterBy}
@@ -243,29 +178,42 @@ const WardDashboard = () => {
             </div>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
               <h4 className="text-md font-medium text-gray-900 mb-4">Recent Admissions</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium text-gray-900">John Smith</p>
-                    <p className="text-sm text-gray-600">Bed A101 • Admitted 2 hours ago</p>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Emergency</span>
+              {fetchingAdmissions ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-gray-600 text-sm">Loading recent admissions...</p>
                 </div>
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium text-gray-900">Mary Johnson</p>
-                    <p className="text-sm text-gray-600">Bed B205 • Admitted 4 hours ago</p>
-                  </div>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Planned</span>
+              ) : activeAdmissions && activeAdmissions.length > 0 ? (
+                <div className="space-y-3">
+                  {activeAdmissions
+                    .sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate))
+                    .slice(0, 3)
+                    .map((admission) => {
+                      const admissionDate = new Date(admission.admissionDate);
+                      const now = new Date();
+                      const hoursAgo = Math.floor((now - admissionDate) / (1000 * 60 * 60));
+                      const timeAgo = hoursAgo < 1 ? 'Just now' : 
+                                     hoursAgo === 1 ? '1 hour ago' : 
+                                     `${hoursAgo} hours ago`;
+                      
+                      return (
+                        <div key={admission.admissionId} className="flex items-center justify-between bg-white p-3 rounded-lg border">
+                          <div>
+                            <p className="font-medium text-gray-900">{admission.patientName}</p>
+                            <p className="text-sm text-gray-600">Bed {admission.bedNumber} • Admitted {timeAgo}</p>
+                          </div>
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                            {admission.status}
+                          </span>
+                        </div>
+                      );
+                    })}
                 </div>
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium text-gray-900">Robert Wilson</p>
-                    <p className="text-sm text-gray-600">Bed C301 • Admitted 6 hours ago</p>
-                  </div>
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Transfer</span>
+              ) : (
+                <div className="text-center py-4 text-gray-600">
+                  <p className="text-sm">No recent admissions found</p>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         );
@@ -348,6 +296,7 @@ const WardDashboard = () => {
       <AdmitPatientModal
         isOpen={admitPatientModal}
         onClose={() => setAdmitPatientModal(false)}
+        onAdmissionSuccess={fetchActiveAdmissions}
       />
     </div>
   );

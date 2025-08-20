@@ -12,6 +12,7 @@ import java.util.Optional;
 
 @Repository
 public interface AdmissionRepository extends JpaRepository<Admission,Long> {
+
     List<Admission> findByPatientNationalId(Long nationalId);
 
     List<Admission> findByWardWardId(Long wardId);
@@ -23,4 +24,17 @@ public interface AdmissionRepository extends JpaRepository<Admission,Long> {
 
     @Query("SELECT COUNT(a) FROM Admission a WHERE a.ward.wardId = :wardId AND a.status = 'ACTIVE'")
     int countActiveAdmissionsByWard(@Param("wardId") Long wardId);
+
+    // New bed-related queries
+    @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM Admission a WHERE a.ward.wardId = :wardId AND a.bedNumber = :bedNumber AND a.status = :status")
+    boolean existsByWardWardIdAndBedNumberAndStatus(@Param("wardId") Long wardId, @Param("bedNumber") String bedNumber, @Param("status") AdmissionStatus status);
+
+    @Query("SELECT a.bedNumber FROM Admission a WHERE a.ward.wardId = :wardId AND a.status = 'ACTIVE'")
+    List<String> findOccupiedBedsByWard(@Param("wardId") Long wardId);
+
+    @Query("SELECT a FROM Admission a WHERE a.ward.wardId = :wardId AND a.bedNumber = :bedNumber AND a.status = 'ACTIVE'")
+    Optional<Admission> findActiveAdmissionByWardAndBed(@Param("wardId") Long wardId, @Param("bedNumber") String bedNumber);
+
+    @Query("SELECT a FROM Admission a WHERE a.bedNumber = :bedNumber AND a.status = 'ACTIVE'")
+    List<Admission> findActiveAdmissionsByBedNumber(@Param("bedNumber") String bedNumber);
 }

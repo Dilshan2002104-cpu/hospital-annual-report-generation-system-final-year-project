@@ -50,10 +50,13 @@ public class AdmissionController {
         }
     }
 
-    @PutMapping("/transfer/{admissionId}/ward/{wardId}")
-    public ResponseEntity<?> transferPatient(@PathVariable Long admissionId, @PathVariable Long wardId) {
+    @PutMapping("/transfer/{admissionId}/ward/{wardId}/bed/{bedNumber}")
+    public ResponseEntity<?> transferPatient(
+            @PathVariable Long admissionId,
+            @PathVariable Long wardId,
+            @PathVariable String bedNumber) {
         try {
-            AdmissionResponseDTO response = admissionService.transferPatient(admissionId, wardId);
+            AdmissionResponseDTO response = admissionService.transferPatient(admissionId, wardId, bedNumber);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
@@ -99,4 +102,9 @@ public class AdmissionController {
         return ResponseEntity.ok(admissions);
     }
 
+    @GetMapping("/ward/{wardId}/occupied-beds")
+    public ResponseEntity<List<String>> getOccupiedBedsInWard(@PathVariable Long wardId) {
+        List<String> occupiedBeds = admissionService.getAvailableBedsInWard(wardId);
+        return ResponseEntity.ok(occupiedBeds);
+    }
 }
