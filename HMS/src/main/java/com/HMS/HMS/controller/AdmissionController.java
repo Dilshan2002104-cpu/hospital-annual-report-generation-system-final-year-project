@@ -68,7 +68,7 @@ public class AdmissionController {
         }
     }
 
-    @GetMapping
+    @GetMapping("/getAll")
     public ResponseEntity<List<AdmissionResponseDTO>> getAllAdmissions() {
         List<AdmissionResponseDTO> admissions = admissionService.getAllAdmissions();
         return ResponseEntity.ok(admissions);

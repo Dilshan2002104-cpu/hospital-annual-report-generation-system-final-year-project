@@ -58,4 +58,14 @@ public class PatientController {
             return new CommonResponseDTO(false,e.getMessage());
         }
     }
+
+    @GetMapping("/{nationalId}")
+    public ResponseEntity<PatientResponseDTO> getPatientByNationalId(@PathVariable Long nationalId){
+        try{
+            PatientResponseDTO patient = patientService.getPatientByNationalId(nationalId);
+            return ResponseEntity.ok(patient);
+        }catch (RuntimeException e){
+            return ResponseEntity.notFound().build();
+        }
+    }
 }
