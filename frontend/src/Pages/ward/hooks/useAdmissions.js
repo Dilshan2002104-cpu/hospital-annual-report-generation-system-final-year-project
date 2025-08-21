@@ -5,6 +5,7 @@ const useAdmissions = (showToast = null) => {
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState(null);
   const [activeAdmissions, setActiveAdmissions] = useState([]);
+  const [allAdmissions, setAllAdmissions] = useState([]);
   const [fetchingAdmissions, setFetchingAdmissions] = useState(false);
 
   const admitPatient = useCallback(async (admissionData) => {
@@ -129,13 +130,70 @@ const useAdmissions = (showToast = null) => {
     }
   }, [showToast]);
 
+  const fetchAllAdmissions = useCallback(async () => {
+    try {
+      setFetchingAdmissions(true);
+      const jwtToken = localStorage.getItem('jwtToken');
+      
+      if (!jwtToken) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await axios.get('http://localhost:8080/api/admissions/getAll', {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      setAllAdmissions(response.data);
+      setLastError(null);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all admissions:', error);
+      
+      let errorMessage = 'Failed to fetch admissions. ';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to view admissions.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error occurred. Please try again later.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (showToast) {
+        if (error.response?.status === 401) {
+          showToast('error', 'Session Expired', errorMessage);
+        } else if (error.response?.status === 403) {
+          showToast('error', 'Access Denied', errorMessage);
+        } else if (error.response?.status === 500) {
+          showToast('error', 'Server Error', errorMessage);
+        } else {
+          showToast('error', 'Fetch Failed', errorMessage);
+        }
+      }
+      
+      setLastError({ message: errorMessage });
+      throw error;
+    } finally {
+      setFetchingAdmissions(false);
+    }
+  }, [showToast]);
+
   return {
     loading,
     lastError,
     admitPatient,
     activeAdmissions,
+    allAdmissions,
     fetchingAdmissions,
-    fetchActiveAdmissions
+    fetchActiveAdmissions,
+    fetchAllAdmissions
   };
 };
 

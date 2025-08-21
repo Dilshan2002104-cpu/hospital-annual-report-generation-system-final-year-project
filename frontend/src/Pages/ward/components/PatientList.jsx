@@ -50,20 +50,22 @@ const PatientList = ({
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
+      case 'active': return 'text-green-600 bg-green-100';
+      case 'discharged': return 'text-gray-600 bg-gray-100';
       case 'critical': return 'text-red-600 bg-red-100';
       case 'stable': return 'text-green-600 bg-green-100';
       case 'improving': return 'text-blue-600 bg-blue-100';
-      case 'active': return 'text-green-600 bg-green-100';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
+      case 'active': return <CheckCircle size={16} />;
+      case 'discharged': return <UserCheck size={16} />;
       case 'critical': return <XCircle size={16} />;
       case 'stable': return <CheckCircle size={16} />;
       case 'improving': return <Activity size={16} />;
-      case 'active': return <CheckCircle size={16} />;
       default: return <Clock size={16} />;
     }
   };
@@ -93,9 +95,7 @@ const PatientList = ({
             >
               <option value="all">All Patients</option>
               <option value="active">Active</option>
-              <option value="critical">Critical</option>
-              <option value="stable">Stable</option>
-              <option value="improving">Improving</option>
+              <option value="discharged">Discharged</option>
             </select>
             <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               <Filter className="h-4 w-4" />

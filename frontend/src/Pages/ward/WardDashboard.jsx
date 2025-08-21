@@ -31,8 +31,8 @@ const WardDashboard = () => {
   const [labResultsModal, setLabResultsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
   
-  // Use the admissions hook to get recent admissions
-  const { activeAdmissions, fetchingAdmissions, fetchActiveAdmissions } = useAdmissions();
+  // Use the admissions hook to get all admissions (both active and discharged)
+  const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions } = useAdmissions();
 
   // Sample ward data
   const [wards] = useState([
@@ -96,10 +96,11 @@ const WardDashboard = () => {
     setLabResultsModal(true);
   };
 
-  // Fetch recent admissions when component mounts
+  // Fetch all admissions when component mounts
   useEffect(() => {
-    fetchActiveAdmissions();
-  }, [fetchActiveAdmissions]);
+    fetchAllAdmissions();
+    fetchActiveAdmissions(); // Still need this for ward stats
+  }, [fetchAllAdmissions, fetchActiveAdmissions]);
 
 
   const renderContent = () => {
@@ -109,7 +110,7 @@ const WardDashboard = () => {
       case 'patients':
         return (
           <PatientList
-            patients={activeAdmissions}
+            patients={allAdmissions}
             loading={fetchingAdmissions}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -296,7 +297,10 @@ const WardDashboard = () => {
       <AdmitPatientModal
         isOpen={admitPatientModal}
         onClose={() => setAdmitPatientModal(false)}
-        onAdmissionSuccess={fetchActiveAdmissions}
+        onAdmissionSuccess={() => {
+          fetchAllAdmissions();
+          fetchActiveAdmissions();
+        }}
       />
     </div>
   );
