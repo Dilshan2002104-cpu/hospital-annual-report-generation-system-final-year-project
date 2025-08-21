@@ -3,7 +3,9 @@ import axios from 'axios';
 
 const usePatients = (showToast = null) => {
   const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fetchingPatient, setFetchingPatient] = useState(false);
   const [lastError, setLastError] = useState(null);
 
   const fetchPatients = useCallback(async () => {
@@ -73,6 +75,66 @@ const usePatients = (showToast = null) => {
     );
   }, [patients]);
 
+  // Get patient details by national ID
+  const getPatientByNationalId = useCallback(async (nationalId) => {
+    try {
+      setFetchingPatient(true);
+      const jwtToken = localStorage.getItem('jwtToken');
+      
+      if (!jwtToken) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await axios.get(`http://localhost:8080/api/patients/${nationalId}`, {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      setSelectedPatient(response.data);
+      setLastError(null);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching patient details:', error);
+      
+      let errorMessage = 'Failed to fetch patient details. ';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to view patient details.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Patient not found with the provided National ID.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error occurred. Please try again later.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (showToast) {
+        if (error.response?.status === 401) {
+          showToast('error', 'Session Expired', errorMessage);
+        } else if (error.response?.status === 403) {
+          showToast('error', 'Access Denied', errorMessage);
+        } else if (error.response?.status === 404) {
+          showToast('error', 'Patient Not Found', errorMessage);
+        } else if (error.response?.status === 500) {
+          showToast('error', 'Server Error', errorMessage);
+        } else {
+          showToast('error', 'Fetch Failed', errorMessage);
+        }
+      }
+      
+      setLastError(errorMessage);
+      throw error;
+    } finally {
+      setFetchingPatient(false);
+    }
+  }, [showToast]);
+
   // Calculate age from date of birth
   const calculateAge = useCallback((dateOfBirth) => {
     const today = new Date();
@@ -87,11 +149,15 @@ const usePatients = (showToast = null) => {
 
   return {
     patients,
+    selectedPatient,
     loading,
+    fetchingPatient,
     lastError,
     fetchPatients,
+    getPatientByNationalId,
     searchPatients,
-    calculateAge
+    calculateAge,
+    setSelectedPatient
   };
 };
 

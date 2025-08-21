@@ -12,27 +12,29 @@ import {
 import WardHeader from './components/WardHeader';
 import WardOverview from './components/WardOverview';
 import PatientList from './components/PatientList';
-import PrescriptionModal from './components/PrescriptionModal';
 import TransferModal from './components/TransferModal';
-import DischargeModal from './components/DischargeModal';
-import LabResultsModal from './components/LabResultsModal';
+import PatientDetailsModal from './components/PatientDetailsModal';
+import ConfirmDischargeDialog from './components/ConfirmDischargeDialog';
 import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
 import useAdmissions from './hooks/useAdmissions';
+import usePatients from './hooks/usePatients';
 
 const WardDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
-  const [prescriptionModal, setPrescriptionModal] = useState(false);
   const [transferModal, setTransferModal] = useState(false);
-  const [dischargeModal, setDischargeModal] = useState(false);
-  const [labResultsModal, setLabResultsModal] = useState(false);
+  const [confirmDischargeDialog, setConfirmDischargeDialog] = useState(false);
+  const [patientDetailsModal, setPatientDetailsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
   
   // Use the admissions hook to get all admissions (both active and discharged)
-  const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions } = useAdmissions();
+  const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions, dischargePatient, loading } = useAdmissions();
+  
+  // Use the patients hook to get patient details
+  const { selectedPatient: patientDetails, fetchingPatient, getPatientByNationalId, setSelectedPatient: setPatientDetails } = usePatients();
 
   // Sample ward data
   const [wards] = useState([
@@ -72,13 +74,13 @@ const WardDashboard = () => {
   ];
 
   // Handler functions for patient actions
-  const handleViewPatient = (patient) => {
-    setSelectedPatient(patient);
-  };
-
-  const handlePrescribeMedication = (patient) => {
-    setSelectedPatient(patient);
-    setPrescriptionModal(true);
+  const handleViewPatient = async (patient) => {
+    try {
+      await getPatientByNationalId(patient.patientNationalId);
+      setPatientDetailsModal(true);
+    } catch (error) {
+      console.error('Failed to fetch patient details:', error);
+    }
   };
 
   const handleTransferPatient = (patient) => {
@@ -88,12 +90,22 @@ const WardDashboard = () => {
 
   const handleDischargePatient = (patient) => {
     setSelectedPatient(patient);
-    setDischargeModal(true);
+    setConfirmDischargeDialog(true);
   };
 
-  const handleViewLabResults = (patient) => {
-    setSelectedPatient(patient);
-    setLabResultsModal(true);
+  const confirmDischarge = async () => {
+    if (selectedPatient) {
+      try {
+        await dischargePatient(selectedPatient.admissionId);
+        // Refresh the data after successful discharge
+        await fetchAllAdmissions();
+        await fetchActiveAdmissions();
+        setSelectedPatient(null);
+      } catch (error) {
+        console.error('Failed to discharge patient:', error);
+        // Error is already handled in the hook with toast notifications
+      }
+    }
   };
 
   // Fetch all admissions when component mounts
@@ -117,10 +129,8 @@ const WardDashboard = () => {
             filterBy={filterBy}
             setFilterBy={setFilterBy}
             onViewPatient={handleViewPatient}
-            onPrescribeMedication={handlePrescribeMedication}
             onTransferPatient={handleTransferPatient}
             onDischargePatient={handleDischargePatient}
-            onViewLabResults={handleViewLabResults}
           />
         );
       case 'admit':
@@ -262,14 +272,6 @@ const WardDashboard = () => {
       </main>
 
       {/* Modals */}
-      <PrescriptionModal
-        isOpen={prescriptionModal}
-        onClose={() => {
-          setPrescriptionModal(false);
-          setSelectedPatient(null);
-        }}
-        patient={selectedPatient}
-      />
       <TransferModal
         isOpen={transferModal}
         onClose={() => {
@@ -278,21 +280,24 @@ const WardDashboard = () => {
         }}
         patient={selectedPatient}
       />
-      <DischargeModal
-        isOpen={dischargeModal}
+      <ConfirmDischargeDialog
+        isOpen={confirmDischargeDialog}
         onClose={() => {
-          setDischargeModal(false);
+          setConfirmDischargeDialog(false);
           setSelectedPatient(null);
         }}
+        onConfirm={confirmDischarge}
         patient={selectedPatient}
+        loading={loading}
       />
-      <LabResultsModal
-        isOpen={labResultsModal}
+      <PatientDetailsModal
+        isOpen={patientDetailsModal}
         onClose={() => {
-          setLabResultsModal(false);
-          setSelectedPatient(null);
+          setPatientDetailsModal(false);
+          setPatientDetails(null);
         }}
-        patient={selectedPatient}
+        patient={patientDetails}
+        loading={fetchingPatient}
       />
       <AdmitPatientModal
         isOpen={admitPatientModal}

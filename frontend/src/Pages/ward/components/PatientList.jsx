@@ -21,10 +21,8 @@ const PatientList = ({
   filterBy,
   setFilterBy,
   onViewPatient,
-  onPrescribeMedication,
   onTransferPatient,
-  onDischargePatient,
-  onViewLabResults
+  onDischargePatient
 }) => {
   // Filter patients based on search and filter criteria
   const filteredPatients = useMemo(() => {
@@ -170,42 +168,41 @@ const PatientList = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-3">
                         <button
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                          className="flex items-center px-3 py-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
                           onClick={() => onViewPatient(patient)}
-                          title="View Details"
+                          title="View Patient Details"
                         >
-                          <Eye size={16} />
+                          <Eye size={16} className="mr-1" />
+                          <span className="text-xs font-medium">View Details</span>
                         </button>
-                        <button
-                          className="text-green-600 hover:text-green-900 p-1 rounded"
-                          onClick={() => onPrescribeMedication(patient)}
-                          title="Prescribe Medication"
-                        >
-                          <Stethoscope size={16} />
-                        </button>
-                        <button
-                          className="text-yellow-600 hover:text-yellow-900 p-1 rounded"
-                          onClick={() => onTransferPatient(patient)}
-                          title="Transfer Patient"
-                        >
-                          <ArrowUpDown size={16} />
-                        </button>
-                        <button
-                          className="text-purple-600 hover:text-purple-900 p-1 rounded"
-                          onClick={() => onDischargePatient(patient)}
-                          title="Discharge Patient"
-                        >
-                          <UserCheck size={16} />
-                        </button>
-                        <button
-                          className="text-gray-600 hover:text-gray-900 p-1 rounded"
-                          onClick={() => onViewLabResults(patient)}
-                          title="Lab Results"
-                        >
-                          <FileText size={16} />
-                        </button>
+                        {patient.status?.toLowerCase() === 'active' && (
+                          <>
+                            <button
+                              className="flex items-center px-3 py-1.5 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors"
+                              onClick={() => onTransferPatient(patient)}
+                              title="Transfer Patient to Another Ward"
+                            >
+                              <ArrowUpDown size={16} className="mr-1" />
+                              <span className="text-xs font-medium">Transfer</span>
+                            </button>
+                            <button
+                              className="flex items-center px-3 py-1.5 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors"
+                              onClick={() => onDischargePatient(patient)}
+                              title="Discharge Patient from Hospital"
+                            >
+                              <UserCheck size={16} className="mr-1" />
+                              <span className="text-xs font-medium">Discharge</span>
+                            </button>
+                          </>
+                        )}
+                        {patient.status?.toLowerCase() === 'discharged' && (
+                          <div className="flex items-center px-3 py-1.5 text-gray-400 bg-gray-100 rounded-lg">
+                            <UserCheck size={16} className="mr-1" />
+                            <span className="text-xs font-medium">Already Discharged</span>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

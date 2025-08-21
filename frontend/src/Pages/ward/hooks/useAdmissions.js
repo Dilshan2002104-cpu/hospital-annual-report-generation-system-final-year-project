@@ -185,6 +185,73 @@ const useAdmissions = (showToast = null) => {
     }
   }, [showToast]);
 
+  const dischargePatient = useCallback(async (admissionId) => {
+    try {
+      setLoading(true);
+      const jwtToken = localStorage.getItem('jwtToken');
+      
+      if (!jwtToken) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await axios.put(`http://localhost:8080/api/admissions/discharge/${admissionId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      setLastError(null);
+      
+      if (showToast) {
+        showToast('success', 'Patient Discharged', `Patient has been successfully discharged.`);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error discharging patient:', error);
+      
+      let errorMessage = 'Failed to discharge patient. ';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to discharge patients.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Patient admission not found or already discharged.';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Invalid discharge request. Patient may already be discharged.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error occurred. Please try again later.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (showToast) {
+        if (error.response?.status === 401) {
+          showToast('error', 'Session Expired', errorMessage);
+        } else if (error.response?.status === 403) {
+          showToast('error', 'Access Denied', errorMessage);
+        } else if (error.response?.status === 404) {
+          showToast('error', 'Patient Not Found', errorMessage);
+        } else if (error.response?.status === 400) {
+          showToast('error', 'Invalid Request', errorMessage);
+        } else if (error.response?.status === 500) {
+          showToast('error', 'Server Error', errorMessage);
+        } else {
+          showToast('error', 'Discharge Failed', errorMessage);
+        }
+      }
+      
+      setLastError({ message: errorMessage });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
   return {
     loading,
     lastError,
@@ -193,7 +260,8 @@ const useAdmissions = (showToast = null) => {
     allAdmissions,
     fetchingAdmissions,
     fetchActiveAdmissions,
-    fetchAllAdmissions
+    fetchAllAdmissions,
+    dischargePatient
   };
 };
 
