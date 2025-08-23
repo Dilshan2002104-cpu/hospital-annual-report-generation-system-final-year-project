@@ -17,6 +17,7 @@ import PatientDetailsModal from './components/PatientDetailsModal';
 import ConfirmDischargeDialog from './components/ConfirmDischargeDialog';
 import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
+import { ToastContainer } from '../Clinic/nurs/components/Toast';
 import useAdmissions from './hooks/useAdmissions';
 import usePatients from './hooks/usePatients';
 
@@ -29,12 +30,33 @@ const WardDashboard = () => {
   const [confirmDischargeDialog, setConfirmDischargeDialog] = useState(false);
   const [patientDetailsModal, setPatientDetailsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
+  const [toasts, setToasts] = useState([]);
   
   // Use the admissions hook to get all admissions (both active and discharged)
   const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions, dischargePatient, loading } = useAdmissions();
   
   // Use the patients hook to get patient details
   const { selectedPatient: patientDetails, fetchingPatient, getPatientByNationalId, setSelectedPatient: setPatientDetails } = usePatients();
+
+  // Toast functions
+  const showToast = (type, title, message) => {
+    const id = Date.now() + Math.random();
+    const newToast = { id, type, title, message };
+    setToasts(prev => [...prev, newToast]);
+  };
+
+  const closeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
+  // Handle transfer success
+  const handleTransferSuccess = (transferResult) => {
+    // Refresh admissions data
+    fetchAllAdmissions();
+    fetchActiveAdmissions();
+    
+    // Show success message is already handled by the hook
+  };
 
   // Sample ward data
   const [wards] = useState([
@@ -118,7 +140,13 @@ const WardDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <WardOverview wardStats={wardStats} wards={wards} />;
+        return <WardOverview 
+          wardStats={wardStats} 
+          wards={wards} 
+          activeAdmissions={activeAdmissions}
+          allAdmissions={allAdmissions}
+          showToast={null} 
+        />;
       case 'patients':
         return (
           <PatientList
@@ -279,6 +307,8 @@ const WardDashboard = () => {
           setSelectedPatient(null);
         }}
         patient={selectedPatient}
+        showToast={showToast}
+        onTransferSuccess={handleTransferSuccess}
       />
       <ConfirmDischargeDialog
         isOpen={confirmDischargeDialog}
@@ -307,6 +337,9 @@ const WardDashboard = () => {
           fetchActiveAdmissions();
         }}
       />
+      
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     </div>
   );
 };

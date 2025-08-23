@@ -1,10 +1,30 @@
-import React, { useMemo, useState } from 'react';
-import { Bed, Users, CheckCircle, Activity, Heart, Shield, Droplets, Stethoscope } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Bed, Users, CheckCircle, Activity, Heart, Shield, Droplets, Stethoscope, AlertTriangle, Ban } from 'lucide-react';
 import useWards from '../hooks/useWards';
+import useAdmissions from '../hooks/useAdmissions';
 
-const WardOverview = ({ wardStats = {}, showToast }) => {
-  const { wards, loading, lastError } = useWards(showToast);
+const WardOverview = ({ wardStats = {}, showToast, activeAdmissions = [], allAdmissions = [] }) => {
+  const { wards, loading: wardsLoading, lastError } = useWards(showToast);
+  const { 
+    activeAdmissions: hookActiveAdmissions, 
+    allAdmissions: hookAllAdmissions, 
+    loading: admissionsLoading, 
+    fetchActiveAdmissions, 
+    fetchAllAdmissions 
+  } = useAdmissions(showToast);
   const [selectedWardType, setSelectedWardType] = useState('All');
+
+  // Use passed data if available, otherwise use hook data
+  const actualActiveAdmissions = activeAdmissions.length > 0 ? activeAdmissions : hookActiveAdmissions;
+  const actualAllAdmissions = allAdmissions.length > 0 ? allAdmissions : hookAllAdmissions;
+
+  // Fetch admission data when component mounts if no data is passed
+  useEffect(() => {
+    if (activeAdmissions.length === 0 && allAdmissions.length === 0) {
+      fetchActiveAdmissions();
+      fetchAllAdmissions();
+    }
+  }, [activeAdmissions.length, allAdmissions.length, fetchActiveAdmissions, fetchAllAdmissions]);
 
   const wardTypeConfig = {
     'General': {
@@ -55,15 +75,56 @@ const WardOverview = ({ wardStats = {}, showToast }) => {
   };
 
   const processedWards = useMemo(() => {
-    return wards.map(ward => ({
-      id: ward.wardId,
-      name: ward.wardName,
-      type: ward.wardType,
-      total: 20,
-      occupied: Math.floor(Math.random() * 20),
-      config: wardTypeConfig[ward.wardType] || wardTypeConfig['General']
-    }));
-  }, [wards]);
+    return wards.map(ward => {
+      // Calculate actual bed occupancy from active admissions
+      const wardActiveAdmissions = actualActiveAdmissions.filter(
+        admission => admission.wardId === ward.wardId && admission.status?.toLowerCase() === 'active'
+      );
+      
+      const total = ward.bedCapacity || 20;
+      const occupied = wardActiveAdmissions.length;
+      const available = total - occupied;
+      const occupancyRate = total > 0 ? (occupied / total) : 0;
+      
+      // Determine ward status
+      let status = 'available';
+      let statusMessage = `${available} beds available`;
+      let statusColor = 'text-green-600';
+      let statusBg = 'bg-green-100';
+      
+      if (occupied >= total) {
+        status = 'full';
+        statusMessage = 'Ward Full - No Admissions';
+        statusColor = 'text-red-600';
+        statusBg = 'bg-red-100';
+      } else if (occupancyRate >= 0.9) {
+        status = 'critical';
+        statusMessage = `Only ${available} bed${available !== 1 ? 's' : ''} left`;
+        statusColor = 'text-orange-600';
+        statusBg = 'bg-orange-100';
+      } else if (occupancyRate >= 0.75) {
+        status = 'warning';
+        statusMessage = `${available} beds remaining`;
+        statusColor = 'text-yellow-600';
+        statusBg = 'bg-yellow-100';
+      }
+      
+      return {
+        id: ward.wardId,
+        name: ward.wardName,
+        type: ward.wardType,
+        total,
+        occupied,
+        available,
+        occupancyRate,
+        status,
+        statusMessage,
+        statusColor,
+        statusBg,
+        config: wardTypeConfig[ward.wardType] || wardTypeConfig['General']
+      };
+    });
+  }, [wards, actualActiveAdmissions]);
 
   const filteredWards = useMemo(() => {
     if (selectedWardType === 'All') return processedWards;
@@ -81,16 +142,45 @@ const WardOverview = ({ wardStats = {}, showToast }) => {
     const availableBeds = totalBeds - occupiedBeds;
     const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
+    // Calculate real patient status counts from all admissions
+    const activePatients = actualActiveAdmissions.filter(admission => admission.status?.toLowerCase() === 'active');
+    const totalActivePatients = activePatients.length;
+    const dischargedPatients = actualAllAdmissions.filter(admission => admission.status?.toLowerCase() === 'discharged').length;
+
+    // For now, we'll calculate based on total active patients since we don't have medical status data
+    // You can replace this with actual patient condition data when available
+    const criticalPatients = Math.floor(totalActivePatients * 0.15); // 15% critical
+    const stablePatients = Math.floor(totalActivePatients * 0.70); // 70% stable
+    const improvingPatients = totalActivePatients - criticalPatients - stablePatients; // remainder improving
+
     return {
       totalBeds: wardStats.totalBeds || totalBeds,
       occupiedBeds: wardStats.occupiedBeds || occupiedBeds,
       availableBeds: wardStats.availableBeds || availableBeds,
       occupancyRate: wardStats.occupancyRate || occupancyRate,
-      criticalPatients: wardStats.criticalPatients || Math.floor(occupiedBeds * 0.2),
-      stablePatients: wardStats.stablePatients || Math.floor(occupiedBeds * 0.6),
-      improvingPatients: wardStats.improvingPatients || Math.floor(occupiedBeds * 0.2),
+      totalPatients: totalActivePatients,
+      dischargedPatients,
+      criticalPatients: wardStats.criticalPatients || criticalPatients,
+      stablePatients: wardStats.stablePatients || stablePatients,
+      improvingPatients: wardStats.improvingPatients || improvingPatients,
     };
-  }, [processedWards, wardStats]);
+  }, [processedWards, wardStats, actualActiveAdmissions, actualAllAdmissions]);
+
+  // Calculate capacity alerts
+  const capacityAlerts = useMemo(() => {
+    const fullWards = processedWards.filter(ward => ward.status === 'full');
+    const criticalWards = processedWards.filter(ward => ward.status === 'critical');
+    const warningWards = processedWards.filter(ward => ward.status === 'warning');
+    
+    return {
+      fullWards,
+      criticalWards,
+      warningWards,
+      hasAlerts: fullWards.length > 0 || criticalWards.length > 0 || warningWards.length > 0
+    };
+  }, [processedWards]);
+
+  const loading = wardsLoading || admissionsLoading;
 
   if (loading) {
     return (
@@ -207,6 +297,65 @@ const WardOverview = ({ wardStats = {}, showToast }) => {
         </div>
       </div>
 
+      {/* Capacity Alerts */}
+      {capacityAlerts.hasAlerts && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center mb-4">
+            <AlertTriangle className="w-5 h-5 text-orange-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Capacity Alerts</h3>
+          </div>
+          <div className="space-y-3">
+            {capacityAlerts.fullWards.length > 0 && (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
+                <div className="flex items-center">
+                  <Ban className="w-5 h-5 text-red-400 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">
+                      {capacityAlerts.fullWards.length} Ward{capacityAlerts.fullWards.length !== 1 ? 's' : ''} at Full Capacity
+                    </p>
+                    <p className="text-xs text-red-700 mt-1">
+                      No new admissions possible: {capacityAlerts.fullWards.map(w => w.name).join(', ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {capacityAlerts.criticalWards.length > 0 && (
+              <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg">
+                <div className="flex items-center">
+                  <AlertTriangle className="w-5 h-5 text-orange-400 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">
+                      {capacityAlerts.criticalWards.length} Ward{capacityAlerts.criticalWards.length !== 1 ? 's' : ''} Near Capacity
+                    </p>
+                    <p className="text-xs text-orange-700 mt-1">
+                      Limited beds remaining: {capacityAlerts.criticalWards.map(w => `${w.name} (${w.available} bed${w.available !== 1 ? 's' : ''})`).join(', ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {capacityAlerts.warningWards.length > 0 && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                <div className="flex items-center">
+                  <AlertTriangle className="w-5 h-5 text-yellow-400 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">
+                      {capacityAlerts.warningWards.length} Ward{capacityAlerts.warningWards.length !== 1 ? 's' : ''} High Occupancy
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      Monitor capacity: {capacityAlerts.warningWards.map(w => `${w.name} (${w.available} bed${w.available !== 1 ? 's' : ''})`).join(', ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Ward Status */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -240,27 +389,49 @@ const WardOverview = ({ wardStats = {}, showToast }) => {
                       </div>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    ward.occupied / ward.total > 0.8 ? 'bg-red-100 text-red-800' :
-                    ward.occupied / ward.total > 0.6 ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {Math.round((ward.occupied / ward.total) * 100)}%
-                  </span>
+                  <div className="text-right">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      ward.occupancyRate > 0.8 ? 'bg-red-100 text-red-800' :
+                      ward.occupancyRate > 0.6 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {Math.round(ward.occupancyRate * 100)}%
+                    </span>
+                  </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  {/* Capacity Status Message */}
+                  <div className={`flex items-center justify-center p-2 rounded-lg ${ward.statusBg} border-2 ${
+                    ward.status === 'full' ? 'border-red-200' :
+                    ward.status === 'critical' ? 'border-orange-200' :
+                    ward.status === 'warning' ? 'border-yellow-200' :
+                    'border-green-200'
+                  }`}>
+                    {ward.status === 'full' && <Ban className="w-4 h-4 mr-2 text-red-600" />}
+                    {ward.status === 'critical' && <AlertTriangle className="w-4 h-4 mr-2 text-orange-600" />}
+                    {ward.status === 'warning' && <AlertTriangle className="w-4 h-4 mr-2 text-yellow-600" />}
+                    {ward.status === 'available' && <CheckCircle className="w-4 h-4 mr-2 text-green-600" />}
+                    <span className={`text-sm font-medium ${ward.statusColor}`}>
+                      {ward.statusMessage}
+                    </span>
+                  </div>
+                  
                   <div className="flex items-center justify-between text-sm">
                     <span className={ward.config.textColor}>Occupied: {ward.occupied}/{ward.total} beds</span>
-                    <span className="text-gray-500">Available: {ward.total - ward.occupied}</span>
+                    <span className={ward.status === 'full' ? 'text-red-600 font-medium' : 'text-gray-500'}>
+                      Available: {ward.available}
+                    </span>
                   </div>
+                  
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
                       className={`h-3 rounded-full transition-all duration-300 ${
-                        ward.occupied / ward.total > 0.8 ? 'bg-red-500' :
-                        ward.occupied / ward.total > 0.6 ? 'bg-yellow-500' :
+                        ward.occupancyRate >= 1 ? 'bg-red-500' :
+                        ward.occupancyRate > 0.8 ? 'bg-red-400' :
+                        ward.occupancyRate > 0.6 ? 'bg-yellow-500' :
                         'bg-green-500'
                       }`}
-                      style={{ width: `${(ward.occupied / ward.total) * 100}%` }}
+                      style={{ width: `${Math.min(ward.occupancyRate * 100, 100)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -270,24 +441,6 @@ const WardOverview = ({ wardStats = {}, showToast }) => {
         </div>
       </div>
 
-      {/* Patient Status Summary */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Patient Status Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-red-50 rounded-lg">
-            <div className="text-2xl font-bold text-red-600">{calculatedStats.criticalPatients}</div>
-            <div className="text-sm text-red-600">Critical</div>
-          </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{calculatedStats.stablePatients}</div>
-            <div className="text-sm text-green-600">Stable</div>
-          </div>
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{calculatedStats.improvingPatients}</div>
-            <div className="text-sm text-blue-600">Improving</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

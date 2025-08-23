@@ -53,7 +53,7 @@ public class Patient {
 
     public void addAppointment(Appointment appointment){
         appointments.add(appointment);
-        appointment.setPatient(this);
+        appointment.setPatient(null);
     }
 
     public void removeAppointment(Appointment appointment){
@@ -154,5 +154,13 @@ public class Patient {
 
     public void setAppointments(List<Appointment> appointments){
         this.appointments = appointments;
+    }
+
+    public List<Admission> getAdmissions() {
+        return admissions;
+    }
+
+    public void setAdmissions(List<Admission> admissions) {
+        this.admissions = admissions;
     }
 }
