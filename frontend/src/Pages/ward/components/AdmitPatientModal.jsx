@@ -6,7 +6,7 @@ import useAdmissions from '../hooks/useAdmissions';
 
 const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   const { patients, loading, fetchPatients, searchPatients, calculateAge } = usePatients();
-  const { wards } = useWards();
+  const { wards, loading: wardsLoading } = useWards();
   const { loading: isSubmitting, lastError, admitPatient, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions } = useAdmissions();
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,8 +27,10 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   const handleSearchChange = (e) => {
     const term = e.target.value;
     setSearchTerm(term);
-    const filtered = searchPatients(term);
-    setFilteredPatients(filtered);
+    if (searchPatients && typeof searchPatients === 'function') {
+      const filtered = searchPatients(term);
+      setFilteredPatients(filtered);
+    }
   };
 
   // Select a patient and populate form
@@ -62,8 +64,12 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   // Fetch patients and recent admissions, set current date/time when modal opens
   useEffect(() => {
     if (isOpen) {
-      fetchPatients();
-      fetchActiveAdmissions();
+      if (fetchPatients && typeof fetchPatients === 'function') {
+        fetchPatients();
+      }
+      if (fetchActiveAdmissions && typeof fetchActiveAdmissions === 'function') {
+        fetchActiveAdmissions();
+      }
       // Set current date and time when modal opens
       const now = new Date();
       setAdmission(prev => ({
@@ -76,7 +82,11 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
 
   // Update filtered patients when patients data changes
   useEffect(() => {
-    setFilteredPatients(patients);
+    if (patients && Array.isArray(patients)) {
+      setFilteredPatients(patients);
+    } else {
+      setFilteredPatients([]);
+    }
   }, [patients]);
 
   // Close dropdowns when clicking outside
@@ -115,23 +125,42 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
     }
     
     try {
+      // Validate data before submission
+      const patientNationalId = selectedPatient?.nationalId;
+      const wardId = admission.wardId;
+      const bedNumber = admission.bedNumber?.trim();
+      
+      if (!patientNationalId || !wardId || !bedNumber) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
       const admissionData = {
-        patientNationalId: parseInt(selectedPatient.nationalId),
-        wardId: parseInt(admission.wardId),
-        bedNumber: admission.bedNumber.trim()
+        patientNationalId: parseInt(patientNationalId),
+        wardId: parseInt(wardId),
+        bedNumber: bedNumber
       };
       
       console.log('Submitting admission:', admissionData);
+      
+      if (!admitPatient || typeof admitPatient !== 'function') {
+        alert('Admission service is not available. Please try again later.');
+        return;
+      }
       
       const response = await admitPatient(admissionData);
       
       console.log('Admission successful:', response);
       
       // Show success message
-      alert(`✅ Patient admission successful!\nAdmission ID: ${response.admissionId}\nPatient: ${response.patientName}\nWard: ${response.wardName}\nBed: ${response.bedNumber}`);
+      if (response) {
+        alert(`✅ Patient admission successful!\nAdmission ID: ${response.admissionId || 'N/A'}\nPatient: ${response.patientName || selectedPatient.fullName}\nWard: ${response.wardName || 'Selected Ward'}\nBed: ${response.bedNumber || bedNumber}`);
+      } else {
+        alert('✅ Patient admission successful!');
+      }
       
       // Refresh recent admissions in the dashboard
-      if (onAdmissionSuccess) {
+      if (onAdmissionSuccess && typeof onAdmissionSuccess === 'function') {
         onAdmissionSuccess();
       }
       
@@ -139,11 +168,14 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       onClose();
       
     } catch (error) {
+      console.error('Admission error:', error);
       // Error handling is done in the hook, but we can show user-friendly messages here
       if (lastError?.isAlreadyAdmitted) {
         alert(`❌ Admission Failed\n\n${lastError.message}\n\nSuggestions:\n• Check if patient is currently in another ward\n• Discharge patient from current admission first\n• Verify patient identity`);
       } else if (lastError?.message) {
         alert(`❌ Admission Failed\n\n${lastError.message}`);
+      } else {
+        alert('❌ Admission Failed\n\nPlease try again or contact support if the problem persists.');
       }
     }
   };
@@ -191,7 +223,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {loading ? (
                         <div className="p-4 text-center text-gray-500">Loading patients...</div>
-                      ) : filteredPatients.length > 0 ? (
+                      ) : (filteredPatients && filteredPatients.length > 0) ? (
                         filteredPatients.map((patient) => (
                           <div
                             key={patient.nationalId}
@@ -200,11 +232,11 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                           >
                             <div className="flex items-center justify-between">
                               <div>
-                                <div className="font-medium text-gray-900">{patient.fullName}</div>
+                                <div className="font-medium text-gray-900">{patient.fullName || 'Unknown Name'}</div>
                                 <div className="text-sm text-gray-600">
-                                  ID: {patient.nationalId} | {patient.gender} | Age: {calculateAge(patient.dateOfBirth)}
+                                  ID: {patient.nationalId || 'N/A'} | {patient.gender || 'N/A'} | Age: {patient.dateOfBirth && calculateAge ? calculateAge(patient.dateOfBirth) : 'N/A'}
                                 </div>
-                                <div className="text-xs text-gray-500">{patient.contactNumber}</div>
+                                <div className="text-xs text-gray-500">{patient.contactNumber || 'No contact'}</div>
                               </div>
                               <User className="text-blue-500" size={16} />
                             </div>
@@ -316,7 +348,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                     {showWardDropdown && (
                       <div className="absolute z-40 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-hidden">
                         <div className="max-h-40 overflow-y-auto">
-                          {wards && wards.length > 0 ? (
+                          {(wards && Array.isArray(wards) && wards.length > 0) ? (
                             wards.map(ward => {
                               if (!ward || !ward.wardId) return null;
                               
@@ -347,7 +379,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                             })
                           ) : (
                             <div className="px-4 py-3 text-center text-gray-500">
-                              {wards ? 'No wards available' : 'Loading wards...'}
+                              {wardsLoading ? 'Loading wards...' : 'No wards available'}
                             </div>
                           )}
                         </div>
@@ -381,35 +413,35 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
                   <p className="text-blue-600 text-sm">Loading recent admissions...</p>
                 </div>
-              ) : activeAdmissions && activeAdmissions.length > 0 ? (
+              ) : (activeAdmissions && Array.isArray(activeAdmissions) && activeAdmissions.length > 0) ? (
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {activeAdmissions
                     .sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate))
                     .slice(0, 5)
-                    .map((admission) => (
+                    .map((admissionRecord) => (
                       <div
-                        key={admission.admissionId}
+                        key={admissionRecord.admissionId}
                         className="bg-white p-3 rounded-lg border border-blue-100 hover:border-blue-300 transition-colors"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="font-medium text-gray-900">{admission.patientName}</div>
+                            <div className="font-medium text-gray-900">{admissionRecord.patientName || 'Unknown Patient'}</div>
                             <div className="text-sm text-gray-600">
-                              ID: {admission.patientNationalId} | {admission.wardName} - Bed {admission.bedNumber}
+                              ID: {admissionRecord.patientNationalId || 'N/A'} | {admissionRecord.wardName || 'Unknown Ward'} - Bed {admissionRecord.bedNumber || 'N/A'}
                             </div>
                             <div className="text-xs text-blue-600">
-                              Admitted: {new Date(admission.admissionDate).toLocaleDateString('en-US', {
+                              Admitted: {admissionRecord.admissionDate ? new Date(admissionRecord.admissionDate).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit'
-                              })}
+                              }) : 'Unknown Date'}
                             </div>
                           </div>
                           <div className="text-right">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              {admission.status}
+                              {admissionRecord.status || 'Active'}
                             </span>
                           </div>
                         </div>
