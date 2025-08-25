@@ -35,10 +35,10 @@ const PatientList = ({
   // Define ward tabs with their configurations
   const wardTabs = useMemo(() => [
     { id: 'all', name: 'All Patients', icon: Users, color: 'gray' },
-    { id: 'ward1', name: 'Ward1', icon: Home, color: 'blue', keywords: ['Ward 1', 'ward 1', 'Ward1', 'ward1'] },
+    { id: 'ward1', name: 'Ward1', icon: Home, color: 'blue', keywords: ['Ward 1', 'ward 1', 'Ward1', 'ward1', 'General'] },
     { id: 'ward2', name: 'Ward2', icon: Home, color: 'green', keywords: ['Ward 2', 'ward 2', 'Ward2', 'ward2'] },
-    { id: 'icu', name: 'ICU', icon: Heart, color: 'red', keywords: ['ICU', 'icu'] },
-    { id: 'dialysis', name: 'Dialysis', icon: Zap, color: 'purple', keywords: ['Dialysis', 'dialysis'] }
+    { id: 'icu', name: 'ICU', icon: Heart, color: 'red', keywords: ['ICU', 'icu', 'Ward 3', 'ward 3', 'Ward3', 'ward3', 'Intensive', 'intensive'] },
+    { id: 'dialysis', name: 'Dialysis', icon: Zap, color: 'purple', keywords: ['Dialysis', 'dialysis', 'Ward 4', 'ward 4', 'Ward4', 'ward4'] }
   ], []);
 
   // Filter and organize patients
