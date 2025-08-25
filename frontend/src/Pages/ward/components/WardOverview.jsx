@@ -26,7 +26,7 @@ const WardOverview = ({ wardStats = {}, showToast, activeAdmissions = [], allAdm
     }
   }, [activeAdmissions.length, allAdmissions.length, fetchActiveAdmissions, fetchAllAdmissions]);
 
-  const wardTypeConfig = {
+  const wardTypeConfig = useMemo(() => ({
     'General': {
       color: 'blue',
       bgColor: 'bg-blue-50',
@@ -72,7 +72,7 @@ const WardOverview = ({ wardStats = {}, showToast, activeAdmissions = [], allAdm
       icon: Stethoscope,
       description: 'Surgical Ward'
     }
-  };
+  }), []);
 
   const processedWards = useMemo(() => {
     return wards.map(ward => {
@@ -124,7 +124,7 @@ const WardOverview = ({ wardStats = {}, showToast, activeAdmissions = [], allAdm
         config: wardTypeConfig[ward.wardType] || wardTypeConfig['General']
       };
     });
-  }, [wards, actualActiveAdmissions]);
+  }, [wards, actualActiveAdmissions, wardTypeConfig]);
 
   const filteredWards = useMemo(() => {
     if (selectedWardType === 'All') return processedWards;
