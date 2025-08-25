@@ -15,7 +15,8 @@ import {
   Home,
   Heart,
   Zap,
-  Stethoscope
+  Stethoscope,
+  MoveRight
 } from 'lucide-react';
 
 const PatientList = ({
@@ -32,13 +33,13 @@ const PatientList = ({
   const [activeWardTab, setActiveWardTab] = useState('all');
 
   // Define ward tabs with their configurations
-  const wardTabs = [
+  const wardTabs = useMemo(() => [
     { id: 'all', name: 'All Patients', icon: Users, color: 'gray' },
-    { id: 'general', name: 'General Ward', icon: Home, color: 'blue', keywords: ['General', 'Ward 1'] },
-    { id: 'icu', name: 'ICU', icon: Heart, color: 'red', keywords: ['ICU', 'Ward 2', 'Intensive'] },
-    { id: 'nephrology', name: 'Nephrology', icon: Stethoscope, color: 'green', keywords: ['Nephrology', 'Ward 3', 'Kidney'] },
-    { id: 'dialysis', name: 'Dialysis', icon: Zap, color: 'purple', keywords: ['Dialysis', 'Ward 4'] }
-  ];
+    { id: 'ward1', name: 'Ward1', icon: Home, color: 'blue', keywords: ['Ward 1', 'ward 1', 'Ward1', 'ward1'] },
+    { id: 'ward2', name: 'Ward2', icon: Home, color: 'green', keywords: ['Ward 2', 'ward 2', 'Ward2', 'ward2'] },
+    { id: 'icu', name: 'ICU', icon: Heart, color: 'red', keywords: ['ICU', 'icu'] },
+    { id: 'dialysis', name: 'Dialysis', icon: Zap, color: 'purple', keywords: ['Dialysis', 'dialysis'] }
+  ], []);
 
   // Filter and organize patients
   const filteredPatients = useMemo(() => {
@@ -75,7 +76,7 @@ const PatientList = ({
     }
 
     return filtered;
-  }, [patients, searchTerm, filterBy, activeWardTab]);
+  }, [patients, searchTerm, filterBy, activeWardTab, wardTabs]);
 
   // Calculate tab statistics
   const getTabStats = (tabId) => {
@@ -111,6 +112,7 @@ const PatientList = ({
       case 'critical': return 'text-red-600 bg-red-100';
       case 'stable': return 'text-green-600 bg-green-100';
       case 'improving': return 'text-blue-600 bg-blue-100';
+      case 'transferred': return 'text-orange-600 bg-orange-100';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
@@ -122,6 +124,7 @@ const PatientList = ({
       case 'critical': return <XCircle size={14} />;
       case 'stable': return <CheckCircle size={14} />;
       case 'improving': return <Activity size={14} />;
+      case 'transferred': return <MoveRight size={14} />;
       default: return <Clock size={14} />;
     }
   };
@@ -353,10 +356,17 @@ const PatientList = ({
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
-                          {getStatusIcon(patient.status)}
-                          <span className="ml-2 capitalize">{patient.status}</span>
-                        </span>
+                        <div>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
+                            {getStatusIcon(patient.status)}
+                            <span className="ml-2 capitalize">{patient.status}</span>
+                          </span>
+                          {patient.status?.toLowerCase() === 'transferred' && patient.transferredTo && (
+                            <div className="text-xs text-gray-600 mt-1 font-medium">
+                              Transferred to: {patient.transferredTo}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">

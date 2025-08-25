@@ -35,6 +35,34 @@ const WardDashboard = () => {
   // Use the admissions hook to get all admissions (both active and discharged)
   const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions, dischargePatient, loading } = useAdmissions();
   
+  // State for handling local updates
+  const [localAllAdmissions, setLocalAllAdmissions] = useState([]);
+  const [localActiveAdmissions, setLocalActiveAdmissions] = useState([]);
+  
+  // Enhanced patient data with persistent transfer information
+  const enhanceWithTransferData = (admissions) => {
+    const transferData = JSON.parse(localStorage.getItem('patientTransfers') || '{}');
+    
+    return admissions.map(admission => {
+      const transferInfo = transferData[admission.admissionId];
+      if (transferInfo && admission.status?.toLowerCase() === 'transferred') {
+        return {
+          ...admission,
+          transferredTo: transferInfo.toWardName
+        };
+      }
+      return admission;
+    });
+  };
+  
+  // Use local state if available, otherwise use hook data with transfer enhancement
+  const displayAllAdmissions = localAllAdmissions.length > 0 
+    ? localAllAdmissions 
+    : enhanceWithTransferData(allAdmissions);
+  const displayActiveAdmissions = localActiveAdmissions.length > 0 
+    ? localActiveAdmissions 
+    : enhanceWithTransferData(activeAdmissions);
+  
   // Use the patients hook to get patient details
   const { selectedPatient: patientDetails, fetchingPatient, getPatientByNationalId, setSelectedPatient: setPatientDetails } = usePatients();
 
@@ -51,11 +79,41 @@ const WardDashboard = () => {
 
   // Handle transfer success
   const handleTransferSuccess = (transferResult) => {
-    // Refresh admissions data
-    fetchAllAdmissions();
-    fetchActiveAdmissions();
+    // Store transfer information persistently
+    if (transferResult && selectedPatient) {
+      const transferData = JSON.parse(localStorage.getItem('patientTransfers') || '{}');
+      transferData[selectedPatient.admissionId] = {
+        toWardName: transferResult.toWardName,
+        transferDate: new Date().toISOString()
+      };
+      localStorage.setItem('patientTransfers', JSON.stringify(transferData));
+
+      // Update the local patient data with transfer destination
+      const updatedData = (prevAdmissions) => 
+        prevAdmissions.map(admission => 
+          admission.admissionId === selectedPatient.admissionId
+            ? {
+                ...admission,
+                status: 'TRANSFERRED',
+                transferredTo: transferResult.toWardName
+              }
+            : admission
+        );
+      
+      setLocalAllAdmissions(updatedData(allAdmissions));
+      setLocalActiveAdmissions(updatedData(activeAdmissions));
+    }
     
-    // Show success message is already handled by the hook
+    // Refresh admissions data after a short delay to get updated data from backend
+    setTimeout(() => {
+      fetchAllAdmissions();
+      fetchActiveAdmissions();
+      // Clear local state after backend refresh - transfer data will persist via localStorage
+      setLocalAllAdmissions([]);
+      setLocalActiveAdmissions([]);
+    }, 2000);
+    
+    console.log('Transfer completed:', transferResult);
   };
 
   // Sample ward data
@@ -70,7 +128,7 @@ const WardDashboard = () => {
   // Calculate statistics
   const wardStats = useMemo(() => {
     const totalBeds = wards.reduce((sum, ward) => sum + ward.total, 0);
-    const occupiedBeds = activeAdmissions.length;
+    const occupiedBeds = displayActiveAdmissions.length;
     const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
     return {
@@ -78,12 +136,12 @@ const WardDashboard = () => {
       occupiedBeds,
       availableBeds: totalBeds - occupiedBeds,
       occupancyRate,
-      totalPatients: activeAdmissions.length,
+      totalPatients: displayActiveAdmissions.length,
       criticalPatients: 0, // Will be updated when we have patient status data
       stablePatients: 0,
       improvingPatients: 0
     };
-  }, [wards, activeAdmissions]);
+  }, [wards, displayActiveAdmissions]);
 
 
   const tabs = [
@@ -143,14 +201,14 @@ const WardDashboard = () => {
         return <WardOverview 
           wardStats={wardStats} 
           wards={wards} 
-          activeAdmissions={activeAdmissions}
-          allAdmissions={allAdmissions}
+          activeAdmissions={displayActiveAdmissions}
+          allAdmissions={displayAllAdmissions}
           showToast={null} 
         />;
       case 'patients':
         return (
           <PatientList
-            patients={allAdmissions}
+            patients={displayAllAdmissions}
             loading={fetchingAdmissions}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -222,9 +280,9 @@ const WardDashboard = () => {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
                   <p className="text-gray-600 text-sm">Loading recent admissions...</p>
                 </div>
-              ) : activeAdmissions && activeAdmissions.length > 0 ? (
+              ) : displayActiveAdmissions && displayActiveAdmissions.length > 0 ? (
                 <div className="space-y-3">
-                  {activeAdmissions
+                  {displayActiveAdmissions
                     .sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate))
                     .slice(0, 3)
                     .map((admission) => {

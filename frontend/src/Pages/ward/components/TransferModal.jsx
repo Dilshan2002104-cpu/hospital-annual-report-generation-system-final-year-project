@@ -54,7 +54,7 @@ const TransferModal = ({ isOpen, onClose, patient, showToast, onTransferSuccess 
       }
       
       handleClose();
-    } catch (error) {
+    } catch {
       // Error already handled by the hook
     }
   };

@@ -18,7 +18,6 @@ import {
   Users
 } from 'lucide-react';
 
-// Import modal components
 import TransferDetailsModal from './TransferDetailsModal';
 import NewTransferModal from './NewTransferModal';
 
