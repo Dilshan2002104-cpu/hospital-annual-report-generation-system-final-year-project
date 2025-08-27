@@ -3,7 +3,6 @@ package com.HMS.HMS.controller;
 import com.HMS.HMS.DTO.transferDTO.TransferRequestDTO;
 import com.HMS.HMS.DTO.transferDTO.TransferResponseDTO;
 import com.HMS.HMS.service.TransferService;
-import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -51,5 +50,4 @@ public class TransferController {
         List<TransferResponseDTO> transfers = transferService.getAllTransfers();
         return ResponseEntity.ok(transfers);
     }
-
 }

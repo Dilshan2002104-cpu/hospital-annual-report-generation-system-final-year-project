@@ -4,8 +4,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class PatientResponseDTO {
-    private long nationalId;
-    private String fullName;
+    private Long nationalId;
+    private String firstName;
+    private String lastName;
     private String address;
     private LocalDate dateOfBirth;
     private String contactNumber;
@@ -16,11 +17,12 @@ public class PatientResponseDTO {
     public PatientResponseDTO() {
     }
 
-    public PatientResponseDTO(Long nationalId, String fullName, String address,
+    public PatientResponseDTO(Long nationalId, String firstName, String lastName, String address,
                               LocalDate dateOfBirth, String contactNumber, String emergencyContactNumber,
                               String gender, LocalDateTime registrationDate) {
         this.nationalId = nationalId;
-        this.fullName = fullName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.address = address;
         this.dateOfBirth = dateOfBirth;
         this.contactNumber = contactNumber;
@@ -29,6 +31,10 @@ public class PatientResponseDTO {
         this.registrationDate = registrationDate;
     }
 
+    // Helper method to get full name
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
 
     public Long getNationalId() {
         return nationalId;
@@ -38,12 +44,20 @@ public class PatientResponseDTO {
         this.nationalId = nationalId;
     }
 
-    public String getFullName() {
-        return fullName;
+    public String getFirstName() {
+        return firstName;
     }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public String getAddress() {

@@ -27,7 +27,8 @@ public class PatientService {
         Patient patient = new Patient();
 
         patient.setNationalId(dto.getNationalId());
-        patient.setFullName(dto.getFullName());
+        patient.setFirstName(dto.getFirstName());
+        patient.setLastName(dto.getLastName());
         patient.setAddress(dto.getAddress());
         patient.setDateOfBirth(dto.getDateOfBirth());
         patient.setContactNumber(dto.getContactNumber());
@@ -53,6 +54,27 @@ public class PatientService {
         }
     }
 
+    public List<PatientResponseDTO> searchPatientsByName(String name){
+        List<Patient> patients = patientRepository.findByFullNameContainingIgnoreCase(name);
+        return patients.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<PatientResponseDTO> searchPatientsByFirstName(String firstName){
+        List<Patient> patients = patientRepository.findByFirstNameContainingIgnoreCase(firstName);
+        return patients.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<PatientResponseDTO> searchPatientsByLastName(String lastName){
+        List<Patient> patients = patientRepository.findByLastNameContainingIgnoreCase(lastName);
+        return patients.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     public void updatePatient(Long nationalId, PatientRequestDTO dto){
         Patient existingPatient = patientRepository.findByNationalId(nationalId);
         if (existingPatient == null){
@@ -68,7 +90,8 @@ public class PatientService {
 
         // Update patient fields
         existingPatient.setNationalId(dto.getNationalId());
-        existingPatient.setFullName(dto.getFullName());
+        existingPatient.setFirstName(dto.getFirstName());
+        existingPatient.setLastName(dto.getLastName());
         existingPatient.setAddress(dto.getAddress());
         existingPatient.setDateOfBirth(dto.getDateOfBirth());
         existingPatient.setContactNumber(dto.getContactNumber());
@@ -89,7 +112,8 @@ public class PatientService {
     private PatientResponseDTO convertToResponseDTO(Patient patient){
         return new PatientResponseDTO(
                 patient.getNationalId(),
-                patient.getFullName(),
+                patient.getFirstName(),
+                patient.getLastName(),
                 patient.getAddress(),
                 patient.getDateOfBirth(),
                 patient.getContactNumber(),

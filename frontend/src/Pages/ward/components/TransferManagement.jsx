@@ -416,7 +416,7 @@ const TransferManagement = ({ showToast }) => {
 
                 {/* Transfers Grid */}
                 <div className="grid grid-cols-1 gap-4">
-                  {filteredAndSortedTransfers.map((transfer, index) => {
+                  {filteredAndSortedTransfers.map((transfer) => {
                     const { date, time } = formatDateTime(transfer.transferDate);
                     
                     return (

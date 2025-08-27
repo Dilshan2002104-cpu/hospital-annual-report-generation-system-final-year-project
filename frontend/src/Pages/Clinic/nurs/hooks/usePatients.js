@@ -83,12 +83,21 @@ const usePatients = (showToast = null) => {
         return false;
       }
 
+      // Clear any previous errors on successful registration
+      setLastError(null);
       await fetchPatients();
       return true;
       
     } catch (error) {
       console.error('Error registering patient:', error);
-      // Components will handle their own error messaging
+      
+      // Set error message for component to use
+      if (error.response && error.response.data && error.response.data.message) {
+        setLastError(error.response.data.message);
+      } else {
+        setLastError('An error occurred while registering the patient.');
+      }
+      
       return false;
     } finally {
       setSubmitting(false);

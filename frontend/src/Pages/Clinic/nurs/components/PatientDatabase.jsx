@@ -34,7 +34,8 @@ const PatientDatabase = ({
   
   const [newPatient, setNewPatient] = useState({
     nationalId: '',
-    fullName: '',
+    firstName: '',
+    lastName: '',
     address: '',
     dateOfBirth: '',
     contactNumber: '',
@@ -44,11 +45,12 @@ const PatientDatabase = ({
 
   // Filter patients based on search
   const filteredPatients = useMemo(() => {
-    return patients.filter(patient =>
-      patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.nationalId.includes(searchTerm) ||
-      patient.contactNumber.includes(searchTerm)
-    );
+    return patients.filter(patient => {
+      const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
+      return fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.nationalId.includes(searchTerm) ||
+        patient.contactNumber.includes(searchTerm);
+    });
   }, [patients, searchTerm]);
 
   const calculateAge = (dateOfBirth) => {
@@ -75,12 +77,13 @@ const PatientDatabase = ({
       addToast({
         type: 'success',
         title: 'Registration Successful',
-        message: `${newPatient.fullName} has been successfully registered.`,
+        message: `${newPatient.firstName} ${newPatient.lastName} has been successfully registered.`,
       });
       
       setNewPatient({
         nationalId: '',
-        fullName: '',
+        firstName: '',
+        lastName: '',
         address: '',
         dateOfBirth: '',
         contactNumber: '',
@@ -114,7 +117,7 @@ const PatientDatabase = ({
       addToast({
         type: 'success',
         title: 'Update Successful',
-        message: `${editingPatient.fullName} has been successfully updated.`,
+        message: `${editingPatient.firstName} ${editingPatient.lastName} has been successfully updated.`,
       });
       
       setShowEditForm(false);
@@ -135,12 +138,13 @@ const PatientDatabase = ({
 
   const confirmDeletePatient = async () => {
     if (patientToDelete) {
-      const success = await onDeletePatient(patientToDelete.nationalId, patientToDelete.fullName);
+      const fullName = `${patientToDelete.firstName} ${patientToDelete.lastName}`;
+      const success = await onDeletePatient(patientToDelete.nationalId, fullName);
       if (success) {
         addToast({
           type: 'success',
           title: 'Delete Successful',
-          message: `${patientToDelete.fullName} has been successfully deleted.`,
+          message: `${fullName} has been successfully deleted.`,
         });
       } else {
         addToast({
@@ -158,7 +162,7 @@ const PatientDatabase = ({
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Patient Registry</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Patient Database</h2>
             <p className="text-gray-600">Comprehensive patient information and medical records</p>
           </div>
           <div className="flex items-center space-x-4">
@@ -248,11 +252,11 @@ const PatientDatabase = ({
                       <div className="flex items-center">
                         <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
                           <span className="text-white font-bold text-sm">
-                            {patient.fullName.split(' ').map(n => n[0]).join('')}
+                            {`${patient.firstName?.[0] || ''}${patient.lastName?.[0] || ''}`}
                           </span>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-bold text-gray-900">{patient.fullName}</div>
+                          <div className="text-sm font-bold text-gray-900">{`${patient.firstName} ${patient.lastName}`}</div>
                           <div className="text-xs text-gray-500 flex items-center mt-1">
                             <User size={12} className="mr-1" />
                             Patient ID: {patient.id}
@@ -359,13 +363,27 @@ const PatientDatabase = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                     <input
                       type="text"
-                      value={newPatient.fullName}
-                      onChange={(e) => setNewPatient({...newPatient, fullName: e.target.value})}
+                      value={newPatient.firstName}
+                      onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Full Name"
+                      placeholder="First Name"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={newPatient.lastName}
+                      onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Last Name"
                       required
                     />
                   </div>
@@ -494,11 +512,11 @@ const PatientDatabase = ({
                 <div className="flex items-center mb-2">
                   <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mr-4">
                     <span className="text-white font-bold text-xl">
-                      {selectedPatient.fullName.split(' ').map(n => n[0]).join('')}
+                      {`${selectedPatient.firstName?.[0] || ''}${selectedPatient.lastName?.[0] || ''}`}
                     </span>
                   </div>
                   <div>
-                    <h4 className="text-2xl font-bold text-gray-900">{selectedPatient.fullName}</h4>
+                    <h4 className="text-2xl font-bold text-gray-900">{`${selectedPatient.firstName} ${selectedPatient.lastName}`}</h4>
                     <p className="text-gray-500 text-lg">Patient ID: {selectedPatient.id}</p>
                   </div>
                 </div>
@@ -680,11 +698,21 @@ const PatientDatabase = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                     <input
                       type="text"
-                      value={editingPatient.fullName}
-                      onChange={(e) => setEditingPatient({...editingPatient, fullName: e.target.value})}
+                      value={editingPatient.firstName}
+                      onChange={(e) => setEditingPatient({...editingPatient, firstName: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={editingPatient.lastName}
+                      onChange={(e) => setEditingPatient({...editingPatient, lastName: e.target.value})}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                       required
                     />
@@ -835,13 +863,24 @@ const PatientDatabase = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                   <input
                     type="text"
-                    value={newPatient.fullName}
-                    onChange={(e) => setNewPatient({...newPatient, fullName: e.target.value})}
+                    value={newPatient.firstName}
+                    onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Full Name"
+                    placeholder="First Name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    value={newPatient.lastName}
+                    onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Last Name"
                     required
                   />
                 </div>
@@ -970,11 +1009,11 @@ const PatientDatabase = ({
               <div className="flex items-center mb-2">
                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg mr-3">
                   <span className="text-white font-bold">
-                    {selectedPatient.fullName.split(' ').map(n => n[0]).join('')}
+                    {`${selectedPatient.firstName?.[0] || ''}${selectedPatient.lastName?.[0] || ''}`}
                   </span>
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900">{selectedPatient.fullName}</h4>
+                  <h4 className="text-xl font-bold text-gray-900">{`${selectedPatient.firstName} ${selectedPatient.lastName}`}</h4>
                   <p className="text-gray-500">Patient ID: {selectedPatient.id}</p>
                 </div>
               </div>
@@ -1125,11 +1164,21 @@ const PatientDatabase = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                   <input
                     type="text"
-                    value={editingPatient.fullName}
-                    onChange={(e) => setEditingPatient({...editingPatient, fullName: e.target.value})}
+                    value={editingPatient.firstName}
+                    onChange={(e) => setEditingPatient({...editingPatient, firstName: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={editingPatient.lastName}
+                    onChange={(e) => setEditingPatient({...editingPatient, lastName: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-sm"
                     required
                   />
@@ -1254,7 +1303,7 @@ const PatientDatabase = ({
         title="Delete Patient"
         message={
           patientToDelete ? 
-          `Are you sure you want to delete patient "${patientToDelete.fullName}"? This action cannot be undone and will permanently remove all patient data from the system.` :
+          `Are you sure you want to delete patient "${patientToDelete.firstName} ${patientToDelete.lastName}"? This action cannot be undone and will permanently remove all patient data from the system.` :
           ""
         }
         confirmText="Delete Patient"

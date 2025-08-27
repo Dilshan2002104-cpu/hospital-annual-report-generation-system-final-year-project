@@ -8,7 +8,8 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
   const [errors, setErrors] = useState({});
   const [newPatient, setNewPatient] = useState({
     nationalId: '',
-    fullName: '',
+    firstName: '',
+    lastName: '',
     address: '',
     dateOfBirth: '',
     contactNumber: '',
@@ -37,9 +38,14 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
       newErrors.nationalId = 'Invalid National ID format';
     }
 
-    // Full name validation
-    if (!newPatient.fullName || newPatient.fullName.trim().length < 2) {
-      newErrors.fullName = 'Full name must be at least 2 characters';
+    // First name validation
+    if (!newPatient.firstName || newPatient.firstName.trim().length < 2) {
+      newErrors.firstName = 'First name must be at least 2 characters';
+    }
+
+    // Last name validation
+    if (!newPatient.lastName || newPatient.lastName.trim().length < 2) {
+      newErrors.lastName = 'Last name must be at least 2 characters';
     }
 
     // Phone number validation
@@ -100,12 +106,13 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
         addToast({
           type: 'success',
           title: 'Registration Successful',
-          message: `${newPatient.fullName} has been successfully registered.`,
+          message: `${newPatient.firstName} ${newPatient.lastName} has been successfully registered.`,
         });
         
         setNewPatient({
           nationalId: '',
-          fullName: '',
+          firstName: '',
+          lastName: '',
           address: '',
           dateOfBirth: '',
           contactNumber: '',
@@ -121,7 +128,7 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
           message: lastError || 'Failed to register patient. Please try again.',
         });
       }
-    } catch (error) {
+    } catch {
       addToast({
         type: 'error',
         title: 'System Error',
@@ -200,23 +207,47 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                   <input
                     type="text"
-                    value={newPatient.fullName}
-                    onChange={(e) => setNewPatient({...newPatient, fullName: e.target.value})}
+                    value={newPatient.firstName}
+                    onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                      errors.fullName 
+                      errors.firstName 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
-                    placeholder="Enter full name"
+                    placeholder="Enter first name"
                     required
                   />
-                  {errors.fullName && (
+                  {errors.firstName && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertTriangle size={14} className="mr-1" />
-                      {errors.fullName}
+                      {errors.firstName}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={newPatient.lastName}
+                    onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                      errors.lastName 
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                    placeholder="Enter last name"
+                    required
+                  />
+                  {errors.lastName && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertTriangle size={14} className="mr-1" />
+                      {errors.lastName}
                     </p>
                   )}
                 </div>

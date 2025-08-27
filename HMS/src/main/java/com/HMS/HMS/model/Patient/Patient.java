@@ -18,7 +18,8 @@ public class Patient {
     @Column(unique = true, nullable = false)
     private Long nationalId;
 
-    private String fullName;
+    private String firstName;
+    private String lastName;
     private String address;
     private LocalDate dateOfBirth;
     private String contactNumber;
@@ -40,10 +41,11 @@ public class Patient {
     public Patient() {
     }
 
-    public Patient(Long nationalId, String fullName, String address, LocalDate dateOfBirth,
+    public Patient(Long nationalId, String firstName, String lastName, String address, LocalDate dateOfBirth,
                    String contactNumber, String emergencyContactNumber, String gender) {
         this.nationalId = nationalId;
-        this.fullName = fullName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.address = address;
         this.dateOfBirth = dateOfBirth;
         this.contactNumber = contactNumber;
@@ -53,7 +55,7 @@ public class Patient {
 
     public void addAppointment(Appointment appointment){
         appointments.add(appointment);
-        appointment.setPatient(null);
+        appointment.setPatient(this);
     }
 
     public void removeAppointment(Appointment appointment){
@@ -67,8 +69,8 @@ public class Patient {
     }
 
     public void removeAdmission(Admission admission){
-        admissions.add(admission);
-        admission.setPatient(this);
+        admissions.remove(admission);
+        admission.setPatient(null);
     }
 
     public boolean isCurrentlyAdmitted(){
@@ -83,6 +85,11 @@ public class Patient {
                 .orElse(null);
     }
 
+    // Helper method to get full name
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
+
     // Getters and Setters
     public Long getNationalId() {
         return nationalId;
@@ -92,12 +99,20 @@ public class Patient {
         this.nationalId = nationalId;
     }
 
-    public String getFullName() {
-        return fullName;
+    public String getFirstName() {
+        return firstName;
     }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public String getAddress() {
