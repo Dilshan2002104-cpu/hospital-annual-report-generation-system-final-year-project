@@ -61,12 +61,13 @@ public class SecurityConfig {
 //                        .requestMatchers("/api/patients/all").hasRole("WARD_NURSE")
 
                         // Patient endpoints - all require CLINIC_NURSE role
+                                .requestMatchers("/api/transfers/**").permitAll()
+                                .requestMatchers("/api/reports/admissions/**").permitAll()
                         .requestMatchers("/api/patients/**").hasAnyRole("CLINIC_NURSE","WARD_NURSE")
                         .requestMatchers("/api/doctors/**").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/appointments/**").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/admissions/**").hasRole("WARD_NURSE")
                         .requestMatchers("/api/wards/getAll").hasRole("WARD_NURSE")
-                                .requestMatchers("/api/transfers/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

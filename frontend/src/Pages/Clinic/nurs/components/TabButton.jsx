@@ -9,9 +9,11 @@ const TabButton = ({ active, onClick, icon: Icon, children }) => (
         : 'text-gray-600 hover:text-blue-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:shadow-md'
     }`}
   >
-    <Icon size={20} className={`transition-transform duration-300 ${
-      active ? 'rotate-0' : 'group-hover:scale-110'
-    }`} />
+    {Icon && (
+      <Icon size={20} className={`transition-transform duration-300 ${
+        active ? 'rotate-0' : 'group-hover:scale-110'
+      }`} />
+    )}
     <span className="text-sm font-medium">{children}</span>
     {active && (
       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1 w-2 h-2 bg-white rounded-full opacity-75"></div>

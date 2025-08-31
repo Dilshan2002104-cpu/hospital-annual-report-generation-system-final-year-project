@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color = "blue", trend }) => {
+const StatCard = ({ title, value, subtitle, color = "blue", trend }) => {
   const colorClasses = {
     blue: "bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 border-blue-200 text-blue-800 shadow-blue-100/50",
     green: "bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 border-emerald-200 text-emerald-800 shadow-emerald-100/50",

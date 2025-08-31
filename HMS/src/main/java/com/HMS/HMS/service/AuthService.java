@@ -61,7 +61,7 @@ public class AuthService {
                 .collect(Collectors.toList());
     }
 
-    
+
     public void updateUser(String empId, UpdateUserRequestDTO updateRequest){
         User user = userRepository.findByEmpId(empId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));

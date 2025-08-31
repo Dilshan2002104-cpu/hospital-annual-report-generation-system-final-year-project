@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports
+                        http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="monthly_admissions_by_ward" pageWidth="595" pageHeight="842" columnWidth="515"
+              leftMargin="40" rightMargin="40" topMargin="40" bottomMargin="40" uuid="a0fa1b20-3e77-4e6a-9d9a-aaa111222333">
+
+    <!-- Parameters -->
+    <parameter name="reportTitle" class="java.lang.String"/>
+    <parameter name="reportMonth" class="java.lang.String"/>
+
+    <!-- Fields (must match DTO property names) -->
+    <field name="wardId" class="java.lang.Long"/>
+    <field name="wardName" class="java.lang.String"/>
+    <field name="month" class="java.lang.String"/>
+    <field name="totalAdmissions" class="java.lang.Long"/>
+
+    <title>
+        <band height="50">
+            <staticText>
+                <reportElement x="0" y="0" width="515" height="20"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="16" isBold="true"/>
+                </textElement>
+                <text><![CDATA[$P{reportTitle}]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="25" width="515" height="20"/>
+                <textElement textAlignment="Center">
+                    <font size="12"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Month: " + $P{reportMonth}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <columnHeader>
+        <band height="20">
+            <staticText><reportElement x="0"   y="0" width="200" height="20"/><textElement><font isBold="true"/></textElement><text>Ward</text></staticText>
+            <staticText><reportElement x="200" y="0" width="120" height="20"/><textElement><font isBold="true"/></textElement><text>Month</text></staticText>
+            <staticText><reportElement x="320" y="0" width="80"  height="20"/><textElement><font isBold="true"/></textElement><text>Total</text></staticText>
+        </band>
+    </columnHeader>
+
+    <detail>
+        <band height="18">
+            <textField><reportElement x="0"   y="0" width="200" height="18"/><textFieldExpression><![CDATA[$F{wardName}]]></textFieldExpression></textField>
+            <textField><reportElement x="200" y="0" width="120" height="18"/><textFieldExpression><![CDATA[$F{month}]]></textFieldExpression></textField>
+            <textField><reportElement x="320" y="0" width="80"  height="18"/><textFieldExpression><![CDATA[$F{totalAdmissions}]]></textFieldExpression></textField>
+        </band>
+    </detail>
+
+    <summary>
+        <band height="20">
+            <staticText>
+                <reportElement x="0" y="0" width="400" height="20"/>
+                <textElement><font isBold="true"/></textElement>
+                <text>End of report</text>
+            </staticText>
+        </band>
+    </summary>
+</jasperReport>

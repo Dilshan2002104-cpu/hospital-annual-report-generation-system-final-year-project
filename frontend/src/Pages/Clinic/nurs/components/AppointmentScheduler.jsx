@@ -136,16 +136,6 @@ const AppointmentScheduler = ({ patients }) => {
     });
   };
 
-  const specializations = [
-    'Nephrology',
-    'Dialysis Specialist',
-    'Transplant Surgery',
-    'Internal Medicine',
-    'Cardiology',
-    'Endocrinology',
-    'Urology'
-  ];
-
   const handleAddDoctor = async (e) => {
     e.preventDefault();
     

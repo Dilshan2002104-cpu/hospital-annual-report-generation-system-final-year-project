@@ -17,6 +17,7 @@ import PatientDetailsModal from './components/PatientDetailsModal';
 import ConfirmDischargeDialog from './components/ConfirmDischargeDialog';
 import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
+import PrescriptionsManagement from './components/PrescriptionsManagement';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 import useAdmissions from './hooks/useAdmissions';
 import usePatients from './hooks/usePatients';
@@ -317,7 +318,7 @@ const WardDashboard = () => {
       case 'beds':
         return <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">Bed Management (To be implemented)</div>;
       case 'prescriptions':
-        return <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">Prescriptions Management (To be implemented)</div>;
+        return <PrescriptionsManagement activeAdmissions={displayActiveAdmissions} />;
       case 'transfers':
         return <TransferManagement />;
       default:

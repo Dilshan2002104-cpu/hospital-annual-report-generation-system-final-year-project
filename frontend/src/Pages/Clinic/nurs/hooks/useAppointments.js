@@ -150,13 +150,13 @@ const useAppointments = (showToast = null) => {
         return false;
       }
 
-      const response = await axios.put(`http://localhost:8080/api/appointments/update/${appointmentId}`, appointmentData, {
+      await axios.put(`http://localhost:8080/api/appointments/update/${appointmentId}`, appointmentData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
         }
       });
-
+ 
       await fetchAppointments();
       
       if (showToast) {
@@ -205,7 +205,7 @@ const useAppointments = (showToast = null) => {
         return false;
       }
 
-      const response = await axios.delete(`http://localhost:8080/api/appointments/delete/${appointmentId}`, {
+      await axios.delete(`http://localhost:8080/api/appointments/delete/${appointmentId}`, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
