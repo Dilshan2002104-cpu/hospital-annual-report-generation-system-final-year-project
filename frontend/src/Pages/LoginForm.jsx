@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -11,18 +11,6 @@ export default function LoginForm() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [successNotification, setSuccessNotification] = useState(null);
-
-  // Auto-hide success notification and navigate
-  useEffect(() => {
-    if (successNotification) {
-      const timer = setTimeout(() => {
-        setSuccessNotification(null);
-        navigateBasedOnRole(successNotification.role);
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [successNotification]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -56,7 +44,7 @@ export default function LoginForm() {
   };
 
   // Role-based navigation function
-  const navigateBasedOnRole = (role) => {
+  const navigateBasedOnRole = useCallback((role) => {
     switch (role) {
       case 'CLINIC_NURSE':
         navigate('/ClinicManagement');
@@ -64,20 +52,36 @@ export default function LoginForm() {
       case 'WARD_NURSE':
         navigate('/wardManagement');
         break;
+      case 'DIALYSIS_NURSE':
+      case 'DIALYSIS_DOCTOR':
+        navigate('/dialysisManagement');
+        break;
       case 'DOCTOR':
         navigate('/DoctorDashboard');
         break;
       case 'PHARMACIST':
-        navigate('/PharmacyManagement');
+        navigate('/pharmacyManagement');
         break;
       case 'LAB_TECHNICIAN':
         navigate('/LabManagement');
         break;
       default:
-        navigate('/Dashboard'); // Default dashboard
+        navigate('/dialysisManagement'); // Default dashboard
         break;
     }
-  };
+  }, [navigate]);
+
+  // Auto-hide success notification and navigate
+  useEffect(() => {
+    if (successNotification) {
+      const timer = setTimeout(() => {
+        setSuccessNotification(null);
+        navigateBasedOnRole(successNotification.role);
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [successNotification, navigateBasedOnRole]);
 
   const handleSubmit = async () => {
     if (!validateForm()) {
