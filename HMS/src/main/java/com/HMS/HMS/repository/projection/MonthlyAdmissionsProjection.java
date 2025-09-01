@@ -1,8 +1,9 @@
 package com.HMS.HMS.repository.projection;
 
 public interface MonthlyAdmissionsProjection {
-    Long getWardId();
+    String getMonth();           // "YYYY-MM"
+    Long   getWardId();
     String getWardName();
-    String getMonth();
-    Long getTotalAdmissions();
+    String getWardType();
+    Long   getTotalAdmissions();
 }
