@@ -66,7 +66,7 @@ export default function LoginForm() {
         navigate('/LabManagement');
         break;
       default:
-        navigate('/dialysisManagement'); // Default dashboard
+        navigate('/dialysisManagement');
         break;
     }
   }, [navigate]);

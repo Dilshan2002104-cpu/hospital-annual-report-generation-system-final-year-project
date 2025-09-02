@@ -43,9 +43,9 @@ export default function PharmacyDashboard() {
     inventory,
     loading: inventoryLoading,
     updateStock,
-    addMedication,
-    checkExpiry,
-    generateReorderAlerts
+    addInventoryItem,
+    getExpiringItems,
+    getReorderSuggestions
   } = useInventory(addToast);
 
   const {
@@ -174,9 +174,8 @@ export default function PharmacyDashboard() {
             inventory={inventory}
             loading={inventoryLoading}
             onUpdateStock={updateStock}
-            onAddMedication={addMedication}
-            onCheckExpiry={checkExpiry}
-            onGenerateAlerts={generateReorderAlerts}
+            onAddMedication={addInventoryItem}
+            onGenerateAlerts={getReorderSuggestions}
             stats={pharmacyStats}
           />
         );

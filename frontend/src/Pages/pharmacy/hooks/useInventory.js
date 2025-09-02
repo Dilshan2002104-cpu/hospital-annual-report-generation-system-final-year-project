@@ -1,163 +1,59 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 export default function useInventory() {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Mock inventory data
-  const generateMockInventory = () => {
-    return [
-      {
-        drugId: 'INV001',
-        drugName: 'Lisinopril',
-        genericName: 'Lisinopril',
-        category: 'cardiovascular',
-        strength: '10mg',
-        dosageForm: 'Tablet',
-        manufacturer: 'Pfizer',
-        batchNumber: 'LIS2024001',
-        currentStock: 250,
-        minimumStock: 50,
-        maximumStock: 500,
-        unitCost: 0.45,
-        expiryDate: '2025-08-15',
-        location: 'A-1-01',
-        lastUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        drugId: 'INV002',
-        drugName: 'Metformin',
-        genericName: 'Metformin HCl',
-        category: 'diabetes',
-        strength: '500mg',
-        dosageForm: 'Tablet',
-        manufacturer: 'Teva',
-        batchNumber: 'MET2024002',
-        currentStock: 180,
-        minimumStock: 100,
-        maximumStock: 400,
-        unitCost: 0.32,
-        expiryDate: '2025-11-30',
-        location: 'B-2-03',
-        lastUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        drugId: 'INV003',
-        drugName: 'Amoxicillin',
-        genericName: 'Amoxicillin',
-        category: 'antibiotics',
-        strength: '500mg',
-        dosageForm: 'Capsule',
-        manufacturer: 'Sandoz',
-        batchNumber: 'AMX2024003',
-        currentStock: 75,
-        minimumStock: 100,
-        maximumStock: 300,
-        unitCost: 1.25,
-        expiryDate: '2025-06-20',
-        location: 'C-1-02',
-        lastUpdated: new Date().toISOString()
-      },
-      {
-        drugId: 'INV004',
-        drugName: 'Atorvastatin',
-        genericName: 'Atorvastatin Calcium',
-        category: 'cardiovascular',
-        strength: '20mg',
-        dosageForm: 'Tablet',
-        manufacturer: 'Lipitor',
-        batchNumber: 'ATO2024004',
-        currentStock: 320,
-        minimumStock: 80,
-        maximumStock: 400,
-        unitCost: 2.15,
-        expiryDate: '2025-09-10',
-        location: 'A-2-01',
-        lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        drugId: 'INV005',
-        drugName: 'Omeprazole',
-        genericName: 'Omeprazole',
-        category: 'gastrointestinal',
-        strength: '20mg',
-        dosageForm: 'Capsule',
-        manufacturer: 'Dr. Reddy\'s',
-        batchNumber: 'OME2024005',
-        currentStock: 45,
-        minimumStock: 60,
-        maximumStock: 250,
-        unitCost: 0.85,
-        expiryDate: '2025-03-15',
-        location: 'D-1-01',
-        lastUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        drugId: 'INV006',
-        drugName: 'Ibuprofen',
-        genericName: 'Ibuprofen',
-        category: 'analgesics',
-        strength: '400mg',
-        dosageForm: 'Tablet',
-        manufacturer: 'Generic Co',
-        batchNumber: 'IBU2024006',
-        currentStock: 0,
-        minimumStock: 100,
-        maximumStock: 500,
-        unitCost: 0.25,
-        expiryDate: '2025-07-25',
-        location: 'E-1-03',
-        lastUpdated: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        drugId: 'INV007',
-        drugName: 'Warfarin',
-        genericName: 'Warfarin Sodium',
-        category: 'cardiovascular',
-        strength: '5mg',
-        dosageForm: 'Tablet',
-        manufacturer: 'Coumadin',
-        batchNumber: 'WAR2024007',
-        currentStock: 95,
-        minimumStock: 30,
-        maximumStock: 150,
-        unitCost: 3.45,
-        expiryDate: '2025-01-20',
-        location: 'A-3-01',
-        lastUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        drugId: 'INV008',
-        drugName: 'Aspirin',
-        genericName: 'Acetylsalicylic Acid',
-        category: 'analgesics',
-        strength: '81mg',
-        dosageForm: 'Tablet',
-        manufacturer: 'Bayer',
-        batchNumber: 'ASP2024008',
-        currentStock: 35,
-        minimumStock: 50,
-        maximumStock: 200,
-        unitCost: 0.15,
-        expiryDate: '2024-12-31',
-        location: 'E-2-01',
-        lastUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+  // Fetch inventory from API
+  const fetchInventoryFromAPI = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/pharmacy/medications/inventory');
+      
+      if (response.data.success) {
+        return response.data.data || [];
+      } else {
+        console.error('API returned unsuccessful response:', response.data.message);
+        return [];
       }
-    ];
+    } catch (error) {
+      console.error('Failed to fetch inventory from API:', error);
+      if (error.response) {
+        console.error('Error status:', error.response.status);
+        console.error('Error data:', error.response.data);
+      }
+      return [];
+    }
   };
+
+  // Refresh inventory data
+  const refreshInventory = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchInventoryFromAPI();
+      setInventory(data);
+      setError(null);
+    } catch (err) {
+      setError('Failed to refresh inventory');
+      console.error('Error refreshing inventory:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Initialize inventory
   useEffect(() => {
-    const initializeInventory = () => {
+    const initializeInventory = async () => {
       try {
         setLoading(true);
-        const mockData = generateMockInventory();
-        setInventory(mockData);
         setError(null);
+        const data = await fetchInventoryFromAPI();
+        setInventory(data);
       } catch (err) {
         setError('Failed to load inventory');
         console.error('Error loading inventory:', err);
+        setInventory([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
@@ -167,7 +63,7 @@ export default function useInventory() {
   }, []);
 
   // Update stock
-  const updateStock = useCallback(async (drugId, newStock, reason = '') => {
+  const updateStock = useCallback(async (drugId, newStock) => {
     try {
       setInventory(prev => prev.map(item => 
         item.drugId === drugId 
@@ -189,19 +85,65 @@ export default function useInventory() {
   // Add inventory item
   const addInventoryItem = useCallback(async (itemData) => {
     try {
-      const newItem = {
-        ...itemData,
-        drugId: `INV${String(Date.now()).slice(-3)}`,
-        lastUpdated: new Date().toISOString()
-      };
+      setError(null);
       
-      setInventory(prev => [newItem, ...prev]);
-      return { success: true };
+      const response = await axios.post('http://localhost:8080/api/pharmacy/medications/add', itemData, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = response.data;
+
+      if (result.success) {
+        // Refresh the inventory data from the API to get the latest state
+        await refreshInventory();
+        
+        return { 
+          success: true, 
+          message: result.message,
+          data: result.data 
+        };
+      } else {
+        throw new Error(result.message || 'Failed to add medication');
+      }
     } catch (err) {
-      setError('Failed to add inventory item');
-      throw err;
+      let errorMessage = 'Failed to add inventory item';
+
+      // Handle axios errors
+      if (err.response) {
+        // Server responded with error status code
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        switch (status) {
+          case 409:
+            errorMessage = `Batch number already exists: ${itemData.batchNumber}`;
+            break;
+          case 422:
+            errorMessage = data.data || 'Validation failed';
+            break;
+          case 400:
+            errorMessage = 'Invalid data provided';
+            break;
+          case 500:
+            errorMessage = 'Server error occurred';
+            break;
+          default:
+            errorMessage = data.message || `Server error (${status})`;
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error - Could not connect to server';
+      } else {
+        // Something else happened
+        errorMessage = err.message || 'Failed to add medication';
+      }
+
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
-  }, []);
+  }, [refreshInventory]);
 
   // Get low stock items
   const getLowStockItems = useCallback(() => {
@@ -303,6 +245,7 @@ export default function useInventory() {
     error,
     updateStock,
     addInventoryItem,
+    refreshInventory,
     getLowStockItems,
     getOutOfStockItems,
     getExpiringItems,

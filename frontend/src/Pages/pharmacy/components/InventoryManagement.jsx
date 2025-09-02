@@ -19,7 +19,6 @@ export default function InventoryManagement({
   loading, 
   onUpdateStock, 
   onAddMedication,
-  onCheckExpiry,
   onGenerateAlerts,
   stats 
 }) {
@@ -29,6 +28,10 @@ export default function InventoryManagement({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [selectedMedication, setSelectedMedication] = useState(null);
+  const [addingMedication, setAddingMedication] = useState(false);
+  const [addError, setAddError] = useState(null);
+  const [addSuccess, setAddSuccess] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Filter inventory based on search and filters
   const filteredInventory = useMemo(() => {
@@ -96,6 +99,129 @@ export default function InventoryManagement({
   };
 
   const categories = ['all', 'antibiotics', 'analgesics', 'cardiovascular', 'diabetes', 'respiratory', 'other'];
+
+  // Helper function to get error class
+  const getFieldErrorClass = (fieldName) => {
+    return validationErrors[fieldName] 
+      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+      : 'border-gray-300 focus:ring-green-500 focus:border-green-500';
+  };
+
+  // Helper function to render field error
+  const renderFieldError = (fieldName) => {
+    if (validationErrors[fieldName]) {
+      return (
+        <p className="mt-1 text-sm text-red-600 flex items-center">
+          <span className="w-4 h-4 mr-1">⚠️</span>
+          {validationErrors[fieldName]}
+        </p>
+      );
+    }
+    return null;
+  };
+
+  // Validation function
+  const validateMedicationData = (data) => {
+    const errors = {};
+
+    // Required field validation
+    if (!data.drugName || data.drugName.trim() === '') {
+      errors.drugName = 'Brand/Drug name is required';
+    } else if (data.drugName.trim().length < 2) {
+      errors.drugName = 'Brand/Drug name must be at least 2 characters long';
+    }
+
+    if (!data.genericName || data.genericName.trim() === '') {
+      errors.genericName = 'Generic name is required';
+    } else if (data.genericName.trim().length < 2) {
+      errors.genericName = 'Generic name must be at least 2 characters long';
+    }
+
+    if (!data.category || data.category === '') {
+      errors.category = 'Please select a category';
+    }
+
+    if (!data.strength || data.strength.trim() === '') {
+      errors.strength = 'Strength is required';
+    } else if (data.strength && !/^\d+(\.\d+)?(mg|g|ml|mcg|IU|units?)$/i.test(data.strength.replace(/\s/g, ''))) {
+      errors.strength = 'Strength format should be like: 10mg, 2.5g, 100ml, etc.';
+    }
+
+    if (!data.dosageForm || data.dosageForm === '') {
+      errors.dosageForm = 'Please select a dosage form';
+    }
+
+    if (!data.batchNumber || data.batchNumber.trim() === '') {
+      errors.batchNumber = 'Batch number is required';
+    } else if (data.batchNumber.trim().length < 3) {
+      errors.batchNumber = 'Batch number must be at least 3 characters long';
+    } else if (!/^[A-Z0-9]+$/i.test(data.batchNumber)) {
+      errors.batchNumber = 'Batch number should contain only letters and numbers';
+    }
+
+    // Stock validation
+    if (isNaN(data.currentStock) || data.currentStock === '') {
+      errors.currentStock = 'Current stock is required';
+    } else if (data.currentStock < 0) {
+      errors.currentStock = 'Current stock cannot be negative';
+    }
+
+    if (isNaN(data.minimumStock) || data.minimumStock === '') {
+      errors.minimumStock = 'Minimum stock is required';
+    } else if (data.minimumStock < 0) {
+      errors.minimumStock = 'Minimum stock cannot be negative';
+    }
+
+    if (isNaN(data.maximumStock) || data.maximumStock === '') {
+      errors.maximumStock = 'Maximum stock is required';
+    } else if (data.maximumStock <= 0) {
+      errors.maximumStock = 'Maximum stock must be greater than 0';
+    }
+
+    // Cross-field validation (only if individual fields are valid)
+    if (!isNaN(data.minimumStock) && !isNaN(data.maximumStock) && data.minimumStock >= data.maximumStock) {
+      errors.minimumStock = 'Minimum stock must be less than maximum stock';
+      errors.maximumStock = 'Maximum stock must be greater than minimum stock';
+    }
+
+    if (!isNaN(data.currentStock) && !isNaN(data.maximumStock) && data.currentStock > data.maximumStock) {
+      errors.currentStock = 'Current stock cannot exceed maximum stock';
+    }
+
+    // Cost validation
+    if (isNaN(data.unitCost) || data.unitCost === '' || data.unitCost <= 0) {
+      errors.unitCost = 'Unit cost is required and must be greater than 0';
+    } else if (data.unitCost > 10000) {
+      errors.unitCost = 'Unit cost seems too high (max: $10,000)';
+    }
+
+    // Date validation
+    if (!data.expiryDate) {
+      errors.expiryDate = 'Expiry date is required';
+    } else {
+      const expiryDate = new Date(data.expiryDate);
+      const today = new Date();
+      const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+      
+      if (expiryDate <= today) {
+        errors.expiryDate = 'Expiry date must be in the future';
+      } else if (expiryDate <= thirtyDaysFromNow) {
+        errors.expiryDate = 'Warning: Medication expires within 30 days';
+      }
+    }
+
+    // Batch number format validation (basic pattern)
+    if (data.batchNumber && !/^[A-Z0-9]+$/i.test(data.batchNumber)) {
+      errors.batchNumber = 'Batch number should contain only letters and numbers';
+    }
+
+    // Strength format validation (basic pattern)
+    if (data.strength && !/^\d+(\.\d+)?(mg|g|ml|mcg|IU|units?)$/i.test(data.strength.replace(/\s/g, ''))) {
+      errors.strength = 'Strength format should be like: 10mg, 2.5g, 100ml, etc.';
+    }
+
+    return errors;
+  };
 
   if (loading) {
     return (
@@ -255,7 +381,7 @@ export default function InventoryManagement({
                 const expiryStatus = getExpiryStatus(medication.expiryDate);
                 
                 return (
-                  <tr key={medication.medicationId} className="hover:bg-gray-50">
+                  <tr key={medication.drugId || medication.id || medication.batchNumber} className="hover:bg-gray-50">
                     <td className="p-4">
                       <div>
                         <div className="font-medium text-gray-900">{medication.drugName}</div>
@@ -346,6 +472,323 @@ export default function InventoryManagement({
           )}
         </div>
       </div>
+
+      {/* Add Medication Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Add New Medication</h2>
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setAddError(null);
+                  setAddSuccess(null);
+                  setAddingMedication(false);
+                }}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-[calc(90vh-80px)] overflow-y-auto">
+              {/* Success Message */}
+              {addSuccess && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded-lg flex items-center">
+                  <div className="w-4 h-4 bg-green-600 rounded-full mr-3"></div>
+                  {addSuccess}
+                </div>
+              )}
+
+              {/* Error Message */}
+              {addError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg flex items-center">
+                  <div className="w-4 h-4 bg-red-600 rounded-full mr-3"></div>
+                  {addError}
+                </div>
+              )}
+
+              <form noValidate onSubmit={async (e) => {
+                e.preventDefault();
+                
+                setAddingMedication(true);
+                setAddError(null);
+                setAddSuccess(null);
+                setValidationErrors({});
+                
+                try {
+                  const formData = new FormData(e.target);
+                  const medicationData = {
+                    drugName: formData.get('drugName')?.trim() || '',
+                    genericName: formData.get('genericName')?.trim() || '',
+                    category: formData.get('category') || '',
+                    strength: formData.get('strength')?.trim() || '',
+                    dosageForm: formData.get('dosageForm') || '',
+                    manufacturer: formData.get('manufacturer')?.trim() || null,
+                    batchNumber: formData.get('batchNumber')?.trim() || '',
+                    currentStock: parseInt(formData.get('currentStock')) || 0,
+                    minimumStock: parseInt(formData.get('minimumStock')) || 0,
+                    maximumStock: parseInt(formData.get('maximumStock')) || 0,
+                    unitCost: parseFloat(formData.get('unitCost')) || 0,
+                    expiryDate: formData.get('expiryDate') || ''
+                  };
+                  
+                  // Frontend validation
+                  const errors = validateMedicationData(medicationData);
+                  if (Object.keys(errors).length > 0) {
+                    setValidationErrors(errors);
+                    setAddingMedication(false);
+                    return;
+                  }
+                  
+                  const result = await onAddMedication(medicationData);
+                  
+                  if (result.success) {
+                    setAddSuccess(result.message || 'Medication added successfully');
+                    setValidationErrors({});
+                    e.target.reset();
+                    
+                    // Auto-close modal after 2 seconds
+                    setTimeout(() => {
+                      setShowAddModal(false);
+                      setAddSuccess(null);
+                    }, 2000);
+                  }
+                } catch (error) {
+                  setAddError(error.message || 'Failed to add medication');
+                } finally {
+                  setAddingMedication(false);
+                }
+              }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Basic Information */}
+                  <div className="col-span-2">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <Package className="w-5 h-5 mr-2 text-green-600" />
+                      Basic Information
+                    </h3>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand/Drug Name *
+                    </label>
+                    <input
+                      name="drugName"
+                      type="text"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('drugName')}`}
+                      placeholder="e.g., Lisinopril"
+                    />
+                    {renderFieldError('drugName')}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Generic Name *
+                    </label>
+                    <input
+                      name="genericName"
+                      type="text"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('genericName')}`}
+                      placeholder="e.g., Lisinopril"
+                    />
+                    {renderFieldError('genericName')}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category *
+                    </label>
+                    <select
+                      name="category"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('category')}`}
+                    >
+                      <option value="">Select Category</option>
+                      <option value="antibiotics">Antibiotics</option>
+                      <option value="analgesics">Analgesics</option>
+                      <option value="cardiovascular">Cardiovascular</option>
+                      <option value="diabetes">Diabetes</option>
+                      <option value="respiratory">Respiratory</option>
+                      <option value="neurological">Neurological</option>
+                      <option value="gastrointestinal">Gastrointestinal</option>
+                      <option value="hormonal">Hormonal</option>
+                      <option value="other">Other</option>
+                    </select>
+                    {renderFieldError('category')}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Strength *
+                    </label>
+                    <input
+                      name="strength"
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 10mg, 500mg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dosage Form *
+                    </label>
+                    <select
+                      name="dosageForm"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">Select Form</option>
+                      <option value="Tablet">Tablet</option>
+                      <option value="Capsule">Capsule</option>
+                      <option value="Syrup">Syrup</option>
+                      <option value="Injection">Injection</option>
+                      <option value="Cream">Cream</option>
+                      <option value="Ointment">Ointment</option>
+                      <option value="Drops">Drops</option>
+                      <option value="Powder">Powder</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Manufacturer
+                    </label>
+                    <input
+                      name="manufacturer"
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., Pfizer, Teva"
+                    />
+                  </div>
+
+                  {/* Stock Information */}
+                  <div className="col-span-2 mt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                      Stock Information
+                    </h3>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Batch Number *
+                    </label>
+                    <input
+                      name="batchNumber"
+                      type="text"
+                      required
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('batchNumber')}`}
+                      placeholder="e.g., BAT2024001"
+                    />
+                    {renderFieldError('batchNumber')}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Current Stock *
+                    </label>
+                    <input
+                      name="currentStock"
+                      type="number"
+                      min="0"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('currentStock')}`}
+                      placeholder="0"
+                    />
+                    {renderFieldError('currentStock')}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Stock Level *
+                    </label>
+                    <input
+                      name="minimumStock"
+                      type="number"
+                      required
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Stock Level *
+                    </label>
+                    <input
+                      name="maximumStock"
+                      type="number"
+                      required
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Unit Cost ($) *
+                    </label>
+                    <input
+                      name="unitCost"
+                      type="number"
+                      step="0.01"
+                      required
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Expiry Date *
+                    </label>
+                    <input
+                      name="expiryDate"
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('expiryDate')}`}
+                    />
+                    {renderFieldError('expiryDate')}
+                  </div>
+
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setAddError(null);
+                      setAddSuccess(null);
+                      setAddingMedication(false);
+                    }}
+                    className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingMedication || addSuccess}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  >
+                    {addingMedication && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    )}
+                    <span>
+                      {addingMedication ? 'Adding...' : addSuccess ? 'Added Successfully!' : 'Add Medication'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Update Stock Modal */}
       {showUpdateModal && selectedMedication && (

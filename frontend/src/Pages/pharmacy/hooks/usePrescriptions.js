@@ -1,174 +1,38 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 export default function usePrescriptions() {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Mock prescription data
-  const generateMockPrescriptions = () => {
-    return [
-      {
-        prescriptionId: 'RX001',
-        patientId: 'PT001',
-        patientName: 'John Smith',
-        patientAge: 45,
-        patientPhone: '555-0101',
-        doctorName: 'Dr. Sarah Johnson',
-        receivedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        readyDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'ready',
-        priority: 'normal',
-        medications: [
-          {
-            drugName: 'Lisinopril',
-            genericName: 'Lisinopril',
-            dosage: '10mg',
-            frequency: 'Once daily',
-            duration: '30 days',
-            quantity: 30,
-            instructions: 'Take with food',
-            category: 'cardiovascular'
-          },
-          {
-            drugName: 'Metformin',
-            genericName: 'Metformin HCl',
-            dosage: '500mg',
-            frequency: 'Twice daily',
-            duration: '90 days',
-            quantity: 180,
-            instructions: 'Take with meals',
-            category: 'diabetes'
-          }
-        ],
-        warnings: []
-      },
-      {
-        prescriptionId: 'RX002',
-        patientId: 'PT002',
-        patientName: 'Emma Wilson',
-        patientAge: 32,
-        patientPhone: '555-0102',
-        doctorName: 'Dr. Michael Chen',
-        receivedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        readyDate: new Date().toISOString(),
-        status: 'processing',
-        priority: 'urgent',
-        medications: [
-          {
-            drugName: 'Amoxicillin',
-            genericName: 'Amoxicillin',
-            dosage: '500mg',
-            frequency: 'Three times daily',
-            duration: '7 days',
-            quantity: 21,
-            instructions: 'Complete full course',
-            category: 'antibiotics'
-          }
-        ],
-        warnings: ['Patient allergic to penicillin - verify alternative']
-      },
-      {
-        prescriptionId: 'RX003',
-        patientId: 'PT003',
-        patientName: 'Robert Davis',
-        patientAge: 67,
-        patientPhone: '555-0103',
-        doctorName: 'Dr. Lisa Anderson',
-        receivedDate: new Date().toISOString(),
-        readyDate: null,
-        status: 'pending',
-        priority: 'normal',
-        medications: [
-          {
-            drugName: 'Atorvastatin',
-            genericName: 'Atorvastatin Calcium',
-            dosage: '20mg',
-            frequency: 'Once daily',
-            duration: '90 days',
-            quantity: 90,
-            instructions: 'Take at bedtime',
-            category: 'cardiovascular'
-          },
-          {
-            drugName: 'Omeprazole',
-            genericName: 'Omeprazole',
-            dosage: '20mg',
-            frequency: 'Once daily',
-            duration: '30 days',
-            quantity: 30,
-            instructions: 'Take before breakfast',
-            category: 'gastrointestinal'
-          }
-        ],
-        warnings: []
-      },
-      {
-        prescriptionId: 'RX004',
-        patientId: 'PT004',
-        patientName: 'Maria Garcia',
-        patientAge: 28,
-        patientPhone: '555-0104',
-        doctorName: 'Dr. James Wilson',
-        receivedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        readyDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'dispensed',
-        priority: 'normal',
-        medications: [
-          {
-            drugName: 'Ibuprofen',
-            genericName: 'Ibuprofen',
-            dosage: '400mg',
-            frequency: 'As needed',
-            duration: '14 days',
-            quantity: 20,
-            instructions: 'Take with food, max 3 times daily',
-            category: 'analgesics'
-          }
-        ],
-        warnings: [],
-        dispensedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        dispensedBy: 'John Pharmacist'
-      },
-      {
-        prescriptionId: 'RX005',
-        patientId: 'PT005',
-        patientName: 'David Thompson',
-        patientAge: 54,
-        patientPhone: '555-0105',
-        doctorName: 'Dr. Rachel Green',
-        receivedDate: new Date().toISOString(),
-        readyDate: new Date().toISOString(),
-        status: 'ready',
-        priority: 'high',
-        medications: [
-          {
-            drugName: 'Warfarin',
-            genericName: 'Warfarin Sodium',
-            dosage: '5mg',
-            frequency: 'Once daily',
-            duration: '90 days',
-            quantity: 90,
-            instructions: 'Monitor INR regularly',
-            category: 'cardiovascular'
-          }
-        ],
-        warnings: ['High-risk medication - requires counseling']
-      }
-    ];
+  // Fetch prescriptions from API
+  const fetchPrescriptionsFromAPI = async () => {
+    try {
+      // TODO: Replace with actual API endpoint for fetching prescriptions
+      // const response = await axios.get('http://localhost:8080/api/pharmacy/prescriptions');
+      // return response.data.data || [];
+      
+      // For now, return empty array until API is ready
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch prescriptions from API:', error);
+      return [];
+    }
   };
 
   // Initialize prescriptions
   useEffect(() => {
-    const initializePrescriptions = () => {
+    const initializePrescriptions = async () => {
       try {
         setLoading(true);
-        const mockData = generateMockPrescriptions();
-        setPrescriptions(mockData);
         setError(null);
+        const data = await fetchPrescriptionsFromAPI();
+        setPrescriptions(data);
       } catch (err) {
         setError('Failed to load prescriptions');
         console.error('Error loading prescriptions:', err);
+        setPrescriptions([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
@@ -226,31 +90,15 @@ export default function usePrescriptions() {
   // Verify drug interactions
   const verifyInteractions = useCallback(async (medications) => {
     try {
-      // Mock interaction checking logic
-      const interactions = [];
-      
-      // Check for common dangerous interactions
-      const drugNames = medications.map(med => med.drugName.toLowerCase());
-      
-      if (drugNames.includes('warfarin') && drugNames.includes('aspirin')) {
-        interactions.push({
-          severity: 'major',
-          drugs: ['Warfarin', 'Aspirin'],
-          description: 'Increased risk of bleeding',
-          recommendation: 'Monitor INR closely and consider alternative'
-        });
-      }
-      
-      if (drugNames.includes('metformin') && drugNames.includes('contrast')) {
-        interactions.push({
-          severity: 'moderate',
-          drugs: ['Metformin', 'Contrast Agent'],
-          description: 'Risk of lactic acidosis',
-          recommendation: 'Discontinue metformin before contrast procedure'
-        });
-      }
-      
-      return interactions;
+      // TODO: Replace with actual API endpoint for drug interactions
+      // const drugNames = medications.map(med => med.drugName);
+      // const response = await axios.post('http://localhost:8080/api/pharmacy/drug-interactions', {
+      //   drugs: drugNames
+      // });
+      // return response.data.data || [];
+
+      // For now, return empty array until API is ready
+      return [];
     } catch (err) {
       setError('Failed to verify drug interactions');
       throw err;

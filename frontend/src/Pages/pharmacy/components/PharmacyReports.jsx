@@ -168,7 +168,7 @@ export default function PharmacyReports({ prescriptions, inventory, stats }) {
 
     prescriptions.forEach(prescription => {
       prescription.medications.forEach(med => {
-        const cost = med.cost || Math.random() * 100; // Mock cost
+        const cost = med.cost || 0; // Use actual cost from medication data
         const quantity = med.quantity || 1;
         const totalMedCost = cost * quantity;
         
