@@ -18,6 +18,7 @@ import InventoryManagement from './components/InventoryManagement';
 import DispensingControl from './components/DispensingControl';
 import DrugDatabase from './components/DrugDatabase';
 import PharmacyReports from './components/PharmacyReports';
+import PharmacyAnalytics from './components/PharmacyAnalytics';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 
 // Import custom hooks
@@ -44,6 +45,7 @@ export default function PharmacyDashboard() {
     loading: inventoryLoading,
     updateStock,
     addInventoryItem,
+    refreshInventory,
     getExpiringItems,
     getReorderSuggestions
   } = useInventory(addToast);
@@ -147,6 +149,12 @@ export default function PharmacyDashboard() {
       description: 'Medication Database'
     },
     { 
+      id: 'analytics', 
+      label: 'Analytics', 
+      icon: TrendingUp, 
+      description: 'Data Visualization'
+    },
+    { 
       id: 'reports', 
       label: 'Reports', 
       icon: FileText, 
@@ -198,6 +206,15 @@ export default function PharmacyDashboard() {
             onSearchDrug={searchDrug}
             onGetDrugInfo={getDrugInfo}
             onCheckInteractions={checkInteractions}
+          />
+        );
+      case 'analytics':
+        return (
+          <PharmacyAnalytics
+            inventory={inventory}
+            prescriptions={prescriptions}
+            loading={inventoryLoading}
+            onRefresh={refreshInventory}
           />
         );
       case 'reports':

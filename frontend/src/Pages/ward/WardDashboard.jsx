@@ -5,7 +5,8 @@ import {
   ArrowUpDown, 
   Users,
   Bed,
-  UserPlus
+  UserPlus,
+  BarChart3
 } from 'lucide-react';
 
 // Import components
@@ -18,6 +19,7 @@ import ConfirmDischargeDialog from './components/ConfirmDischargeDialog';
 import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
 import PrescriptionsManagement from './components/PrescriptionsManagement';
+import WardAnalytics from './components/WardAnalytics';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 import useAdmissions from './hooks/useAdmissions';
 import usePatients from './hooks/usePatients';
@@ -149,6 +151,7 @@ const WardDashboard = () => {
     { id: 'overview', label: 'Ward Overview', icon: Activity },
     { id: 'patients', label: 'Patient List', icon: Users },
     { id: 'admit', label: 'Admit Patients', icon: UserPlus },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'beds', label: 'Bed Management', icon: Bed },
     { id: 'prescriptions', label: 'Prescriptions', icon: FileText },
     { id: 'transfers', label: 'Transfers', icon: ArrowUpDown }
@@ -314,6 +317,19 @@ const WardDashboard = () => {
               )}
             </div>
           </div>
+        );
+      case 'analytics':
+        return (
+          <WardAnalytics 
+            allAdmissions={displayAllAdmissions}
+            activeAdmissions={displayActiveAdmissions}
+            wards={wards}
+            loading={fetchingAdmissions}
+            onRefresh={async () => {
+              await fetchAllAdmissions();
+              await fetchActiveAdmissions();
+            }}
+          />
         );
       case 'beds':
         return <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">Bed Management (To be implemented)</div>;

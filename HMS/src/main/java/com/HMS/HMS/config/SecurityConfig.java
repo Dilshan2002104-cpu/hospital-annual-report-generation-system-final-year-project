@@ -64,6 +64,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/transfers/**").permitAll()
                                 .requestMatchers("/api/reports/admissions/**").permitAll()
                                 .requestMatchers("/api/pharmacy/medications/**").permitAll()
+                                .requestMatchers("/api/reports/medications/**").permitAll()
                         .requestMatchers("/api/patients/**").hasAnyRole("CLINIC_NURSE","WARD_NURSE")
                         .requestMatchers("/api/doctors/**").hasRole("CLINIC_NURSE")
                         .requestMatchers("/api/appointments/**").hasRole("CLINIC_NURSE")
@@ -75,7 +76,6 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 }
