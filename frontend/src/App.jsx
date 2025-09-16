@@ -14,7 +14,6 @@ const App = () => {
     <Router>
       <Routes>
         <Route path="/" element={<LoginForm/>} />
-
         <Route path='/admin-dashboard' element={
           <AdminProtectedRoute>
             <AdminDashboard/>

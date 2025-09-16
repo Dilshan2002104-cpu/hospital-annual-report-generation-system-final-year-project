@@ -1,135 +1,359 @@
-import React from 'react';
-import { TrendingUp, Activity, Users, Calendar, FileText, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, Activity, Users, Calendar, FileText, Shield, Download, BarChart3, AlertCircle, Clock, Building2, Stethoscope } from 'lucide-react';
+import axios from 'axios';
 
 const ReportsModule = ({ todayStats }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGeneratedYear, setLastGeneratedYear] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(2023); // Default to 2023 where we have data
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  // Generate years for dropdown (current year and previous 5 years)
+  const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
+
+  const downloadClinicReport = async (year, preparedBy = 'Clinic Administrator') => {
+    setIsGenerating(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await axios({
+        method: 'GET',
+        url: `http://localhost:8080/api/reports/clinic-statistics/yearly/pdf`,
+        params: {
+          year: year,
+          preparedBy: preparedBy
+        },
+        responseType: 'blob',
+        timeout: 30000, // 30 second timeout for PDF generation
+      });
+
+      // Check if response is actually an error (JSON) disguised as blob
+      if (response.data.type === 'application/json') {
+        // This is an error response, parse it
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        setError(errorData.message || 'Failed to generate report');
+        return;
+      }
+
+      // Check if response contains PDF data
+      if (response.data.size === 0) {
+        setError('Received empty file. Please try again.');
+        return;
+      }
+
+      // Create blob link to download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `clinic_statistics_report_${year}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setLastGeneratedYear(year);
+      setSuccess(`Report for ${year} downloaded successfully!`);
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (error) {
+      console.error('Error generating report:', error);
+
+      // Handle different types of errors
+      if (error.response) {
+        // Server responded with error status
+        if (error.response.data instanceof Blob && error.response.data.type === 'application/json') {
+          // Error response is JSON blob
+          try {
+            const text = await error.response.data.text();
+            const errorData = JSON.parse(text);
+            setError(errorData.message || 'Server error occurred');
+          } catch {
+            setError('Failed to parse error response');
+          }
+        } else {
+          setError(error.response.data?.message || 'Server error occurred');
+        }
+      } else if (error.request) {
+        // Network error or CORS issue
+        setError('Network error. Please check if the server is running.');
+      } else {
+        // Other error
+        setError('Failed to generate report. Please try again.');
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className="space-y-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Medical Reports & Analytics</h2>
-        <p className="text-gray-600">Comprehensive healthcare analytics and reporting dashboard</p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Current Analytics Preview */}
-        <div className="space-y-6">
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <TrendingUp size={24} className="mr-3 text-blue-600" />
-              Quick Analytics
-            </h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-xl">
-                <span className="font-medium text-gray-700">Total Patients Registered</span>
-                <span className="text-2xl font-bold text-blue-600">{todayStats.totalPatients}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-green-50 rounded-xl">
-                <span className="font-medium text-gray-700">Today's Registrations</span>
-                <span className="text-2xl font-bold text-green-600">{todayStats.todayRegistrations}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-purple-50 rounded-xl">
-                <span className="font-medium text-gray-700">System Uptime</span>
-                <span className="text-2xl font-bold text-purple-600">99.9%</span>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-1">Reports & Analytics</h1>
+            <p className="text-gray-600">Generate and download medical reports for clinical analysis</p>
           </div>
-          
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Activity size={20} className="mr-2 text-green-600" />
-              System Status
+          <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <Building2 size={16} />
+            <span>National Institute for Nephrology</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* System Statistics */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+              <BarChart3 size={20} className="mr-2 text-blue-600" />
+              System Statistics
             </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">Database Connection</span>
-                <span className="flex items-center text-green-600">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  Active
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Patients</p>
+                    <p className="text-2xl font-semibold text-gray-900">{todayStats.totalPatients}</p>
+                  </div>
+                  <Users size={24} className="text-blue-600" />
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">API Services</span>
-                <span className="flex items-center text-green-600">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  Operational
-                </span>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Today's Registrations</p>
+                    <p className="text-2xl font-semibold text-gray-900">{todayStats.todayRegistrations}</p>
+                  </div>
+                  <Calendar size={24} className="text-green-600" />
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">Backup Status</span>
-                <span className="flex items-center text-blue-600">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                  Last backup: 2 hours ago
-                </span>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">System Status</p>
+                    <p className="text-sm font-semibold text-green-600">Operational</p>
+                  </div>
+                  <Activity size={24} className="text-green-600" />
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Quick Info */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <Stethoscope size={20} className="mr-2 text-blue-600" />
+            Report Status
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Last Generated:</span>
+              <span className="text-gray-900">{lastGeneratedYear || 'None'}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Available Years:</span>
+              <span className="text-gray-900">{availableYears.length} years</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Report Format:</span>
+              <span className="text-gray-900">PDF</span>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <div className="flex items-center text-sm text-green-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                Report service online
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
         
-        {/* Coming Soon Features */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl shadow-lg border border-blue-200 p-8">
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <FileText size={32} className="text-white" />
+      {/* Main Report Generation Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Clinic Statistics Report</h3>
+              <p className="text-gray-600 mt-1">Generate annual clinic performance and patient statistics reports</p>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Advanced Reports Module</h3>
-            <p className="text-gray-600 mb-8">Comprehensive healthcare analytics and reporting suite coming soon</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4">
-              <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                <Users size={16} className="mr-2 text-blue-600" />
-                Patient Analytics
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Demographics analysis</li>
-                <li>• Treatment outcomes</li>
-                <li>• Patient flow tracking</li>
-              </ul>
-            </div>
-            
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4">
-              <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                <Calendar size={16} className="mr-2 text-green-600" />
-                Operational Reports
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Appointment statistics</li>
-                <li>• Staff performance</li>
-                <li>• Resource utilization</li>
-              </ul>
-            </div>
-            
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4">
-              <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                <TrendingUp size={16} className="mr-2 text-purple-600" />
-                Financial Analysis
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Revenue tracking</li>
-                <li>• Cost analysis</li>
-                <li>• Billing reports</li>
-              </ul>
-            </div>
-            
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4">
-              <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                <Shield size={16} className="mr-2 text-red-600" />
-                Compliance Reports
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• HIPAA compliance</li>
-                <li>• Quality metrics</li>
-                <li>• Audit trails</li>
-              </ul>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <FileText size={16} className="text-blue-600" />
+              </div>
             </div>
           </div>
-          
-          <div className="text-center">
-            <button className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl">
-              Request Reports Module Access
-            </button>
-            <p className="text-xs text-gray-500 mt-3">Contact system administrator to enable advanced reporting features</p>
+        </div>
+
+        <div className="p-6">
+          {/* Success Display */}
+          {success && (
+            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <Download size={20} className="text-green-600 mr-3 mt-0.5" />
+                <div>
+                  <h4 className="text-green-800 font-medium">Report Generated Successfully</h4>
+                  <p className="text-green-700 text-sm mt-1">{success}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <AlertCircle size={20} className="text-red-600 mr-3 mt-0.5" />
+                <div>
+                  <h4 className="text-red-800 font-medium">Report Generation Failed</h4>
+                  <p className="text-red-700 text-sm mt-1">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Report Form */}
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Report Parameters</h4>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Report Year</label>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isGenerating}
+                    >
+                      {availableYears.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                    <p className="text-sm text-gray-500 mt-1">Select the year for statistical analysis</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prepared By</label>
+                    <input
+                      type="text"
+                      defaultValue="Clinic Administrator"
+                      id="preparedBy"
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isGenerating}
+                      placeholder="Enter your name or title"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">This will appear on the report footer</p>
+                  </div>
+
+                  <div className="pt-4">
+                    <button
+                      onClick={() => {
+                        const preparedBy = document.getElementById('preparedBy').value;
+                        downloadClinicReport(selectedYear, preparedBy);
+                      }}
+                      disabled={isGenerating}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          <span>Generating Report...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download size={16} />
+                          <span>Generate PDF Report</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Report Information */}
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Report Contents</h4>
+
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h5 className="font-medium text-gray-900 mb-2">Statistical Data</h5>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Monthly patient visit statistics</li>
+                      <li>• Trend analysis and insights</li>
+                      <li>• Peak and low activity periods</li>
+                      <li>• Unit-wise performance metrics</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h5 className="font-medium text-gray-900 mb-2">Clinic Units Covered</h5>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Nephrology Unit 1</li>
+                      <li>• Nephrology Unit 2</li>
+                      <li>• Professor Unit</li>
+                      <li>• Urology and Transplant</li>
+                      <li>• Vascular and Transplant</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h5 className="font-medium text-gray-900 mb-2">Visual Elements</h5>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Professional line charts</li>
+                      <li>• Medical-grade formatting</li>
+                      <li>• Clean data visualization</li>
+                      <li>• Hospital branding elements</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {lastGeneratedYear && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                      <Download size={16} className="text-green-600" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-green-900">Last Report Generated</h5>
+                      <p className="text-sm text-green-700">Year {lastGeneratedYear} report successfully created</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Additional Information */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Report Types</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { icon: TrendingUp, title: 'Financial Reports', status: 'Coming Soon', color: 'text-purple-600 bg-purple-50' },
+            { icon: Calendar, title: 'Staff Performance', status: 'Coming Soon', color: 'text-green-600 bg-green-50' },
+            { icon: Users, title: 'Patient Demographics', status: 'Coming Soon', color: 'text-blue-600 bg-blue-50' },
+            { icon: Shield, title: 'Compliance Audit', status: 'Coming Soon', color: 'text-red-600 bg-red-50' }
+          ].map((item, index) => (
+            <div key={index} className="text-center p-4 border border-gray-200 rounded-lg">
+              <div className={`w-12 h-12 ${item.color} rounded-lg flex items-center justify-center mx-auto mb-3`}>
+                <item.icon size={20} />
+              </div>
+              <h4 className="font-medium text-gray-900 text-sm">{item.title}</h4>
+              <p className="text-xs text-gray-500 mt-1">{item.status}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

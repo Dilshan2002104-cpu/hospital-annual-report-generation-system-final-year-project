@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 
-const StatCard = ({ title, value, subtitle, color = "blue", trend }) => {
+const StatCard = ({ title, value, subtitle, color = "blue", trend, icon: Icon }) => {
   const colorClasses = {
     blue: "bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 border-blue-200 text-blue-800 shadow-blue-100/50",
     green: "bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 border-emerald-200 text-emerald-800 shadow-emerald-100/50",
@@ -36,9 +36,11 @@ const StatCard = ({ title, value, subtitle, color = "blue", trend }) => {
           <p className="text-4xl font-bold mb-2 group-hover:scale-105 transition-transform duration-300">{value}</p>
           {subtitle && <p className="text-sm opacity-75 font-medium">{subtitle}</p>}
         </div>
-        <div className={`p-3 rounded-xl bg-white/60 group-hover:bg-white/80 transition-all duration-300 ${iconColors[color]}`}>
-          <Icon size={28} className="group-hover:scale-110 transition-transform duration-300" />
-        </div>
+        {Icon && (
+          <div className={`p-3 rounded-xl bg-white/60 group-hover:bg-white/80 transition-all duration-300 ${iconColors[color]}`}>
+            <Icon size={28} className="group-hover:scale-110 transition-transform duration-300" />
+          </div>
+        )}
       </div>
     </div>
   );

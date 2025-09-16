@@ -34,7 +34,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:5175", "http://localhost:3000"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -62,14 +62,15 @@ public class SecurityConfig {
 
                         // Patient endpoints - all require CLINIC_NURSE role
                                 .requestMatchers("/api/transfers/**").permitAll()
+                                .requestMatchers("/api/reports/clinic-statistics/**").permitAll()
                                 .requestMatchers("/api/reports/admissions/**").permitAll()
                                 .requestMatchers("/api/pharmacy/medications/**").permitAll()
                                 .requestMatchers("/api/reports/medications/**").permitAll()
-                        .requestMatchers("/api/patients/**").hasAnyRole("CLINIC_NURSE","WARD_NURSE")
-                        .requestMatchers("/api/doctors/**").hasRole("CLINIC_NURSE")
-                        .requestMatchers("/api/appointments/**").hasRole("CLINIC_NURSE")
-                        .requestMatchers("/api/admissions/**").hasRole("WARD_NURSE")
-                        .requestMatchers("/api/wards/getAll").hasRole("WARD_NURSE")
+                        .requestMatchers("/api/patients/**").permitAll()
+                        .requestMatchers("/api/doctors/**").permitAll()
+                        .requestMatchers("/api/appointments/**").permitAll()
+                        .requestMatchers("/api/admissions/**").permitAll()
+                        .requestMatchers("/api/wards/getAll").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

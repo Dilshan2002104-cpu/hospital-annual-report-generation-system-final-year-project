@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="clinic_statistics_report"
+              pageWidth="595"
+              pageHeight="842"
+              columnWidth="535"
+              leftMargin="30"
+              rightMargin="30"
+              topMargin="20"
+              bottomMargin="20">
+
+    <!-- Parameters -->
+    <parameter name="hospitalName" class="java.lang.String"/>
+    <parameter name="hospitalAddress" class="java.lang.String"/>
+    <parameter name="reportTitle" class="java.lang.String"/>
+    <parameter name="reportYear" class="java.lang.String"/>
+    <parameter name="preparedBy" class="java.lang.String"/>
+    <parameter name="generatedOn" class="java.lang.String"/>
+    <parameter name="lineChart" class="java.awt.image.BufferedImage"/>
+
+    <!-- Fields from ClinicStatisticsDTO -->
+    <field name="unitName" class="java.lang.String"/>
+    <field name="unitDescription" class="java.lang.String"/>
+    <field name="totalPatients" class="java.lang.Integer"/>
+    <field name="monthlyAverage" class="java.lang.Double"/>
+    <field name="trendAnalysis" class="java.lang.String"/>
+    <field name="peakMonth" class="java.lang.String"/>
+    <field name="lowestMonth" class="java.lang.String"/>
+    <field name="peakValue" class="java.lang.Integer"/>
+    <field name="lowestValue" class="java.lang.Integer"/>
+    <field name="monthlyData" class="java.util.List"/>
+
+    <!-- Title Band -->
+    <title>
+        <band height="120" splitType="Stretch">
+            <rectangle>
+                <reportElement x="0" y="0" width="535" height="120" backcolor="#E6F3FF"/>
+                <graphicElement>
+                    <pen lineWidth="1.0" lineColor="#4A90E2"/>
+                </graphicElement>
+            </rectangle>
+
+            <textField>
+                <reportElement x="20" y="10" width="495" height="25"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="Arial" size="16" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{hospitalName}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="20" y="40" width="495" height="20"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="Arial" size="18" isBold="true" forecolor="#2E86AB"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{reportTitle}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="20" y="65" width="495" height="15"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="Arial" size="12"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Year: " + $P{reportYear}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="400" y="90" width="130" height="12"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="Arial" size="8"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Generated on: " + $P{generatedOn}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <!-- Detail Band - One per clinic unit -->
+    <detail>
+        <band height="400" splitType="Stretch">
+            <!-- Unit Introduction -->
+            <textField>
+                <reportElement x="0" y="20" width="535" height="20"/>
+                <textElement textAlignment="Left" verticalAlignment="Middle">
+                    <font fontName="Arial" size="14" isBold="true" forecolor="#2E86AB"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{unitName} + " Introduction"]]></textFieldExpression>
+            </textField>
+
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="45" width="535" height="40"/>
+                <textElement textAlignment="Justified" verticalAlignment="Top">
+                    <font fontName="Arial" size="10"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{unitDescription}]]></textFieldExpression>
+            </textField>
+
+            <!-- Table Header -->
+            <staticText>
+                <reportElement x="0" y="100" width="535" height="20" backcolor="#4A90E2" forecolor="#FFFFFF"/>
+                <box>
+                    <pen lineWidth="1.0"/>
+                </box>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="Arial" size="12" isBold="true"/>
+                </textElement>
+                <text><![CDATA[Monthly Patient Visit Statistics]]></text>
+            </staticText>
+
+            <!-- Monthly Data Table -->
+            <subreport>
+                <reportElement x="0" y="120" width="535" height="100"/>
+                <dataSourceExpression><![CDATA[new net.sf.jasperreports.engine.data.JRBeanCollectionDataSource($F{monthlyData})]]></dataSourceExpression>
+                <subreportExpression><![CDATA["reports/monthly_visits_subreport.jasper"]]></subreportExpression>
+            </subreport>
+
+            <!-- Chart -->
+            <image hAlign="Center">
+                <reportElement x="67" y="240" width="400" height="120"/>
+                <box>
+                    <pen lineWidth="1.0" lineColor="#CCCCCC"/>
+                </box>
+                <imageExpression><![CDATA[$P{lineChart}]]></imageExpression>
+            </image>
+
+            <!-- Trend Analysis Text -->
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="370" width="535" height="25"/>
+                <textElement textAlignment="Justified" verticalAlignment="Top">
+                    <font fontName="Arial" size="10"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{trendAnalysis}]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+
+    <!-- Summary Band -->
+    <summary>
+        <band height="50">
+            <textField>
+                <reportElement x="0" y="20" width="535" height="15"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="Arial" size="10" isItalic="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA["Report prepared by: " + $P{preparedBy}]]></textFieldExpression>
+            </textField>
+        </band>
+    </summary>
+</jasperReport>
