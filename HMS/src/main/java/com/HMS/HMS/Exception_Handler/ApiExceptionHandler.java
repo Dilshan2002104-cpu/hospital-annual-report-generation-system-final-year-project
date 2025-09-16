@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -50,7 +52,21 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorDetail> handleGeneric(Exception ex, WebRequest req) {
+    public ResponseEntity<?> handleGeneric(Exception ex, WebRequest req) {
+        // For PDF endpoints, return JSON error instead of ErrorDetail to avoid Content-Type conflicts
+        String requestUri = req.getDescription(false);
+        if (requestUri.contains("/pdf")) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Internal Server Error");
+            errorResponse.put("message", ex.getMessage());
+            errorResponse.put("timestamp", LocalDateTime.now());
+            errorResponse.put("path", requestUri.replace("uri=", ""));
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(errorResponse);
+        }
+
         ErrorDetail error = new ErrorDetail(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
