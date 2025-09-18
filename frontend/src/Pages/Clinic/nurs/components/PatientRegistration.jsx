@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserPlus, User, XCircle, AlertTriangle, CheckCircle } from 'lucide-react';
+import { UserPlus, User, XCircle, AlertTriangle, CheckCircle, Heart, ClipboardList } from 'lucide-react';
 import { ToastContainer } from './Toast';
 
 const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting, lastError }) => {
@@ -157,13 +157,16 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">Patient Registration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+          <Heart size={24} className="mr-2 text-blue-500" />
+          Patient Intake & Admission
+        </h3>
         <button
           onClick={() => setShowPatientForm(true)}
           className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
         >
           <UserPlus size={16} />
-          <span>Register New Patient</span>
+          <span>Admit New Patient</span>
         </button>
       </div>
 
@@ -173,8 +176,8 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-xl font-bold text-gray-900 flex items-center">
-                <UserPlus size={20} className="mr-2 text-blue-600" />
-                Register New Patient
+                <Heart size={20} className="mr-2 text-blue-600" />
+                Patient Admission & Intake
               </h4>
               <button 
                 onClick={() => setShowPatientForm(false)}
@@ -383,20 +386,20 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   type="submit"
                   disabled={submitting}
                   className={`px-6 py-2 rounded-lg text-white font-medium transition-colors flex items-center space-x-2 ${
-                    submitting 
-                      ? 'bg-gray-400 cursor-not-allowed' 
+                    submitting
+                      ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-700'
                   }`}
                 >
                   {submitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Registering...</span>
+                      <span>Admitting...</span>
                     </>
                   ) : (
                     <>
-                      <UserPlus size={16} />
-                      <span>Register</span>
+                      <Heart size={16} />
+                      <span>Admit Patient</span>
                     </>
                   )}
                 </button>
@@ -406,10 +409,13 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
         </div>
       )}
 
-      {/* Recent Registrations */}
+      {/* Recent Admissions */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h4 className="text-md font-medium text-gray-900">Recent Registrations</h4>
+          <h4 className="text-md font-medium text-gray-900 flex items-center">
+            <ClipboardList size={18} className="mr-2 text-blue-500" />
+            Recent Patient Admissions
+          </h4>
         </div>
         <div className="p-6">
           {loading ? (
@@ -418,7 +424,7 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
             </div>
           ) : patients.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No patients registered yet. Register your first patient to get started.
+              No patients admitted yet. Complete your first patient admission to get started.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -429,7 +435,7 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                       <h5 className="font-medium text-gray-900">{patient.fullName}</h5>
                       <p className="text-sm text-gray-500">ID: {patient.nationalId}</p>
                       <p className="text-sm text-gray-500">Age: {calculateAge(patient.dateOfBirth)} years</p>
-                      <p className="text-sm text-gray-500">Registered: {formatDate(patient.registrationDate)}</p>
+                      <p className="text-sm text-gray-500">Admitted: {formatDate(patient.registrationDate)}</p>
                     </div>
                     <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                       <User size={16} className="text-green-600" />

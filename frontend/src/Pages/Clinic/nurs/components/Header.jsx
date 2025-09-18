@@ -12,12 +12,12 @@ const Header = ({ todayStats }) => {
             </div>
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
-                Hospital Management System
+                Nursing Station Dashboard
               </h1>
               <div className="flex items-center space-x-4 mt-2">
                 <p className="text-gray-700 text-sm font-medium flex items-center">
                   <Shield size={14} className="mr-2 text-blue-600" />
-                  National Institute of Nephrology, Dialysis and Transplantation
+                  NINDT Nursing Unit - Patient Care Management
                 </p>
                 <div className="hidden md:flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
@@ -31,12 +31,12 @@ const Header = ({ todayStats }) => {
           <div className="flex items-center space-x-6">
             <div className="hidden lg:flex items-center space-x-4">
               <div className="text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Active Patients</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Patients Under Care</p>
                 <p className="text-2xl font-bold text-blue-700">{todayStats.totalPatients}</p>
               </div>
               <div className="w-px h-12 bg-gray-300"></div>
               <div className="text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Today's Appointments</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Today's Care Visits</p>
                 <p className="text-2xl font-bold text-emerald-600">{todayStats.totalAppointments}</p>
               </div>
             </div>

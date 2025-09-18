@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserPlus, Calendar, Activity, Shield, Stethoscope, Clipboard, UserCheck } from 'lucide-react';
+import { Users, UserPlus, Calendar, Activity, Shield, Stethoscope, Clipboard, UserCheck, ClipboardList, Heart, AlertCircle } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
 import useDoctors from '../hooks/useDoctors';
@@ -28,51 +28,54 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
     <div className="space-y-8">
       {/* Key Performance Indicators */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Today's Overview</h2>
-        <p className="text-gray-600">Real-time hospital statistics and performance metrics</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
+          <Heart size={28} className="mr-3 text-blue-500" />
+          Nursing Station Overview
+        </h2>
+        <p className="text-gray-600">Today's patient care metrics and nursing workload status</p>
       </div>
       
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <StatCard
-          title="Total Patients"
+          title="Patients Under Care"
           value={todayStats.totalPatients}
-          subtitle="Registered patients"
+          subtitle="Active patient census"
           icon={Users}
           color="blue"
           trend="+12%"
         />
         <StatCard
-          title="Today's Registrations"
+          title="New Admissions"
           value={todayStats.todayRegistrations}
-          subtitle="New patients today"
+          subtitle="Patients admitted today"
           icon={UserPlus}
           color="green"
         />
         <StatCard
-          title="Active Doctors"
+          title="Medical Team"
           value={`${todayStats.availableDoctors}/${todayStats.totalDoctors}`}
-          subtitle={`${todayStats.doctorUtilization}% availability`}
+          subtitle={`${todayStats.doctorUtilization}% on duty`}
           icon={Stethoscope}
           color="purple"
         />
         <StatCard
-          title="Appointments"
+          title="Care Schedule"
           value={todayStats.totalAppointments}
-          subtitle={`${todayStats.completedAppointments} completed`}
+          subtitle={`${todayStats.completedAppointments} visits completed`}
           icon={Calendar}
           color="yellow"
         />
         <StatCard
-          title="Completion Rate"
+          title="Care Quality"
           value={`${todayStats.completionRate}%`}
-          subtitle="Today's progress"
+          subtitle="Patient visit completion"
           icon={Activity}
           color="green"
         />
         <StatCard
-          title="System Status"
-          value="Online"
+          title="Nursing Unit"
+          value="Active"
           subtitle="All systems operational"
           icon={Shield}
           color="indigo"
@@ -82,37 +85,37 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
       {/* Quick Actions */}
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Clipboard size={20} className="mr-2 text-blue-600" />
-          Quick Actions
+          <ClipboardList size={20} className="mr-2 text-blue-600" />
+          Nursing Quick Actions
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button 
+          <button
             onClick={() => onTabChange('register')}
             className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105 group"
           >
             <UserPlus size={24} className="text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium text-blue-800">Add Patient</span>
+            <span className="text-sm font-medium text-blue-800">Patient Intake</span>
           </button>
-          <button 
+          <button
             onClick={() => onTabChange('schedule')}
             className="flex flex-col items-center p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-all duration-200 hover:scale-105 group"
           >
             <Calendar size={24} className="text-green-600 mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium text-green-800">Schedule</span>
+            <span className="text-sm font-medium text-green-800">Care Schedule</span>
           </button>
-          <button 
+          <button
             onClick={() => onTabChange('patients')}
             className="flex flex-col items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-xl transition-all duration-200 hover:scale-105 group"
           >
             <Users size={24} className="text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium text-purple-800">View Patients</span>
+            <span className="text-sm font-medium text-purple-800">Patient Records</span>
           </button>
-          <button 
+          <button
             onClick={() => onTabChange('reports')}
             className="flex flex-col items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-xl transition-all duration-200 hover:scale-105 group"
           >
-            <Activity size={24} className="text-orange-600 mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium text-orange-800">Reports</span>
+            <ClipboardList size={24} className="text-orange-600 mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm font-medium text-orange-800">Care Reports</span>
           </button>
         </div>
       </div>
@@ -122,19 +125,19 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
         <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-25 to-indigo-25">
           <h3 className="text-xl font-bold text-gray-800 flex items-center">
             <Stethoscope size={24} className="mr-3 text-blue-500" />
-            Medical Staff Status
+            Medical Team Status
           </h3>
-          <p className="text-sm text-gray-500 mt-1">Current availability and performance metrics</p>
+          <p className="text-sm text-gray-500 mt-1">Doctor availability and patient care assignments</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gradient-to-r from-gray-25 to-gray-50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Medical Professional</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Current Status</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Today's Load</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Completed</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Performance</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Doctor</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Availability</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Patient Load</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Visits Done</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Progress</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-50">

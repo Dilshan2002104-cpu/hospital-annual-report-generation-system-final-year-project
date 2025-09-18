@@ -4,56 +4,49 @@ import java.util.List;
 
 public class ClinicStatisticsDTO {
     private String unitName;
-    private String unitDescription;
-    private Integer totalPatients;
+    private Long totalPatients;
     private Double monthlyAverage;
-    private List<MonthlyVisitDTO> monthlyData;
-    private String trendAnalysis;
-    private String peakMonth;
-    private String lowestMonth;
-    private Integer peakValue;
-    private Integer lowestValue;
+    private List<MonthlyVisitDTO> monthlyVisits;
 
-    // Constructors
     public ClinicStatisticsDTO() {}
 
-    public ClinicStatisticsDTO(String unitName, String unitDescription, Integer totalPatients,
-                               Double monthlyAverage, List<MonthlyVisitDTO> monthlyData) {
+    public ClinicStatisticsDTO(String unitName, Long totalPatients, Double monthlyAverage, List<MonthlyVisitDTO> monthlyVisits) {
         this.unitName = unitName;
-        this.unitDescription = unitDescription;
         this.totalPatients = totalPatients;
         this.monthlyAverage = monthlyAverage;
-        this.monthlyData = monthlyData;
+        this.monthlyVisits = monthlyVisits;
     }
 
     // Getters and Setters
-    public String getUnitName() { return unitName; }
-    public void setUnitName(String unitName) { this.unitName = unitName; }
+    public String getUnitName() {
+        return unitName;
+    }
 
-    public String getUnitDescription() { return unitDescription; }
-    public void setUnitDescription(String unitDescription) { this.unitDescription = unitDescription; }
+    public void setUnitName(String unitName) {
+        this.unitName = unitName;
+    }
 
-    public Integer getTotalPatients() { return totalPatients; }
-    public void setTotalPatients(Integer totalPatients) { this.totalPatients = totalPatients; }
+    public Long getTotalPatients() {
+        return totalPatients;
+    }
 
-    public Double getMonthlyAverage() { return monthlyAverage; }
-    public void setMonthlyAverage(Double monthlyAverage) { this.monthlyAverage = monthlyAverage; }
+    public void setTotalPatients(Long totalPatients) {
+        this.totalPatients = totalPatients;
+    }
 
-    public List<MonthlyVisitDTO> getMonthlyData() { return monthlyData; }
-    public void setMonthlyData(List<MonthlyVisitDTO> monthlyData) { this.monthlyData = monthlyData; }
+    public Double getMonthlyAverage() {
+        return monthlyAverage;
+    }
 
-    public String getTrendAnalysis() { return trendAnalysis; }
-    public void setTrendAnalysis(String trendAnalysis) { this.trendAnalysis = trendAnalysis; }
+    public void setMonthlyAverage(Double monthlyAverage) {
+        this.monthlyAverage = monthlyAverage;
+    }
 
-    public String getPeakMonth() { return peakMonth; }
-    public void setPeakMonth(String peakMonth) { this.peakMonth = peakMonth; }
+    public List<MonthlyVisitDTO> getMonthlyVisits() {
+        return monthlyVisits;
+    }
 
-    public String getLowestMonth() { return lowestMonth; }
-    public void setLowestMonth(String lowestMonth) { this.lowestMonth = lowestMonth; }
-
-    public Integer getPeakValue() { return peakValue; }
-    public void setPeakValue(Integer peakValue) { this.peakValue = peakValue; }
-
-    public Integer getLowestValue() { return lowestValue; }
-    public void setLowestValue(Integer lowestValue) { this.lowestValue = lowestValue; }
+    public void setMonthlyVisits(List<MonthlyVisitDTO> monthlyVisits) {
+        this.monthlyVisits = monthlyVisits;
+    }
 }

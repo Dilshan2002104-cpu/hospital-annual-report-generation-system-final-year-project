@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield } from 'lucide-react';
+import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield, Stethoscope, ClipboardList } from 'lucide-react';
 
 // Import custom hooks
 import usePatients from './hooks/usePatients';
@@ -110,11 +110,11 @@ export default function ClinicDashboard() {
   };
 
   const tabs = [
-    { id: 'status', label: 'Hospital Overview', icon: Activity },
-    { id: 'schedule', label: 'Appointments', icon: Calendar },
-    { id: 'register', label: 'Patient Registration', icon: UserPlus },
-    { id: 'patients', label: 'Patient Database', icon: Users },
-    { id: 'reports', label: 'Medical Reports', icon: FileText }
+    { id: 'status', label: 'Nursing Station', icon: Activity },
+    { id: 'schedule', label: 'Patient Schedule', icon: Calendar },
+    { id: 'register', label: 'Patient Intake', icon: UserPlus },
+    { id: 'patients', label: 'Patient Records', icon: Users },
+    { id: 'reports', label: 'Care Reports', icon: ClipboardList }
   ];
 
   const renderContent = () => {
@@ -211,8 +211,8 @@ export default function ClinicDashboard() {
                 <Heart size={16} className="text-white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Hospital Management System</p>
-                <p className="text-xs text-gray-500">National Institute of Nephrology, Dialysis and Transplantation</p>
+                <p className="text-sm font-semibold text-gray-900">Nursing Station Dashboard</p>
+                <p className="text-xs text-gray-500">National Institute of Nephrology, Dialysis and Transplantation - Nursing Unit</p>
               </div>
             </div>
             <div className="flex items-center space-x-6 text-sm text-gray-500">

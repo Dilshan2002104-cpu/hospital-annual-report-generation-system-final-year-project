@@ -205,15 +205,18 @@ const AppointmentScheduler = ({ patients }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="text-center flex-1">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Appointment Scheduling</h2>
-          <p className="text-gray-600">Select a doctor to view and schedule appointments</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center">
+            <Calendar size={28} className="mr-3 text-blue-500" />
+            Patient Care Schedule
+          </h2>
+          <p className="text-gray-600">Coordinate patient visits and manage medical team schedules</p>
         </div>
         <button
           onClick={() => setShowAddDoctorForm(true)}
           className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors shadow-sm"
         >
           <Plus size={16} />
-          <span>Add Doctor</span>
+          <span>Add Medical Staff</span>
         </button>
       </div>
       {/* Doctors Grid */}
@@ -224,9 +227,9 @@ const AppointmentScheduler = ({ patients }) => {
         </div>
       ) : doctors.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <User size={48} className="mx-auto mb-4 text-gray-300" />
-          <p className="text-lg font-medium">No doctors found</p>
-          <p className="text-sm">Add a doctor to get started</p>
+          <Stethoscope size={48} className="mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No medical staff found</p>
+          <p className="text-sm">Add medical staff to manage patient schedules</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -254,7 +257,7 @@ const AppointmentScheduler = ({ patients }) => {
                     {doctor.available ? 'Available' : 'Unavailable'}</span>
                 </div>
                 <div className="mt-4 text-xs text-gray-500">
-                  {getDoctorAppointments(doctor.empId).length} appointments today
+                  {getDoctorAppointments(doctor.empId).length} patient visits today
                 </div>
               </div>
             </div>
@@ -317,7 +320,7 @@ const AppointmentScheduler = ({ patients }) => {
                   className={`${selectedDoctor.bgColor} hover:bg-opacity-80 ${selectedDoctor.textColor} px-4 py-2 rounded-lg flex items-center space-x-2 transition-all duration-200 border border-${selectedDoctor.textColor.split('-')[1]}-200`}
                 >
                   <Plus size={16} />
-                  <span>Schedule Patient</span>
+                  <span>Schedule Visit</span>
                 </button>
               )}
             </div>
@@ -329,7 +332,7 @@ const AppointmentScheduler = ({ patients }) => {
               <div className="flex items-center justify-between">
                 <h4 className="text-lg font-semibold text-gray-900 flex items-center">
                   <Calendar size={20} className="mr-2" />
-                  Appointments
+                  Patient Visits
                 </h4>
                 
                 {/* Filter Buttons */}
@@ -423,7 +426,7 @@ const AppointmentScheduler = ({ patients }) => {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search appointments by patient name, ID, time, or date..."
+                  placeholder="Search patient visits by name, ID, time, or date..."
                   value={appointmentSearch}
                   onChange={(e) => setAppointmentSearch(e.target.value)}
                   className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
