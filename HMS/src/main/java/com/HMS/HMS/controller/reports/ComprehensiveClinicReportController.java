@@ -46,9 +46,6 @@ public class ComprehensiveClinicReportController {
         }
     }
 
-    /**
-     * Download comprehensive clinic report as PDF
-     */
     @GetMapping("/full-report/{year}/pdf")
     public ResponseEntity<byte[]> downloadComprehensiveReportPDF(@PathVariable int year) {
         try {
