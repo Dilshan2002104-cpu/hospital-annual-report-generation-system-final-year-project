@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, UserPlus, Search, User, Phone, MapPin, AlertCircle, Eye, Edit, Trash2 } from 'lucide-react';
+import { Users, UserPlus, Search, User, Phone, MapPin, AlertCircle, Eye, Edit, Trash2, History } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { ToastContainer } from './Toast';
 
-const PatientDatabase = ({ 
-  patients, 
-  loading, 
-  submitting, 
-  onRegisterPatient, 
-  onUpdatePatient, 
-  onDeletePatient 
+const PatientDatabase = ({
+  patients,
+  loading,
+  submitting,
+  onRegisterPatient,
+  onUpdatePatient,
+  onDeletePatient,
+  onTabChange
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showPatientForm, setShowPatientForm] = useState(false);
@@ -630,25 +631,39 @@ const PatientDatabase = ({
               </div>
               
               {/* Action Buttons */}
-              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                <button
-                  onClick={() => setShowPatientView(false)}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105"
-                >
-                  Close
-                </button>
+              <div className="flex justify-between pt-6 border-t border-gray-200">
                 <button
                   onClick={() => {
-                    setShowPatientView(false);
-                    handleEditPatient(selectedPatient);
+                    if (onTabChange) {
+                      setShowPatientView(false);
+                      onTabChange('history');
+                    }
                   }}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 flex items-center space-x-2 shadow-lg"
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 flex items-center space-x-2 shadow-lg"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span>Edit Patient</span>
+                  <History size={16} />
+                  <span>View Medical History</span>
                 </button>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setShowPatientView(false)}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPatientView(false);
+                      handleEditPatient(selectedPatient);
+                    }}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 flex items-center space-x-2 shadow-lg"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span>Edit Patient</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

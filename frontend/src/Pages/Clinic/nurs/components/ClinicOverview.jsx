@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserPlus, Calendar, Activity, Shield, Stethoscope, Clipboard, UserCheck, ClipboardList, Heart, AlertCircle } from 'lucide-react';
+import { Users, UserPlus, Calendar, Activity, Shield, Stethoscope, Clipboard, UserCheck, ClipboardList, Heart, AlertCircle, History } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
 import useDoctors from '../hooks/useDoctors';
@@ -88,7 +88,7 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
           <ClipboardList size={20} className="mr-2 text-blue-600" />
           Nursing Quick Actions
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <button
             onClick={() => onTabChange('register')}
             className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105 group"
@@ -109,6 +109,13 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
           >
             <Users size={24} className="text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
             <span className="text-sm font-medium text-purple-800">Patient Records</span>
+          </button>
+          <button
+            onClick={() => onTabChange('history')}
+            className="flex flex-col items-center p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all duration-200 hover:scale-105 group"
+          >
+            <History size={24} className="text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm font-medium text-indigo-800">Patient History</span>
           </button>
           <button
             onClick={() => onTabChange('reports')}

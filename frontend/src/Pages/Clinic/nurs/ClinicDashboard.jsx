@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield, Stethoscope, ClipboardList } from 'lucide-react';
+import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield, Stethoscope, ClipboardList, History, BarChart3 } from 'lucide-react';
 
 // Import custom hooks
 import usePatients from './hooks/usePatients';
@@ -11,6 +11,8 @@ import ClinicOverview from './components/ClinicOverview';
 import AppointmentScheduler from './components/AppointmentScheduler';
 import PatientRegistration from './components/PatientRegistration';
 import PatientDatabase from './components/PatientDatabase';
+import PatientHistory from './components/PatientHistory';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ReportsModule from './components/ReportsModule';
 import { ToastContainer } from './components/Toast';
 
@@ -114,6 +116,8 @@ export default function ClinicDashboard() {
     { id: 'schedule', label: 'Patient Schedule', icon: Calendar },
     { id: 'register', label: 'Patient Intake', icon: UserPlus },
     { id: 'patients', label: 'Patient Records', icon: Users },
+    { id: 'history', label: 'Patient History', icon: History },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'reports', label: 'Care Reports', icon: ClipboardList }
   ];
 
@@ -148,18 +152,27 @@ export default function ClinicDashboard() {
         );
       case 'patients':
         return (
-          <PatientDatabase 
+          <PatientDatabase
             patients={patients}
             loading={loading}
             submitting={submitting}
             onRegisterPatient={registerPatient}
             onUpdatePatient={updatePatient}
             onDeletePatient={deletePatient}
+            onTabChange={setActiveTab}
           />
+        );
+      case 'history':
+        return (
+          <PatientHistory />
+        );
+      case 'analytics':
+        return (
+          <AnalyticsDashboard />
         );
       case 'reports':
         return (
-          <ReportsModule 
+          <ReportsModule
             todayStats={todayStats}
           />
         );

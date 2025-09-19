@@ -58,7 +58,6 @@ const useDoctors = () => {
       });
 
       // Add proper response validation
-      console.log('API Response:', response.data); // Debug log
       
       // Check if response.data is an array
       if (Array.isArray(response.data)) {

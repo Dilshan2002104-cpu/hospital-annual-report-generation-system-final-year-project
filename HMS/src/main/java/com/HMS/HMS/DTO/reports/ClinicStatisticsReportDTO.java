@@ -22,6 +22,14 @@ public class ClinicStatisticsReportDTO {
     private long previousYearAppointments;
     private double yearOverYearChangeAppointments;
 
+    // Additional clinic-specific data to match the PDF report
+    private List<ClinicUnitDataDTO> clinicUnits;
+    private List<ProcedureDataDTO> procedures;
+    private List<BiopsyDataDTO> biopsyData;
+    private String nursingLeader;
+    private int nursingOfficers;
+    private int supportStaff;
+
     public ClinicStatisticsReportDTO() {
         this.reportGeneratedDate = LocalDateTime.now();
         this.hospitalName = "National Institute for Nephrology, Dialysis & Transplantation";
@@ -98,6 +106,36 @@ public class ClinicStatisticsReportDTO {
                 report.yearOverYearChangeAppointments =
                     ((double) (report.totalAppointments - previousYearAppointments) / previousYearAppointments) * 100;
             }
+            return this;
+        }
+
+        public ClinicStatisticsReportBuilder clinicUnits(List<ClinicUnitDataDTO> clinicUnits) {
+            report.clinicUnits = clinicUnits;
+            return this;
+        }
+
+        public ClinicStatisticsReportBuilder procedures(List<ProcedureDataDTO> procedures) {
+            report.procedures = procedures;
+            return this;
+        }
+
+        public ClinicStatisticsReportBuilder biopsyData(List<BiopsyDataDTO> biopsyData) {
+            report.biopsyData = biopsyData;
+            return this;
+        }
+
+        public ClinicStatisticsReportBuilder nursingLeader(String nursingLeader) {
+            report.nursingLeader = nursingLeader;
+            return this;
+        }
+
+        public ClinicStatisticsReportBuilder nursingOfficers(int nursingOfficers) {
+            report.nursingOfficers = nursingOfficers;
+            return this;
+        }
+
+        public ClinicStatisticsReportBuilder supportStaff(int supportStaff) {
+            report.supportStaff = supportStaff;
             return this;
         }
 
@@ -239,5 +277,53 @@ public class ClinicStatisticsReportDTO {
 
     public void setYearOverYearChangeAppointments(double yearOverYearChangeAppointments) {
         this.yearOverYearChangeAppointments = yearOverYearChangeAppointments;
+    }
+
+    public List<ClinicUnitDataDTO> getClinicUnits() {
+        return clinicUnits;
+    }
+
+    public void setClinicUnits(List<ClinicUnitDataDTO> clinicUnits) {
+        this.clinicUnits = clinicUnits;
+    }
+
+    public List<ProcedureDataDTO> getProcedures() {
+        return procedures;
+    }
+
+    public void setProcedures(List<ProcedureDataDTO> procedures) {
+        this.procedures = procedures;
+    }
+
+    public List<BiopsyDataDTO> getBiopsyData() {
+        return biopsyData;
+    }
+
+    public void setBiopsyData(List<BiopsyDataDTO> biopsyData) {
+        this.biopsyData = biopsyData;
+    }
+
+    public String getNursingLeader() {
+        return nursingLeader;
+    }
+
+    public void setNursingLeader(String nursingLeader) {
+        this.nursingLeader = nursingLeader;
+    }
+
+    public int getNursingOfficers() {
+        return nursingOfficers;
+    }
+
+    public void setNursingOfficers(int nursingOfficers) {
+        this.nursingOfficers = nursingOfficers;
+    }
+
+    public int getSupportStaff() {
+        return supportStaff;
+    }
+
+    public void setSupportStaff(int supportStaff) {
+        this.supportStaff = supportStaff;
     }
 }

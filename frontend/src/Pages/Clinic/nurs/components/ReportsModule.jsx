@@ -12,18 +12,25 @@ const ReportsModule = ({ todayStats }) => {
   // Generate years for dropdown (current year and previous 5 years)
   const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
 
-  const downloadClinicReport = async (year, preparedBy = 'Clinic Administrator') => {
+  const downloadClinicReport = async (year) => {
     setIsGenerating(true);
     setError(null);
     setSuccess(null);
 
     try {
+      const jwtToken = localStorage.getItem('jwtToken');
+
+      if (!jwtToken) {
+        setError('Authentication required. Please log in again.');
+        setIsGenerating(false);
+        return;
+      }
+
       const response = await axios({
         method: 'GET',
-        url: `http://localhost:8080/api/reports/clinic-statistics/yearly/pdf`,
-        params: {
-          year: year,
-          preparedBy: preparedBy
+        url: `http://localhost:8080/api/reports/comprehensive-clinic/full-report/${year}/pdf`,
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
         },
         responseType: 'blob',
         timeout: 30000, // 30 second timeout for PDF generation
@@ -49,42 +56,72 @@ const ReportsModule = ({ todayStats }) => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `clinic_statistics_report_${year}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
 
+      // Set filename with current date and selected year
+      const currentDate = new Date().toISOString().split('T')[0];
+      link.setAttribute('download', `Comprehensive_Clinic_Report_${year}_Generated_${currentDate}.pdf`);
+
+      document.body.appendChild(link);
+
+      // Mark as successful before triggering download
       setLastGeneratedYear(year);
       setSuccess(`Report for ${year} downloaded successfully!`);
+
+      // Trigger download
+      link.click();
+
+      // Clean up
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
       // Clear success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (error) {
       console.error('Error generating report:', error);
 
-      // Handle different types of errors
-      if (error.response) {
-        // Server responded with error status
+      // Check if this is a client-side error after successful download
+      if (error.code === 'ERR_BLOCKED_BY_CLIENT' || error.code === 'ERR_NETWORK') {
+        // This often happens after successful download due to ad blockers or browser restrictions
+        // Don't show error if we might have successfully downloaded
+        console.warn('Download may have completed despite error:', error.message);
+        return;
+      }
+
+      let errorMessage = 'Failed to generate report. ';
+
+      if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to generate reports.';
+      } else if (error.response?.status === 404) {
+        errorMessage = `No data found for year ${year}. Please select a different year.`;
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error occurred. Please try again later.';
+      } else if (!error.response) {
+        // Only show network error if it's not a post-download client error
+        if (error.code !== 'ERR_BLOCKED_BY_CLIENT' && error.code !== 'ERR_NETWORK') {
+          errorMessage = 'Network error. Please check your connection.';
+        } else {
+          // Don't show error for these cases as download likely succeeded
+          return;
+        }
+      } else {
+        // Handle different types of errors
         if (error.response.data instanceof Blob && error.response.data.type === 'application/json') {
           // Error response is JSON blob
           try {
             const text = await error.response.data.text();
             const errorData = JSON.parse(text);
-            setError(errorData.message || 'Server error occurred');
+            errorMessage = errorData.message || 'Server error occurred';
           } catch {
-            setError('Failed to parse error response');
+            errorMessage = 'Failed to parse error response';
           }
         } else {
-          setError(error.response.data?.message || 'Server error occurred');
+          errorMessage = error.response.data?.message || 'Server error occurred';
         }
-      } else if (error.request) {
-        // Network error or CORS issue
-        setError('Network error. Please check if the server is running.');
-      } else {
-        // Other error
-        setError('Failed to generate report. Please try again.');
       }
+
+      setError(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -240,24 +277,10 @@ const ReportsModule = ({ todayStats }) => {
                     <p className="text-sm text-gray-500 mt-1">Select the year for statistical analysis</p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Prepared By</label>
-                    <input
-                      type="text"
-                      defaultValue="Clinic Administrator"
-                      id="preparedBy"
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      disabled={isGenerating}
-                      placeholder="Enter your name or title"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">This will appear on the report footer</p>
-                  </div>
-
                   <div className="pt-4">
                     <button
                       onClick={() => {
-                        const preparedBy = document.getElementById('preparedBy').value;
-                        downloadClinicReport(selectedYear, preparedBy);
+                        downloadClinicReport(selectedYear);
                       }}
                       disabled={isGenerating}
                       className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
