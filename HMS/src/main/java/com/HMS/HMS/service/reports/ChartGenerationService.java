@@ -1,5 +1,6 @@
 package com.HMS.HMS.service.reports;
 
+import com.HMS.HMS.DTO.reports.*;
 import com.HMS.HMS.DTO.reports.MonthlyVisitDataDTO;
 import com.HMS.HMS.DTO.reports.SpecializationDataDTO;
 import com.HMS.HMS.DTO.reports.WardOccupancyDataDTO;
@@ -13,6 +14,7 @@ import org.jfree.chart.plot.PiePlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.LineAndShapeRenderer;
 import org.jfree.chart.title.TextTitle;
+import org.jfree.chart.util.Rotation;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DefaultPieDataset;
 import org.springframework.stereotype.Service;
@@ -297,5 +299,387 @@ public class ChartGenerationService {
 
     public enum ChartType {
         LINE, BAR, PIE
+    }
+
+    // ===== APPOINTMENT ANALYTICS CHART METHODS =====
+
+    /**
+     * Generate colorful donut chart for appointment types
+     */
+    public byte[] generateAppointmentTypesDonutChart(List<AppointmentTypeChartDataDTO> data, String title) {
+        DefaultPieDataset dataset = new DefaultPieDataset();
+
+        for (AppointmentTypeChartDataDTO item : data) {
+            dataset.setValue(item.getAppointmentType(), item.getCount());
+        }
+
+        JFreeChart chart = ChartFactory.createPieChart(title, dataset, true, true, false);
+
+        // Customize for donut effect and colors
+        PiePlot plot = (PiePlot) chart.getPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Set custom colors
+        String[] colors = {"#2196F3", "#4CAF50", "#FF9800", "#9C27B0", "#F44336", "#00BCD4"};
+        for (int i = 0; i < data.size(); i++) {
+            plot.setSectionPaint(data.get(i).getAppointmentType(), Color.decode(colors[i % colors.length]));
+        }
+
+        // Create donut effect
+        plot.setCircular(true);
+        plot.setStartAngle(90);
+        plot.setDirection(Rotation.CLOCKWISE);
+        plot.setLabelGenerator(new org.jfree.chart.labels.StandardPieSectionLabelGenerator("{0}: {1} ({2})"));
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.addSubtitle(new TextTitle("Distribution of appointment types with total counts and percentages"));
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate colorful pie chart for appointment types
+     */
+    public byte[] generateAppointmentTypesPieChart(List<AppointmentTypeChartDataDTO> data, String title) {
+        DefaultPieDataset dataset = new DefaultPieDataset();
+
+        for (AppointmentTypeChartDataDTO item : data) {
+            dataset.setValue(item.getAppointmentType(), item.getCount());
+        }
+
+        JFreeChart chart = ChartFactory.createPieChart(title, dataset, true, true, false);
+
+        PiePlot plot = (PiePlot) chart.getPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Vibrant colors for appointment types
+        String[] colors = {"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FECA57", "#FF9FF3"};
+        for (int i = 0; i < data.size(); i++) {
+            plot.setSectionPaint(data.get(i).getAppointmentType(), Color.decode(colors[i % colors.length]));
+        }
+
+        plot.setLabelGenerator(new org.jfree.chart.labels.StandardPieSectionLabelGenerator("{0}\n{1} ({2})"));
+        plot.setExplodePercent(data.get(0).getAppointmentType(), 0.1); // Explode largest segment
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate appointment status pie chart with status-specific colors
+     */
+    public byte[] generateAppointmentStatusPieChart(List<AppointmentStatusChartDataDTO> data, String title) {
+        DefaultPieDataset dataset = new DefaultPieDataset();
+
+        for (AppointmentStatusChartDataDTO item : data) {
+            dataset.setValue(item.getStatus(), item.getCount());
+        }
+
+        JFreeChart chart = ChartFactory.createPieChart(title, dataset, true, true, false);
+
+        PiePlot plot = (PiePlot) chart.getPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Status-specific colors: COMPLETED=Green, CANCELLED=Red, SCHEDULED=Blue
+        for (AppointmentStatusChartDataDTO item : data) {
+            Color color;
+            switch (item.getStatus()) {
+                case "COMPLETED":
+                    color = new Color(76, 175, 80); // Green
+                    break;
+                case "CANCELLED":
+                    color = new Color(244, 67, 54); // Red
+                    break;
+                case "SCHEDULED":
+                    color = new Color(33, 150, 243); // Blue
+                    break;
+                default:
+                    color = new Color(158, 158, 158); // Gray
+            }
+            plot.setSectionPaint(item.getStatus(), color);
+        }
+
+        plot.setLabelGenerator(new org.jfree.chart.labels.StandardPieSectionLabelGenerator("{0}\n{1} appointments\n({2})"));
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.addSubtitle(new TextTitle("Status breakdown showing completion and cancellation rates"));
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate monthly trends line chart with gradient
+     */
+    public byte[] generateMonthlyTrendsLineChart(List<MonthlyAppointmentTrendDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyAppointmentTrendDTO item : data) {
+            dataset.addValue(item.getTotalAppointments(), "Total", item.getMonthName());
+            dataset.addValue(item.getCompletedAppointments(), "Completed", item.getMonthName());
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title, "Month", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, true, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        LineAndShapeRenderer renderer = new LineAndShapeRenderer();
+        renderer.setSeriesPaint(0, new Color(33, 150, 243)); // Blue for total
+        renderer.setSeriesPaint(1, new Color(76, 175, 80));  // Green for completed
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesStroke(1, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+        renderer.setSeriesShapesVisible(1, true);
+
+        plot.setRenderer(renderer);
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate monthly trends area chart
+     */
+    public byte[] generateMonthlyTrendsAreaChart(List<MonthlyAppointmentTrendDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyAppointmentTrendDTO item : data) {
+            dataset.addValue(item.getCompletedAppointments(), "Completed", item.getMonthName());
+            dataset.addValue(item.getCancelledAppointments(), "Cancelled", item.getMonthName());
+            dataset.addValue(item.getScheduledAppointments(), "Scheduled", item.getMonthName());
+        }
+
+        JFreeChart chart = ChartFactory.createStackedAreaChart(
+            title, "Month", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, true, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Beautiful gradient colors
+        plot.getRenderer().setSeriesPaint(0, new Color(76, 175, 80, 180));   // Green with transparency
+        plot.getRenderer().setSeriesPaint(1, new Color(244, 67, 54, 180));   // Red with transparency
+        plot.getRenderer().setSeriesPaint(2, new Color(33, 150, 243, 180));  // Blue with transparency
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate monthly trends bar chart
+     */
+    public byte[] generateMonthlyTrendsBarChart(List<MonthlyAppointmentTrendDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyAppointmentTrendDTO item : data) {
+            dataset.addValue(item.getTotalAppointments(), "Total Appointments", item.getMonthName());
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(
+            title, "Month", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, true, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Gradient color for bars
+        GradientPaint gradient = new GradientPaint(0, 0, new Color(33, 150, 243), 0, 300, new Color(3, 169, 244));
+        plot.getRenderer().setSeriesPaint(0, gradient);
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate daily patterns bar chart
+     */
+    public byte[] generateDailyPatternsBarChart(List<DailyAppointmentPatternDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (DailyAppointmentPatternDTO item : data) {
+            dataset.addValue(item.getAppointmentCount(), "Appointments", item.getDayOfWeek());
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(
+            title, "Day of Week", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, false, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Rainbow colors for each day
+        String[] dayColors = {"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FECA57", "#FF9FF3", "#6C5CE7"};
+        for (int i = 0; i < data.size(); i++) {
+            plot.getRenderer().setSeriesPaint(i, Color.decode(dayColors[i % dayColors.length]));
+        }
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.addSubtitle(new TextTitle("Weekly appointment distribution pattern"));
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate radar chart for daily patterns (placeholder - would need additional library)
+     */
+    public byte[] generateDailyPatternsRadarChart(List<DailyAppointmentPatternDTO> data, String title) {
+        // For now, return a circular bar chart as radar alternative
+        return generateDailyPatternsBarChart(data, title + " (Radar View)");
+    }
+
+    /**
+     * Generate doctor performance horizontal bar chart
+     */
+    public byte[] generateDoctorPerformanceHorizontalBarChart(List<DoctorAppointmentStatsDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (DoctorAppointmentStatsDTO doctor : data) {
+            dataset.addValue(doctor.getTotalAppointments(), "Total", doctor.getDoctorName());
+            dataset.addValue(doctor.getCompletedAppointments(), "Completed", doctor.getDoctorName());
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(
+            title, "Number of Appointments", "Doctor", dataset,
+            PlotOrientation.HORIZONTAL, true, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Professional colors
+        plot.getRenderer().setSeriesPaint(0, new Color(63, 81, 181));  // Indigo
+        plot.getRenderer().setSeriesPaint(1, new Color(76, 175, 80));  // Green
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate doctor performance stacked chart
+     */
+    public byte[] generateDoctorPerformanceStackedChart(List<DoctorAppointmentStatsDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (DoctorAppointmentStatsDTO doctor : data) {
+            dataset.addValue(doctor.getCompletedAppointments(), "Completed", doctor.getDoctorName());
+            dataset.addValue(doctor.getCancelledAppointments(), "Cancelled", doctor.getDoctorName());
+            long scheduled = doctor.getTotalAppointments() - doctor.getCompletedAppointments() - doctor.getCancelledAppointments();
+            dataset.addValue(scheduled, "Scheduled", doctor.getDoctorName());
+        }
+
+        JFreeChart chart = ChartFactory.createStackedBarChart(
+            title, "Doctor", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, true, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Status colors
+        plot.getRenderer().setSeriesPaint(0, new Color(76, 175, 80));   // Green - Completed
+        plot.getRenderer().setSeriesPaint(1, new Color(244, 67, 54));   // Red - Cancelled
+        plot.getRenderer().setSeriesPaint(2, new Color(33, 150, 243));  // Blue - Scheduled
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate time slot heat map (simplified as bar chart)
+     */
+    public byte[] generateTimeSlotHeatMap(List<TimeSlotAnalysisDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (TimeSlotAnalysisDTO slot : data) {
+            dataset.addValue(slot.getAppointmentCount(), "Appointments", slot.getTimeSlot());
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(
+            title, "Time Slot", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, false, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Heat map colors based on utilization
+        for (int i = 0; i < data.size(); i++) {
+            TimeSlotAnalysisDTO slot = data.get(i);
+            Color heatColor;
+            if (slot.getUtilizationRate() >= 80) {
+                heatColor = new Color(211, 47, 47); // Dark red
+            } else if (slot.getUtilizationRate() >= 60) {
+                heatColor = new Color(245, 124, 0); // Orange
+            } else if (slot.getUtilizationRate() >= 40) {
+                heatColor = new Color(251, 192, 45); // Yellow
+            } else {
+                heatColor = new Color(56, 142, 60); // Green
+            }
+            plot.getRenderer().setSeriesPaint(i, heatColor);
+        }
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.addSubtitle(new TextTitle("Heat map showing appointment density by time slots"));
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate weekly patterns area chart
+     */
+    public byte[] generateWeeklyPatternsAreaChart(List<WeeklyPatternDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (WeeklyPatternDTO week : data) {
+            dataset.addValue(week.getTotalAppointments(), "Total", "Week " + week.getWeekNumber());
+            dataset.addValue(week.getCompletedAppointments(), "Completed", "Week " + week.getWeekNumber());
+        }
+
+        JFreeChart chart = ChartFactory.createAreaChart(
+            title, "Week", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, true, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        // Gradient fill for area
+        plot.getRenderer().setSeriesPaint(0, new Color(33, 150, 243, 100));  // Light blue
+        plot.getRenderer().setSeriesPaint(1, new Color(76, 175, 80, 150));   // Light green
+
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate weekly patterns line chart
+     */
+    public byte[] generateWeeklyPatternsLineChart(List<WeeklyPatternDTO> data, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (WeeklyPatternDTO week : data) {
+            dataset.addValue(week.getTotalAppointments(), "Appointments", "Week " + week.getWeekNumber());
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title, "Week", "Number of Appointments", dataset,
+            PlotOrientation.VERTICAL, false, true, false);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+
+        LineAndShapeRenderer renderer = new LineAndShapeRenderer();
+        renderer.setSeriesPaint(0, new Color(156, 39, 176)); // Purple
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+
+        plot.setRenderer(renderer);
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+
+        return chartToByteArray(chart);
     }
 }
