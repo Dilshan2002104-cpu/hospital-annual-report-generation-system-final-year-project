@@ -46,6 +46,19 @@ public class ClinicReportController {
     }
 
     /**
+     * Debug endpoint to test report generation
+     */
+    @GetMapping("/debug/{year}")
+    public ResponseEntity<String> debugReport(@PathVariable int year) {
+        try {
+            ClinicStatisticsReportDTO report = clinicReportService.generateClinicStatisticsReport(year);
+            return ResponseEntity.ok("Report generated successfully. Total appointments: " + report.getTotalAppointments());
+        } catch (Exception e) {
+            return ResponseEntity.ok("Error: " + e.getMessage() + " - " + e.getClass().getSimpleName());
+        }
+    }
+
+    /**
      * Download clinic statistics report as PDF
      */
     @GetMapping("/statistics/{year}/pdf")
@@ -254,6 +267,23 @@ public class ClinicReportController {
                     .body(chartBytes);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Comprehensive clinic report (moved from separate controller)
+     */
+    @GetMapping("/comprehensive/{year}")
+    public ResponseEntity<ClinicStatisticsReportDTO> getComprehensiveReport(@PathVariable int year) {
+        try {
+            ClinicStatisticsReportDTO report = clinicReportService.generateClinicStatisticsReport(year);
+            return ResponseEntity.ok(report);
+        } catch (Exception e) {
+            // Create error report with details
+            ClinicStatisticsReportDTO errorReport = new ClinicStatisticsReportDTO();
+            errorReport.setYear(year);
+            errorReport.setIntroductionText("Error generating report: " + e.getMessage());
+            return ResponseEntity.ok(errorReport);
         }
     }
 

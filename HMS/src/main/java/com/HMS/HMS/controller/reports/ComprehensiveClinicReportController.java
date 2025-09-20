@@ -36,13 +36,27 @@ public class ComprehensiveClinicReportController {
     /**
      * Get comprehensive clinic statistics report - complete data like the PDF
      */
+    @GetMapping("/debug/{year}")
+    public ResponseEntity<String> debugReport(@PathVariable int year) {
+        try {
+            ClinicStatisticsReportDTO baseReport = clinicReportService.generateClinicStatisticsReport(year);
+            return ResponseEntity.ok("Base report generated successfully. Appointments: " + baseReport.getTotalAppointments());
+        } catch (Exception e) {
+            return ResponseEntity.ok("Error in base report: " + e.getMessage() + " - " + e.getClass().getSimpleName());
+        }
+    }
+
     @GetMapping("/full-report/{year}")
     public ResponseEntity<ClinicStatisticsReportDTO> getComprehensiveClinicReport(@PathVariable int year) {
         try {
             ClinicStatisticsReportDTO report = generateComprehensiveReport(year);
             return ResponseEntity.ok(report);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            // For debugging - include error in response
+            ClinicStatisticsReportDTO errorReport = new ClinicStatisticsReportDTO();
+            errorReport.setYear(year);
+            errorReport.setIntroductionText("Error: " + e.getMessage() + " - " + e.getClass().getSimpleName());
+            return ResponseEntity.ok(errorReport);
         }
     }
 
@@ -69,9 +83,6 @@ public class ComprehensiveClinicReportController {
         }
     }
 
-    /**
-     * Get individual clinic unit data (like Nephrology Unit 1, Unit 2, etc.)
-     */
     @GetMapping("/clinic-units/{year}")
     public ResponseEntity<List<ClinicUnitDataDTO>> getClinicUnitsData(@PathVariable int year) {
         try {
@@ -190,7 +201,19 @@ public class ComprehensiveClinicReportController {
     // Helper methods
     private ClinicStatisticsReportDTO generateComprehensiveReport(int year) {
         // Get basic report
-        ClinicStatisticsReportDTO baseReport = clinicReportService.generateClinicStatisticsReport(year);
+        ClinicStatisticsReportDTO baseReport;
+        try {
+            baseReport = clinicReportService.generateClinicStatisticsReport(year);
+        } catch (Exception e) {
+            // If base report fails, create a minimal report with error info
+            baseReport = new ClinicStatisticsReportDTO();
+            baseReport.setYear(year);
+            baseReport.setTotalAppointments(0);
+            baseReport.setTotalAdmissions(0);
+            // Log error for debugging
+            System.err.println("Error generating base report: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         // Enhance with additional data
         List<ClinicUnitDataDTO> clinicUnits = List.of(

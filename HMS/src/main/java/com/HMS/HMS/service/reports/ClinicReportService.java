@@ -148,8 +148,11 @@ public class ClinicReportService {
         return IntStream.rangeClosed(1, 12)
                 .mapToObj(month -> new MonthlyVisitDataDTO(
                     month,
+                    Month.of(month).name(),
                     monthlyData.getOrDefault(month, 0L),
-                    specialization != null ? specialization : "All Specializations"
+                    specialization != null ? specialization : "All Specializations",
+                    0L,
+                    0.0
                 ))
                 .collect(Collectors.toList());
     }
@@ -168,8 +171,11 @@ public class ClinicReportService {
         return IntStream.rangeClosed(1, 12)
                 .mapToObj(month -> new MonthlyVisitDataDTO(
                     month,
+                    Month.of(month).name(),
                     monthlyData.getOrDefault(month, 0L),
-                    wardType != null ? wardType : "All Ward Types"
+                    wardType != null ? wardType : "All Ward Types",
+                    0L,
+                    0.0
                 ))
                 .collect(Collectors.toList());
     }
