@@ -1,6 +1,7 @@
 package com.HMS.HMS.controller;
 
 import com.HMS.HMS.DTO.MedicationDTO.ApiResponse;
+import com.HMS.HMS.DTO.MedicationDTO.MedicationCompleteResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryApiResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
@@ -36,8 +37,9 @@ public class MedicationController {
         return ResponseEntity.created(location).body(body);
     }
 
-    @GetMapping
-    public ResponseEntity<Page<MedicationResponseDTO>> list(
+
+    @GetMapping("/getAll")
+    public ResponseEntity<Page<MedicationCompleteResponseDTO>> list(
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size,
             @RequestParam(defaultValue="id,desc") String[] sort
@@ -48,7 +50,7 @@ public class MedicationController {
                         : Sort.Order.desc("id")
         );
         Pageable pageable = PageRequest.of(page,Math.min(size,100),sortSpec);
-        return ResponseEntity.ok(service.getAll(pageable));
+        return ResponseEntity.ok(service.getAllComplete(pageable));
     }
 
     @GetMapping("/search")

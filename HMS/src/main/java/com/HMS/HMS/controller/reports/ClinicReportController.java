@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reports/clinic")
@@ -271,21 +272,32 @@ public class ClinicReportController {
     }
 
     /**
-     * Comprehensive clinic report (moved from separate controller)
+     * Comprehensive clinic report with proper error handling
      */
     @GetMapping("/comprehensive/{year}")
-    public ResponseEntity<ClinicStatisticsReportDTO> getComprehensiveReport(@PathVariable int year) {
+    public ResponseEntity<?> getComprehensiveReport(@PathVariable int year) {
         try {
             ClinicStatisticsReportDTO report = clinicReportService.generateClinicStatisticsReport(year);
-            return ResponseEntity.ok(report);
+            if (report.getTotalAppointments() > 0) {
+                return ResponseEntity.ok(report);
+            } else {
+                return ResponseEntity.status(404).body(Map.of(
+                    "error", "No Data Found",
+                    "message", "No appointment data found for year " + year + ". Cannot generate comprehensive clinic report.",
+                    "year", year,
+                    "status", 404
+                ));
+            }
         } catch (Exception e) {
-            // Create error report with details
-            ClinicStatisticsReportDTO errorReport = new ClinicStatisticsReportDTO();
-            errorReport.setYear(year);
-            errorReport.setIntroductionText("Error generating report: " + e.getMessage());
-            return ResponseEntity.ok(errorReport);
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Report Generation Failed",
+                "message", "An error occurred while generating the report: " + e.getMessage(),
+                "year", year,
+                "status", 500
+            ));
         }
     }
+
 
     /**
      * Health check endpoint

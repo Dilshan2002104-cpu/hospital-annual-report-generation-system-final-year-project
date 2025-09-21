@@ -1,25 +1,38 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Pill, 
-  Plus, 
-  Search, 
-  Filter, 
-  Calendar, 
-  Clock, 
-  User, 
-  FileText, 
-  AlertCircle, 
-  CheckCircle, 
-  XCircle, 
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Pill,
+  Plus,
+  Search,
+  Filter,
+  Calendar,
+  Clock,
+  User,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
   Eye,
   Edit,
   Trash2,
   Download,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Activity
 } from 'lucide-react';
 import PrescriptionModal from './PrescriptionModal';
+import usePrescriptions from '../hooks/usePrescriptions';
 
 const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
+  // Use the prescriptions hook for API integration
+  const {
+    prescriptions: apiPrescriptions,
+    activePatients,
+    loading: apiLoading,
+    error: apiError,
+    fetchPrescriptions,
+    addPrescription,
+    getStats
+  } = usePrescriptions();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
@@ -27,66 +40,9 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
 
-  // Mock prescription data - replace with actual API data
-  const [prescriptions, setPrescriptions] = useState([
-    {
-      id: 'RX001',
-      patientName: 'John Doe',
-      patientId: 'P001',
-      admissionId: 'ADM001',
-      wardNumber: 'W001',
-      bedNumber: 'B012',
-      drugName: 'Amoxicillin',
-      dose: '500mg',
-      frequency: 'Three times daily (TDS)',
-      route: 'Oral',
-      startDate: '2024-01-15',
-      endDate: '2024-01-22',
-      status: 'active',
-      instructions: 'Take with food. Complete the full course.',
-      prescribedBy: 'Dr. Smith',
-      prescribedDate: '2024-01-15T09:30:00',
-      lastModified: '2024-01-15T09:30:00'
-    },
-    {
-      id: 'RX002', 
-      patientName: 'Jane Smith',
-      patientId: 'P002',
-      admissionId: 'ADM002',
-      wardNumber: 'W002',
-      bedNumber: 'B005',
-      drugName: 'Paracetamol',
-      dose: '1g',
-      frequency: 'Four times daily (QDS)',
-      route: 'Oral',
-      startDate: '2024-01-14',
-      endDate: '2024-01-18',
-      status: 'completed',
-      instructions: 'For fever and pain relief.',
-      prescribedBy: 'Dr. Johnson',
-      prescribedDate: '2024-01-14T14:15:00',
-      lastModified: '2024-01-18T10:00:00'
-    },
-    {
-      id: 'RX003',
-      patientName: 'Michael Brown',
-      patientId: 'P003',
-      admissionId: 'ADM003',
-      wardNumber: 'W001',
-      bedNumber: 'B008',
-      drugName: 'Insulin',
-      dose: '10 units',
-      frequency: 'Twice daily (BD)',
-      route: 'Subcutaneous',
-      startDate: '2024-01-10',
-      endDate: '',
-      status: 'active',
-      instructions: 'Administer before meals. Monitor blood glucose levels.',
-      prescribedBy: 'Dr. Williams',
-      prescribedDate: '2024-01-10T08:00:00',
-      lastModified: '2024-01-16T12:30:00'
-    }
-  ]);
+  // Use API data with fallback to empty array
+  const prescriptions = apiPrescriptions || [];
+  const [refreshing, setRefreshing] = useState(false);
 
   // Filter prescriptions based on search and filters
   const filteredPrescriptions = useMemo(() => {
@@ -125,24 +81,73 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
     });
   }, [prescriptions, searchTerm, filterStatus, filterDate]);
 
-  // Calculate statistics
+  // Calculate statistics from API
   const stats = useMemo(() => {
+    if (getStats) {
+      return getStats();
+    }
+
+    // Fallback calculation if hook not available
     return {
       total: prescriptions.length,
       active: prescriptions.filter(p => p.status === 'active').length,
       completed: prescriptions.filter(p => p.status === 'completed').length,
       expired: prescriptions.filter(p => p.status === 'expired').length,
+      discontinued: prescriptions.filter(p => p.status === 'discontinued').length,
       todaysPrescriptions: prescriptions.filter(p => {
         const prescDate = new Date(p.prescribedDate);
         const today = new Date();
         return prescDate.toDateString() === today.toDateString();
-      }).length
+      }).length,
+      urgentPrescriptions: prescriptions.filter(p => p.isUrgent).length,
+      activePatients: activePatients.length
     };
-  }, [prescriptions]);
+  }, [prescriptions, getStats, activePatients]);
 
   const handleNewPrescription = (patientData) => {
     setSelectedPatient(patientData);
     setShowPrescriptionModal(true);
+  };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchPrescriptions();
+    } catch (error) {
+      console.error('Failed to refresh prescriptions:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Show patient selection modal for new prescriptions
+  const handleNewPrescriptionClick = () => {
+    if (activePatients.length === 0) {
+      alert('No active patients available for prescriptions.');
+      return;
+    }
+
+    // If only one patient, select automatically
+    if (activePatients.length === 1) {
+      setSelectedPatient(activePatients[0]);
+      setShowPrescriptionModal(true);
+    } else {
+      // Show patient selection if multiple patients
+      setSelectedPatient(null);
+      setShowPrescriptionModal(true);
+    }
+  };
+
+  // Handle prescription creation
+  const handlePrescriptionAdded = async (prescriptionData) => {
+    try {
+      await addPrescription(prescriptionData);
+      // Refresh the prescriptions list
+      await fetchPrescriptions();
+    } catch (error) {
+      throw error; // Let the modal handle the error display
+    }
   };
 
   const getStatusColor = (status) => {
@@ -208,11 +213,15 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
               {viewMode === 'list' ? 'Card View' : 'List View'}
             </button>
             <button
-              onClick={() => handleNewPrescription(null)}
-              className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+              onClick={handleNewPrescriptionClick}
+              disabled={apiLoading || activePatients.length === 0}
+              className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={18} className="mr-2" />
               New Prescription
+              {activePatients.length === 0 && !apiLoading && (
+                <span className="ml-2 text-xs">(No active patients)</span>
+              )}
             </button>
           </div>
         </div>
@@ -259,11 +268,11 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Expired</p>
-              <p className="text-2xl font-bold text-red-700">{stats.expired}</p>
+              <p className="text-sm font-medium text-gray-600">Active Patients</p>
+              <p className="text-2xl font-bold text-blue-700">{stats.activePatients || 0}</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <XCircle className="h-6 w-6 text-red-600" />
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Users className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -271,11 +280,11 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Today's Rx</p>
-              <p className="text-2xl font-bold text-purple-700">{stats.todaysPrescriptions}</p>
+              <p className="text-sm font-medium text-gray-600">Urgent Rx</p>
+              <p className="text-2xl font-bold text-red-700">{stats.urgentPrescriptions || 0}</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Calendar className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-red-100 rounded-lg">
+              <AlertCircle className="h-6 w-6 text-red-600" />
             </div>
           </div>
         </div>
@@ -330,11 +339,57 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
           </div>
 
           {/* Refresh Button */}
-          <button className="px-4 py-3 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
-            <RefreshCw size={20} />
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="px-4 py-3 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+            title="Refresh prescriptions data"
+          >
+            <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
+
+      {/* API Error Display */}
+      {apiError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <div>
+              <h4 className="text-red-800 font-medium">Error Loading Prescription Data</h4>
+              <p className="text-red-700 text-sm mt-1">{apiError}</p>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="ml-auto px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-sm transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Active Patients Info */}
+      {activePatients.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Activity className="w-5 h-5 text-blue-600 mr-2" />
+              <div>
+                <h4 className="text-blue-800 font-medium">
+                  {activePatients.length} Active Patient{activePatients.length !== 1 ? 's' : ''} Available
+                </h4>
+                <p className="text-blue-700 text-sm">
+                  Patients currently admitted and eligible for prescriptions
+                </p>
+              </div>
+            </div>
+            <div className="text-blue-600 text-sm">
+              Last updated: {new Date().toLocaleTimeString()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Prescriptions List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -342,9 +397,18 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">
               Prescriptions ({filteredPrescriptions.length})
+              {apiLoading && (
+                <span className="ml-2 text-sm text-gray-500">
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
+                  Loading...
+                </span>
+              )}
             </h3>
             <div className="flex items-center space-x-2">
-              <button className="flex items-center px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+              <button
+                disabled={filteredPrescriptions.length === 0}
+                className="flex items-center px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Download size={16} className="mr-1" />
                 Export
               </button>
@@ -353,7 +417,14 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
         </div>
 
         <div className="overflow-x-auto">
-          {viewMode === 'list' ? (
+          {apiLoading ? (
+            // Loading State
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 text-lg">Loading prescriptions...</p>
+              <p className="text-gray-500 text-sm mt-2">Fetching data from active patients</p>
+            </div>
+          ) : viewMode === 'list' ? (
             // List View
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -373,8 +444,22 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
                     <td colSpan="7" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center">
                         <Pill size={48} className="text-gray-300 mb-4" />
-                        <p className="text-gray-500 text-lg">No prescriptions found</p>
-                        <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filters</p>
+                        {activePatients.length === 0 ? (
+                          <>
+                            <p className="text-gray-500 text-lg">No active patients available</p>
+                            <p className="text-gray-400 text-sm mt-2">Admit patients to start creating prescriptions</p>
+                          </>
+                        ) : prescriptions.length === 0 ? (
+                          <>
+                            <p className="text-gray-500 text-lg">No prescriptions created yet</p>
+                            <p className="text-gray-400 text-sm mt-2">Click "New Prescription" to create the first prescription</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-gray-500 text-lg">No prescriptions match your search</p>
+                            <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filters</p>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -447,8 +532,22 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
                 {filteredPrescriptions.length === 0 ? (
                   <div className="col-span-full flex flex-col items-center py-12">
                     <Pill size={48} className="text-gray-300 mb-4" />
-                    <p className="text-gray-500 text-lg">No prescriptions found</p>
-                    <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filters</p>
+                    {activePatients.length === 0 ? (
+                      <>
+                        <p className="text-gray-500 text-lg">No active patients available</p>
+                        <p className="text-gray-400 text-sm mt-2">Admit patients to start creating prescriptions</p>
+                      </>
+                    ) : prescriptions.length === 0 ? (
+                      <>
+                        <p className="text-gray-500 text-lg">No prescriptions created yet</p>
+                        <p className="text-gray-400 text-sm mt-2">Click "New Prescription" to create the first prescription</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-gray-500 text-lg">No prescriptions match your search</p>
+                        <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filters</p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   filteredPrescriptions.map((prescription) => (
@@ -530,7 +629,8 @@ const PrescriptionsManagement = ({ activeAdmissions = [] }) => {
           setShowPrescriptionModal(false);
           setSelectedPatient(null);
         }}
-        patient={selectedPatient}
+        activePatients={activePatients}
+        onPrescriptionAdded={handlePrescriptionAdded}
       />
     </div>
   );

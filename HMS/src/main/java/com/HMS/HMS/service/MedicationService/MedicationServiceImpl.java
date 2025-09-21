@@ -1,5 +1,6 @@
 package com.HMS.HMS.service.MedicationService;
 
+import com.HMS.HMS.DTO.MedicationDTO.MedicationCompleteResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryApiResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
@@ -75,6 +76,12 @@ public class MedicationServiceImpl implements MedicationService{
     }
 
     @Override
+    public Page<MedicationCompleteResponseDTO> getAllComplete(Pageable pageable) {
+        return repository.findAll(pageable)
+                .map(this::convertToCompleteDTO);
+    }
+
+    @Override
     public Page<MedicationResponseDTO> search(String query, String category, Pageable pageable) {
         if (query != null && !query.isBlank() && category != null && !category.isBlank()) {
             return repository.findByDrugNameContainingIgnoreCaseAndCategoryIgnoreCase(query.trim(), category.trim(), pageable)
@@ -136,6 +143,27 @@ public class MedicationServiceImpl implements MedicationService{
             log.error("Error retrieving medication inventory: {}", e.getMessage(), e);
             throw new DomainValidationException("Failed to retrieve medication inventory: " + e.getMessage());
         }
+    }
+
+    private MedicationCompleteResponseDTO convertToCompleteDTO(Medication medication) {
+        return new MedicationCompleteResponseDTO(
+                medication.getId(),
+                medication.getDrugName(),
+                medication.getGenericName(),
+                medication.getCategory(),
+                medication.getStrength(),
+                medication.getDosageForm(),
+                medication.getManufacturer(),
+                medication.getBatchNumber(),
+                medication.getCurrentStock(),
+                medication.getMinimumStock(),
+                medication.getMaximumStock(),
+                medication.getUnitCost(),
+                medication.getExpiryDate(),
+                medication.getCreatedAt(),
+                medication.getUpdatedAt(),
+                medication.getIsActive()
+        );
     }
 
     private MedicationInventoryResponseDTO convertToInventoryDTO(Medication medication) {

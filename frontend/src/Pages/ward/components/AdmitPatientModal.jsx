@@ -110,17 +110,14 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
     e.preventDefault();
     
     if (!selectedPatient) {
-      alert('Please select a patient before submitting the admission.');
       return;
     }
-    
+
     if (!admission.wardId) {
-      alert('Please select a ward for the patient.');
       return;
     }
-    
+
     if (!admission.bedNumber.trim()) {
-      alert('Please enter a bed number.');
       return;
     }
     
@@ -131,7 +128,6 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       const bedNumber = admission.bedNumber?.trim();
       
       if (!patientNationalId || !wardId || !bedNumber) {
-        alert('Please fill in all required fields.');
         return;
       }
 
@@ -144,7 +140,6 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       console.log('Submitting admission:', admissionData);
       
       if (!admitPatient || typeof admitPatient !== 'function') {
-        alert('Admission service is not available. Please try again later.');
         return;
       }
       
@@ -152,16 +147,13 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       
       console.log('Admission successful:', response);
       
-      // Show success message
-      if (response) {
-        alert(`✅ Patient admission successful!\nAdmission ID: ${response.admissionId || 'N/A'}\nPatient: ${response.patientName || selectedPatient.fullName}\nWard: ${response.wardName || 'Selected Ward'}\nBed: ${response.bedNumber || bedNumber}`);
-      } else {
-        alert('✅ Patient admission successful!');
-      }
-      
-      // Refresh recent admissions in the dashboard
+      // Get ward name for success notification
+      const selectedWard = wards.find(w => w.wardId === parseInt(admission.wardId));
+      const wardName = selectedWard ? selectedWard.wardName : 'Selected Ward';
+
+      // Refresh recent admissions in the dashboard and show notification
       if (onAdmissionSuccess && typeof onAdmissionSuccess === 'function') {
-        onAdmissionSuccess();
+        onAdmissionSuccess(selectedPatient.fullName, wardName);
       }
       
       resetForm();
@@ -169,14 +161,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       
     } catch (error) {
       console.error('Admission error:', error);
-      // Error handling is done in the hook, but we can show user-friendly messages here
-      if (lastError?.isAlreadyAdmitted) {
-        alert(`❌ Admission Failed\n\n${lastError.message}\n\nSuggestions:\n• Check if patient is currently in another ward\n• Discharge patient from current admission first\n• Verify patient identity`);
-      } else if (lastError?.message) {
-        alert(`❌ Admission Failed\n\n${lastError.message}`);
-      } else {
-        alert('❌ Admission Failed\n\nPlease try again or contact support if the problem persists.');
-      }
+      // Error handling is done in the hook and will show notifications
     }
   };
 

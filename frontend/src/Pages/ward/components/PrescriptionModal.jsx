@@ -1,41 +1,718 @@
-import React, { useState } from 'react';
-import { X, Pill, Calendar, Clock, AlertCircle, FileText, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Pill, AlertCircle, FileText, User, Search, Minus, AlertTriangle } from 'lucide-react';
+import useNotifications from '../hooks/useNotifications';
+import axios from 'axios';
 
-const PrescriptionModal = ({ isOpen, onClose, patient }) => {
-  const [prescription, setPrescription] = useState({
-    drugName: '',
-    dose: '',
-    frequency: '',
-    route: 'Oral',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: '',
-    instructions: ''
+
+const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptionAdded }) => {
+  // Patient search state
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState(null);
+
+  // Medication selection state
+  const [selectedMedications, setSelectedMedications] = useState([]);
+  const [medicationSearchTerm, setMedicationSearchTerm] = useState('');
+  const [availableMedications, setAvailableMedications] = useState([]);
+  const [medicationsLoading, setMedicationsLoading] = useState(false);
+  const [medicationsError, setMedicationsError] = useState(null);
+  const [medicationsFetched, setMedicationsFetched] = useState(false);
+
+  // Validation states
+  const [validationErrors, setValidationErrors] = useState({});
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Prescription metadata (simplified - removed duration and general notes)
+  const [prescriptionData, setPrescriptionData] = useState({
+    startDate: new Date().toISOString().split('T')[0]
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const notifications = useNotifications();
+
+  // Validation functions
+  const validatePatientSelection = () => {
+    if (!selectedPatient) {
+      return 'Please select a patient before proceeding';
+    }
+    if (!selectedPatient.patientName || !selectedPatient.patientNationalId) {
+      return 'Selected patient has incomplete information';
+    }
+    return null;
+  };
+
+  const validateMedications = () => {
+    const errors = {};
+
+    if (selectedMedications.length === 0) {
+      errors.medications = 'Please add at least one medication';
+      return errors;
+    }
+
+    selectedMedications.forEach((medication, index) => {
+      const medicationErrors = {};
+
+      // Validate dosage
+      if (!medication.dosage || medication.dosage.trim() === '') {
+        medicationErrors.dosage = 'Dosage is required';
+      }
+
+      // Validate frequency
+      if (!medication.frequency || medication.frequency.trim() === '') {
+        medicationErrors.frequency = 'Frequency is required';
+      }
+
+      // Validate quantity
+      if (!medication.quantity || medication.quantity.trim() === '') {
+        medicationErrors.quantity = 'Quantity is required';
+      } else {
+        const quantity = parseFloat(medication.quantity);
+        if (isNaN(quantity) || quantity <= 0) {
+          medicationErrors.quantity = 'Quantity must be a positive number';
+        } else if (quantity > 1000) {
+          medicationErrors.quantity = 'Quantity seems unusually high (max 1000)';
+        }
+      }
+
+      // Validate against available stock
+      if (medication.currentStock && medication.quantity) {
+        const requestedQuantity = parseFloat(medication.quantity);
+        if (requestedQuantity > medication.currentStock) {
+          medicationErrors.quantity = `Only ${medication.currentStock} ${getQuantityUnit(medication.dosageForm)} available in stock`;
+        }
+      }
+
+      // Validate instructions length
+      if (medication.instructions && medication.instructions.length > 500) {
+        medicationErrors.instructions = 'Instructions too long (max 500 characters)';
+      }
+
+      if (Object.keys(medicationErrors).length > 0) {
+        errors[`medication_${index}`] = medicationErrors;
+      }
+    });
+
+    return errors;
+  };
+
+  const validatePrescriptionData = () => {
+    const errors = {};
+
+    // Validate start date
+    if (!prescriptionData.startDate) {
+      errors.startDate = 'Start date is required';
+    } else {
+      const startDate = new Date(prescriptionData.startDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (startDate < today) {
+        errors.startDate = 'Start date cannot be in the past';
+      }
+
+      const maxFutureDate = new Date();
+      maxFutureDate.setDate(maxFutureDate.getDate() + 365);
+
+      if (startDate > maxFutureDate) {
+        errors.startDate = 'Start date cannot be more than 1 year in the future';
+      }
+    }
+
+    return errors;
+  };
+
+  const validateDuplicateMedications = () => {
+    const drugNames = selectedMedications.map(med => med.name.toLowerCase());
+    const duplicates = drugNames.filter((drug, index) => drugNames.indexOf(drug) !== index);
+
+    if (duplicates.length > 0) {
+      return `Duplicate medications detected: ${duplicates.join(', ')}`;
+    }
+    return null;
+  };
+
+  const validateForm = () => {
+    setIsValidating(true);
+    const errors = {};
+
+    // Patient validation
+    const patientError = validatePatientSelection();
+    if (patientError) {
+      errors.patient = patientError;
+    }
+
+    // Medication validation
+    const medicationErrors = validateMedications();
+    Object.assign(errors, medicationErrors);
+
+    // Prescription data validation
+    const prescriptionErrors = validatePrescriptionData();
+    Object.assign(errors, prescriptionErrors);
+
+    // Duplicate medication validation
+    const duplicateError = validateDuplicateMedications();
+    if (duplicateError) {
+      errors.duplicates = duplicateError;
+    }
+
+    setValidationErrors(errors);
+    setIsValidating(false);
+
+    return Object.keys(errors).length === 0;
+  };
+
+  const clearValidationErrors = () => {
+    setValidationErrors({});
+  };
+
+  const clearFieldError = (fieldName) => {
+    if (validationErrors[fieldName]) {
+      const newErrors = { ...validationErrors };
+      delete newErrors[fieldName];
+      setValidationErrors(newErrors);
+    }
+  };
+
+  // Get JWT token for authentication
+  const getAuthHeaders = () => {
+    const jwtToken = localStorage.getItem('jwtToken');
+    return {
+      'Authorization': `Bearer ${jwtToken}`,
+      'Content-Type': 'application/json'
+    };
+  };
+
+
+  // Fetch medications from API
+  const fetchMedications = useCallback(async () => {
+    // Prevent multiple simultaneous requests
+    if (medicationsLoading || medicationsFetched) {
+      return;
+    }
+
+    try {
+      setMedicationsLoading(true);
+      setMedicationsError(null);
+
+      const jwtToken = localStorage.getItem('jwtToken');
+      if (!jwtToken) {
+        setAvailableMedications([]);
+        setMedicationsError('Authentication required. Please log in again.');
+        notifications.error('Authentication Error', 'No valid session found. Please log in again.');
+        setMedicationsFetched(true);
+        return;
+      }
+
+      // Fetch from pharmacy medications API endpoint
+      const response = await axios.get('http://localhost:8080/api/pharmacy/medications/getAll', {
+        headers: getAuthHeaders(),
+        timeout: 10000 // 10 second timeout
+      });
+
+      // Handle successful response
+      if (response.data && Array.isArray(response.data)) {
+        // Direct array response
+        const transformedMedications = response.data.map(med => ({
+          id: med.medicationId || med.id,
+          name: med.drugName || med.name || med.medicationName,
+          genericName: med.genericName,
+          category: med.category || med.drugCategory,
+          strength: med.strength || med.dosage,
+          dosageForm: med.dosageForm || med.form,
+          manufacturer: med.manufacturer || 'Unknown',
+          currentStock: med.currentStock || med.quantityInStock || 0,
+          unitCost: med.unitCost || med.price || 0,
+          expiryDate: med.expiryDate || med.expiry,
+          isActive: med.isActive !== false, // Default to true if not specified
+          dosages: generateDosageOptions(med.strength || med.dosage, med.dosageForm || med.form),
+          frequencies: getStandardFrequencies(med.category || med.drugCategory),
+          commonInstructions: getInstructionsForCategory(med.category || med.drugCategory, med.genericName)
+        }));
+
+        // Filter only active medications with stock
+        const activeMedications = transformedMedications.filter(med =>
+          med.isActive && med.currentStock > 0 && med.name
+        );
+
+        if (activeMedications.length > 0) {
+          setAvailableMedications(activeMedications);
+        } else {
+          setAvailableMedications([]);
+          setMedicationsError('No active medications with stock found in pharmacy system.');
+          notifications.warning('No Medications Available', 'No active medications with stock found in the pharmacy system.');
+        }
+      } else if (response.data && response.data.content && Array.isArray(response.data.content)) {
+        // Paginated response
+        const transformedMedications = response.data.content.map(med => ({
+          id: med.medicationId || med.id,
+          name: med.drugName || med.name || med.medicationName,
+          genericName: med.genericName,
+          category: med.category || med.drugCategory,
+          strength: med.strength || med.dosage,
+          dosageForm: med.dosageForm || med.form,
+          manufacturer: med.manufacturer || 'Unknown',
+          currentStock: med.currentStock || med.quantityInStock || 0,
+          unitCost: med.unitCost || med.price || 0,
+          expiryDate: med.expiryDate || med.expiry,
+          isActive: med.isActive !== false,
+          dosages: generateDosageOptions(med.strength || med.dosage, med.dosageForm || med.form),
+          frequencies: getStandardFrequencies(med.category || med.drugCategory),
+          commonInstructions: getInstructionsForCategory(med.category || med.drugCategory, med.genericName)
+        }));
+
+        const activeMedications = transformedMedications.filter(med =>
+          med.isActive && med.currentStock > 0 && med.name
+        );
+
+        if (activeMedications.length > 0) {
+          setAvailableMedications(activeMedications);
+        } else {
+          setAvailableMedications([]);
+          setMedicationsError('No active medications with stock found in pharmacy system.');
+          notifications.warning('No Medications Available', 'No active medications with stock found in the pharmacy system.');
+        }
+      } else {
+        setAvailableMedications([]);
+        setMedicationsError('Unexpected response format from pharmacy API.');
+        notifications.error('API Response Error', 'Received unexpected data format from pharmacy medications API.');
+      }
+
+    } catch (err) {
+      console.error('Error fetching medications from pharmacy API:', err);
+
+      // Set error state instead of fallback
+      setAvailableMedications([]);
+
+      let errorMessage = 'Failed to fetch medications from pharmacy API.';
+
+      if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied to pharmacy medications.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Pharmacy medications endpoint not found.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Pharmacy server error occurred.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Pharmacy API request timeout.';
+      } else if (!err.response) {
+        errorMessage = 'Network error accessing pharmacy API.';
+      }
+
+      setMedicationsError(errorMessage);
+
+      // Show error notification
+      notifications.error('Medications Loading Failed', errorMessage);
+
+    } finally {
+      setMedicationsLoading(false);
+      setMedicationsFetched(true);
+    }
+  }, [medicationsLoading, medicationsFetched, notifications]);
+
+  // Generate dosage options based on strength
+  const generateDosageOptions = (strength, dosageForm) => {
+    const baseStrength = parseInt(strength);
+    if (isNaN(baseStrength)) return [strength];
+
+    const unit = strength.replace(/[0-9]/g, '');
+
+    // Generate common dosage multiples
+    const multipliers = dosageForm.toLowerCase().includes('tablet') || dosageForm.toLowerCase().includes('capsule')
+      ? [0.5, 1, 2]
+      : [1];
+
+    return multipliers.map(mult => `${baseStrength * mult}${unit}`);
+  };
+
+  // Get standard frequencies based on medication category
+  const getStandardFrequencies = (category) => {
+    const frequencyMap = {
+      'Analgesic': ['Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)', 'Four times daily (QDS)', 'As needed (PRN)'],
+      'Antibiotic': ['Twice daily (BD)', 'Three times daily (TDS)', 'Four times daily (QDS)'],
+      'Antidiabetic': ['Once daily (OD)', 'Twice daily (BD)', 'Before meals', 'As per sliding scale'],
+      'Antihypertensive': ['Once daily (OD)', 'Twice daily (BD)'],
+      'Diuretic': ['Once daily (OD)', 'Twice daily (BD)'],
+      'Statin': ['Once daily (OD)', 'At bedtime'],
+      'Proton Pump Inhibitor': ['Once daily (OD)', 'Twice daily (BD)'],
+      default: ['Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)', 'Four times daily (QDS)']
+    };
+
+    return frequencyMap[category] || frequencyMap.default;
+  };
+
+
+  // Get default quantity based on dosage form
+  const getDefaultQuantity = (dosageForm) => {
+    const quantityMap = {
+      'Tablet': '30', // 30 tablets
+      'Capsule': '30', // 30 capsules
+      'Syrup': '200', // 200ml
+      'Suspension': '200', // 200ml
+      'Injection': '5', // 5 vials
+      'Suppository': '10', // 10 pieces
+      'Cream': '50', // 50g
+      'Ointment': '50', // 50g
+      'Drops': '10', // 10ml
+      'Inhaler': '1', // 1 inhaler
+      'Patch': '10', // 10 patches
+      default: '30'
+    };
+
+    return quantityMap[dosageForm] || quantityMap.default;
+  };
+
+  // Get quantity unit based on dosage form
+  const getQuantityUnit = (dosageForm) => {
+    const unitMap = {
+      'Tablet': 'tablets',
+      'Capsule': 'capsules',
+      'Syrup': 'ml',
+      'Suspension': 'ml',
+      'Injection': 'vials',
+      'Suppository': 'pieces',
+      'Cream': 'g',
+      'Ointment': 'g',
+      'Drops': 'ml',
+      'Inhaler': 'inhaler(s)',
+      'Patch': 'patches',
+      default: 'units'
+    };
+
+    return unitMap[dosageForm] || unitMap.default;
+  };
+
+  // Get instructions based on category and generic name
+  const getInstructionsForCategory = (category, genericName) => {
+    const instructionMap = {
+      'Analgesic': 'Take as directed. Do not exceed recommended dose.',
+      'Antibiotic': 'Take with food. Complete the full course even if feeling better.',
+      'Antidiabetic': 'Take with meals. Monitor blood sugar levels regularly.',
+      'Antihypertensive': 'Take at the same time each day. Monitor blood pressure.',
+      'Diuretic': 'Take in the morning. Monitor fluid balance.',
+      'Statin': 'Take at bedtime. Monitor liver function.',
+      'Proton Pump Inhibitor': 'Take before breakfast. Swallow whole, do not crush.',
+      default: 'Take as prescribed by your doctor.'
+    };
+
+    // Special cases for specific generic names
+    if (genericName?.toLowerCase().includes('insulin')) {
+      return 'Administer as prescribed. Monitor blood glucose levels regularly.';
+    }
+    if (genericName?.toLowerCase().includes('paracetamol')) {
+      return 'Take with or without food. Do not exceed 4g in 24 hours.';
+    }
+
+    return instructionMap[category] || instructionMap.default;
+  };
+
+  // Filter patients based on search
+  const filteredPatients = activePatients.filter(patient =>
+    patient.patientName.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+    patient.patientNationalId.toString().includes(patientSearchTerm) ||
+    patient.wardName.toLowerCase().includes(patientSearchTerm.toLowerCase())
+  );
+
+  // Filter medications based on search (with safety checks)
+  const filteredMedications = (availableMedications || []).filter(med => {
+    if (!med || !med.name || !med.category) return false;
+
+    const searchLower = medicationSearchTerm.toLowerCase();
+    return med.name.toLowerCase().includes(searchLower) ||
+           (med.genericName && med.genericName.toLowerCase().includes(searchLower)) ||
+           med.category.toLowerCase().includes(searchLower);
+  });
+
+  // Add medication to prescription
+  const addMedication = (medication) => {
+    const newMedication = {
+      id: Date.now(),
+      medicationId: medication.id,
+      name: medication.name,
+      genericName: medication.genericName,
+      category: medication.category,
+      strength: medication.strength,
+      dosageForm: medication.dosageForm,
+      manufacturer: medication.manufacturer,
+      currentStock: medication.currentStock,
+      dosage: medication.dosages[0], // Default to first dosage
+      frequency: medication.frequencies[0], // Default to first frequency
+      quantity: getDefaultQuantity(medication.dosageForm), // Default quantity based on dosage form
+      instructions: medication.commonInstructions,
+      availableDosages: medication.dosages,
+      availableFrequencies: medication.frequencies
+    };
+    setSelectedMedications([...selectedMedications, newMedication]);
+    setMedicationSearchTerm(''); // Clear search after adding
+  };
+
+  // Remove medication from prescription
+  const removeMedication = (id) => {
+    setSelectedMedications(selectedMedications.filter(med => med.id !== id));
+  };
+
+  // Update medication details
+  const updateMedication = (id, field, value) => {
+    setSelectedMedications(selectedMedications.map(med =>
+      med.id === id ? { ...med, [field]: value } : med
+    ));
+
+    // Clear validation errors for this field
+    const medicationIndex = selectedMedications.findIndex(med => med.id === id);
+    if (medicationIndex !== -1) {
+      clearFieldError(`medication_${medicationIndex}`);
+    }
+  };
+
+  // Reset form when modal opens and fetch medications
+  useEffect(() => {
+    if (isOpen) {
+      setPatientSearchTerm('');
+      setSelectedPatient(null);
+      setSelectedMedications([]);
+      setMedicationSearchTerm('');
+      setPrescriptionData({
+        startDate: new Date().toISOString().split('T')[0]
+      });
+      setIsSubmitting(false);
+      setValidationErrors({});
+      setMedicationsFetched(false); // Reset fetch state
+    }
+  }, [isOpen]);
+
+  // Separate effect for fetching medications when modal opens
+  useEffect(() => {
+    if (isOpen && !medicationsFetched && !medicationsLoading) {
+      // Call fetchMedications directly to avoid dependency issues
+      const fetchData = async () => {
+        // Prevent multiple simultaneous requests
+        if (medicationsLoading || medicationsFetched) {
+          return;
+        }
+
+        try {
+          setMedicationsLoading(true);
+          setMedicationsError(null);
+
+          const jwtToken = localStorage.getItem('jwtToken');
+          if (!jwtToken) {
+            setAvailableMedications([]);
+            setMedicationsError('Authentication required. Please log in again.');
+            notifications.error('Authentication Error', 'No valid session found. Please log in again.');
+            setMedicationsFetched(true);
+            return;
+          }
+
+          // Fetch from pharmacy medications API endpoint
+          const response = await axios.get('http://localhost:8080/api/pharmacy/medications/getAll', {
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000 // 10 second timeout
+          });
+
+          // Handle successful response
+          if (response.data && Array.isArray(response.data)) {
+            // Direct array response
+            const transformedMedications = response.data.map(med => ({
+              id: med.medicationId || med.id,
+              name: med.drugName || med.name || med.medicationName,
+              genericName: med.genericName,
+              category: med.category || med.drugCategory,
+              strength: med.strength || med.dosage,
+              dosageForm: med.dosageForm || med.form,
+              manufacturer: med.manufacturer || 'Unknown',
+              currentStock: med.currentStock || med.quantityInStock || 0,
+              unitCost: med.unitCost || med.price || 0,
+              expiryDate: med.expiryDate || med.expiry,
+              isActive: med.isActive !== false, // Default to true if not specified
+              dosages: generateDosageOptions(med.strength || med.dosage, med.dosageForm || med.form),
+              frequencies: getStandardFrequencies(med.category || med.drugCategory),
+              commonInstructions: getInstructionsForCategory(med.category || med.drugCategory, med.genericName)
+            }));
+
+            // Filter only active medications with stock
+            const activeMedications = transformedMedications.filter(med =>
+              med.isActive && med.currentStock > 0 && med.name
+            );
+
+            if (activeMedications.length > 0) {
+              setAvailableMedications(activeMedications);
+            } else {
+              setAvailableMedications([]);
+              setMedicationsError('No active medications with stock found in pharmacy system.');
+              notifications.warning('No Medications Available', 'No active medications with stock found in the pharmacy system.');
+            }
+          } else if (response.data && response.data.content && Array.isArray(response.data.content)) {
+            // Paginated response
+            const transformedMedications = response.data.content.map(med => ({
+              id: med.medicationId || med.id,
+              name: med.drugName || med.name || med.medicationName,
+              genericName: med.genericName,
+              category: med.category || med.drugCategory,
+              strength: med.strength || med.dosage,
+              dosageForm: med.dosageForm || med.form,
+              manufacturer: med.manufacturer || 'Unknown',
+              currentStock: med.currentStock || med.quantityInStock || 0,
+              unitCost: med.unitCost || med.price || 0,
+              expiryDate: med.expiryDate || med.expiry,
+              isActive: med.isActive !== false,
+              dosages: generateDosageOptions(med.strength || med.dosage, med.dosageForm || med.form),
+              frequencies: getStandardFrequencies(med.category || med.drugCategory),
+              commonInstructions: getInstructionsForCategory(med.category || med.drugCategory, med.genericName)
+            }));
+
+            const activeMedications = transformedMedications.filter(med =>
+              med.isActive && med.currentStock > 0 && med.name
+            );
+
+            if (activeMedications.length > 0) {
+              setAvailableMedications(activeMedications);
+            } else {
+              setAvailableMedications([]);
+              setMedicationsError('No active medications with stock found in pharmacy system.');
+              notifications.warning('No Medications Available', 'No active medications with stock found in the pharmacy system.');
+            }
+          } else {
+            setAvailableMedications([]);
+            setMedicationsError('Unexpected response format from pharmacy API.');
+            notifications.error('API Response Error', 'Received unexpected data format from pharmacy medications API.');
+          }
+
+        } catch (err) {
+          console.error('Error fetching medications from pharmacy API:', err);
+
+          // Set error state instead of fallback
+          setAvailableMedications([]);
+
+          let errorMessage = 'Failed to fetch medications from pharmacy API.';
+
+          if (err.response?.status === 401) {
+            errorMessage = 'Session expired. Please log in again.';
+          } else if (err.response?.status === 403) {
+            errorMessage = 'Access denied to pharmacy medications.';
+          } else if (err.response?.status === 404) {
+            errorMessage = 'Pharmacy medications endpoint not found.';
+          } else if (err.response?.status === 500) {
+            errorMessage = 'Pharmacy server error occurred.';
+          } else if (err.code === 'ECONNABORTED') {
+            errorMessage = 'Pharmacy API request timeout.';
+          } else if (!err.response) {
+            errorMessage = 'Network error accessing pharmacy API.';
+          }
+
+          setMedicationsError(errorMessage);
+
+          // Show error notification
+          notifications.error('Medications Loading Failed', errorMessage);
+
+        } finally {
+          setMedicationsLoading(false);
+          setMedicationsFetched(true);
+        }
+      };
+
+      fetchData();
+    }
+  }, [isOpen, medicationsFetched, medicationsLoading, notifications]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Prescription submitted:', prescription);
-    onClose();
+
+    // Clear previous validation errors
+    clearValidationErrors();
+
+    // Perform comprehensive validation
+    const isValid = validateForm();
+
+    if (!isValid) {
+      // Show validation errors
+      const errorCount = Object.keys(validationErrors).length;
+      notifications.error(
+        'Validation Failed',
+        `Please fix ${errorCount} validation error(s) before submitting`
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Create separate prescriptions for each medication
+      const prescriptions = selectedMedications.map(medication => ({
+        drugName: medication.name,
+        dose: medication.dosage,
+        frequency: medication.frequency,
+        quantity: medication.quantity,
+        quantityUnit: getQuantityUnit(medication.dosageForm),
+        instructions: medication.instructions,
+        startDate: prescriptionData.startDate,
+        patientName: selectedPatient.patientName,
+        patientId: selectedPatient.patientId || `P${selectedPatient.patientNationalId}`,
+        patientNationalId: selectedPatient.patientNationalId,
+        admissionId: selectedPatient.admissionId,
+        wardNumber: selectedPatient.wardNumber || `W${selectedPatient.wardId}`,
+        wardName: selectedPatient.wardName,
+        bedNumber: selectedPatient.bedNumber,
+        prescribedBy: 'Current Doctor', // TODO: Get from auth context
+        prescribedDate: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        status: 'active'
+      }));
+
+      // Submit all prescriptions
+      if (onPrescriptionAdded) {
+        for (const prescription of prescriptions) {
+          await onPrescriptionAdded(prescription);
+        }
+      }
+
+      // Show success notification
+      notifications.success(
+        'Prescriptions Created Successfully',
+        `${selectedMedications.length} medication(s) prescribed for ${selectedPatient.patientName}`,
+        {
+          action: {
+            label: 'View Prescriptions',
+            onClick: () => console.log('Navigate to prescriptions list')
+          }
+        }
+      );
+
+      // Reset form and close modal
+      handleClose();
+
+    } catch (error) {
+      console.error('Error creating prescriptions:', error);
+      notifications.error(
+        'Failed to Create Prescriptions',
+        error.message || 'An unexpected error occurred while creating the prescriptions'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
-    setPrescription({
-      drugName: '',
-      dose: '',
-      frequency: '',
-      route: 'Oral',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: '',
-      instructions: ''
-    });
-    onClose();
+    if (!isSubmitting) {
+      setPatientSearchTerm('');
+      setSelectedPatient(null);
+      setSelectedMedications([]);
+      setMedicationSearchTerm('');
+      setPrescriptionData({
+        startDate: new Date().toISOString().split('T')[0]
+      });
+      setIsSubmitting(false);
+      setValidationErrors({});
+      onClose();
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden border border-gray-100 relative">
         {/* Enhanced Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 relative">
           <button
@@ -44,213 +721,477 @@ const PrescriptionModal = ({ isOpen, onClose, patient }) => {
           >
             <X size={20} />
           </button>
-          
+
           <div className="flex items-center space-x-4">
             <div className="h-16 w-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
               <Pill size={28} className="text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold mb-1">Electronic Prescription</h2>
+              <h2 className="text-2xl font-bold mb-1">Create Prescription</h2>
               <div className="flex items-center space-x-2 text-blue-100">
                 <User size={16} />
-                <span className="text-lg">Patient: {patient?.name || 'Unknown Patient'}</span>
+                <span className="text-lg">
+                  {selectedPatient ? `Patient: ${selectedPatient.patientName}` : 'Search and Select Patient'}
+                </span>
               </div>
-              {patient?.wardNumber && (
-                <div className="text-blue-200 text-sm">Ward: {patient.wardNumber}</div>
+              {selectedPatient && (
+                <div className="text-blue-200 text-sm space-y-1">
+                  <div>National ID: {selectedPatient.patientNationalId}</div>
+                  <div>Ward: {selectedPatient.wardName} - Bed {selectedPatient.bedNumber}</div>
+                  <div>Admitted: {new Date(selectedPatient.admissionDate).toLocaleDateString()}</div>
+                </div>
               )}
             </div>
           </div>
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto max-h-[calc(95vh-140px)]">
-        <form onSubmit={handleSubmit} className="p-8 space-y-8">
-          {/* Medication Information Section */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-              <Pill size={20} className="mr-3 text-blue-600" />
-              Medication Details
-            </h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <Pill size={16} className="mr-2 text-blue-500" />
-                  Drug Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
-                  value={prescription.drugName}
-                  onChange={(e) => setPrescription({...prescription, drugName: e.target.value})}
-                  placeholder="Enter medication name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Dosage *
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
-                  value={prescription.dose}
-                  onChange={(e) => setPrescription({...prescription, dose: e.target.value})}
-                  placeholder="e.g., 500mg, 1 tablet"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <Clock size={16} className="mr-2 text-green-500" />
-                  Frequency *
-                </label>
-                <select
-                  required
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
-                  value={prescription.frequency}
-                  onChange={(e) => setPrescription({...prescription, frequency: e.target.value})}
-                >
-                  <option value="">Select frequency</option>
-                  <option value="Once daily (OD)">Once daily (OD)</option>
-                  <option value="Twice daily (BD)">Twice daily (BD)</option>
-                  <option value="Three times daily (TDS)">Three times daily (TDS)</option>
-                  <option value="Four times daily (QDS)">Four times daily (QDS)</option>
-                  <option value="Every 6 hours">Every 6 hours</option>
-                  <option value="Every 8 hours">Every 8 hours</option>
-                  <option value="Every 12 hours">Every 12 hours</option>
-                  <option value="As needed (PRN)">As needed (PRN)</option>
-                  <option value="Before meals">Before meals</option>
-                  <option value="After meals">After meals</option>
-                  <option value="At bedtime">At bedtime</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Route of Administration
-                </label>
-                <select
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
-                  value={prescription.route}
-                  onChange={(e) => setPrescription({...prescription, route: e.target.value})}
-                >
-                  <option value="Oral">Oral (PO)</option>
-                  <option value="Intravenous">Intravenous (IV)</option>
-                  <option value="Intramuscular">Intramuscular (IM)</option>
-                  <option value="Subcutaneous">Subcutaneous (SC)</option>
-                  <option value="Topical">Topical</option>
-                  <option value="Inhalation">Inhalation</option>
-                  <option value="Sublingual">Sublingual</option>
-                  <option value="Rectal">Rectal</option>
-                  <option value="Transdermal">Transdermal</option>
-                </select>
-              </div>
-            </div>
-          </div>
+        <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
+          <form onSubmit={handleSubmit} className="p-8 space-y-8 pb-24">
 
-          {/* Treatment Duration Section */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-              <Calendar size={20} className="mr-3 text-green-600" />
-              Treatment Duration
-            </h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <Calendar size={16} className="mr-2 text-green-500" />
-                  Start Date *
-                </label>
-                <input
-                  type="date"
-                  required
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white shadow-sm"
-                  value={prescription.startDate}
-                  onChange={(e) => setPrescription({...prescription, startDate: e.target.value})}
-                />
+            {/* Validation Errors Display */}
+            {Object.keys(validationErrors).length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                <div className="flex items-center space-x-2 text-red-800 mb-3">
+                  <AlertTriangle size={20} />
+                  <span className="font-semibold">Please fix the following errors:</span>
+                </div>
+                <div className="space-y-2">
+                  {validationErrors.patient && (
+                    <div className="text-red-700 text-sm">• {validationErrors.patient}</div>
+                  )}
+                  {validationErrors.medications && (
+                    <div className="text-red-700 text-sm">• {validationErrors.medications}</div>
+                  )}
+                  {validationErrors.duplicates && (
+                    <div className="text-red-700 text-sm">• {validationErrors.duplicates}</div>
+                  )}
+                  {validationErrors.startDate && (
+                    <div className="text-red-700 text-sm">• {validationErrors.startDate}</div>
+                  )}
+                  {Object.keys(validationErrors).filter(key => key.startsWith('medication_')).length > 0 && (
+                    <div className="text-red-700 text-sm">• Some medications have validation errors (see below)</div>
+                  )}
+                </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <Calendar size={16} className="mr-2 text-orange-500" />
-                  End Date (Optional)
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white shadow-sm"
-                  value={prescription.endDate}
-                  onChange={(e) => setPrescription({...prescription, endDate: e.target.value})}
-                />
-              </div>
-            </div>
-          </div>
+            )}
+            {/* Step 1: Patient Search and Selection */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
+                <User size={20} className="mr-3 text-blue-600" />
+                Step 1: Search and Select Patient
+              </h3>
 
-          {/* Special Instructions Section */}
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-100">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-              <FileText size={20} className="mr-3 text-amber-600" />
-              Special Instructions & Notes
-            </h3>
-            
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Patient Instructions
-              </label>
-              <textarea
-                rows="4"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-white shadow-sm resize-none"
-                value={prescription.instructions}
-                onChange={(e) => setPrescription({...prescription, instructions: e.target.value})}
-                placeholder="Enter any special instructions, warnings, or notes for the patient..."
-              />
-              
-              {/* Common instruction quick-add buttons */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="px-3 py-1 text-xs bg-white border border-amber-200 rounded-full hover:bg-amber-50 transition-colors"
-                  onClick={() => setPrescription({...prescription, instructions: prescription.instructions + 'Take with food. '})}
-                >
-                  + Take with food
-                </button>
-                <button
-                  type="button"
-                  className="px-3 py-1 text-xs bg-white border border-amber-200 rounded-full hover:bg-amber-50 transition-colors"
-                  onClick={() => setPrescription({...prescription, instructions: prescription.instructions + 'Take on empty stomach. '})}
-                >
-                  + Take on empty stomach
-                </button>
-                <button
-                  type="button"
-                  className="px-3 py-1 text-xs bg-white border border-amber-200 rounded-full hover:bg-amber-50 transition-colors"
-                  onClick={() => setPrescription({...prescription, instructions: prescription.instructions + 'Complete the full course. '})}
-                >
-                  + Complete full course
-                </button>
-                <button
-                  type="button"
-                  className="px-3 py-1 text-xs bg-white border border-amber-200 rounded-full hover:bg-amber-50 transition-colors"
-                  onClick={() => setPrescription({...prescription, instructions: prescription.instructions + 'Do not exceed recommended dose. '})}
-                >
-                  + Do not exceed dose
-                </button>
+              {!selectedPatient ? (
+                <div className="space-y-4">
+                  {/* Patient Search */}
+                  <div className="relative">
+                    <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search patients by name, ID, or ward..."
+                      value={patientSearchTerm}
+                      onChange={(e) => setPatientSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    />
+                  </div>
+
+                  {/* Patient Results */}
+                  {patientSearchTerm && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+                      {filteredPatients.length > 0 ? (
+                        filteredPatients.map((patient) => (
+                          <button
+                            key={patient.admissionId}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPatient(patient);
+                              clearFieldError('patient');
+                            }}
+                            className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-white transition-all duration-200 text-left"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <User size={16} className="text-blue-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{patient.patientName}</div>
+                                <div className="text-sm text-gray-500">ID: {patient.patientNationalId}</div>
+                                <div className="text-sm text-gray-500">
+                                  {patient.wardName} - Bed {patient.bedNumber}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="col-span-2 text-center py-4 text-gray-500">
+                          No patients found matching your search
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show all patients when no search */}
+                  {!patientSearchTerm && activePatients.length > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-4">Available active patients:</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+                        {activePatients.map((patient) => (
+                          <button
+                            key={patient.admissionId}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPatient(patient);
+                              clearFieldError('patient');
+                            }}
+                            className="p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-white transition-all duration-200 text-left"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <User size={16} className="text-blue-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{patient.patientName}</div>
+                                <div className="text-sm text-gray-500">ID: {patient.patientNationalId}</div>
+                                <div className="text-sm text-gray-500">
+                                  {patient.wardName} - Bed {patient.bedNumber}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-white rounded-xl p-4 border border-blue-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <User size={20} className="text-green-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{selectedPatient.patientName}</div>
+                      <div className="text-sm text-gray-500">ID: {selectedPatient.patientNationalId}</div>
+                      <div className="text-sm text-gray-500">
+                        {selectedPatient.wardName} - Bed {selectedPatient.bedNumber}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPatient(null)}
+                    className="text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Step 2: Medication Search and Selection */}
+            <div className={`bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100 ${!selectedPatient ? 'opacity-50 pointer-events-none' : ''}`}>
+              <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
+                <Pill size={20} className="mr-3 text-green-600" />
+                Step 2: Search and Add Medications
+              </h3>
+
+              {/* Medication Search */}
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search medications by name, generic name, or category..."
+                    value={medicationSearchTerm}
+                    onChange={(e) => setMedicationSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                    disabled={!selectedPatient || medicationsLoading}
+                  />
+                  {medicationsLoading && (
+                    <div className="absolute right-3 top-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Medication Search Results */}
+                {medicationSearchTerm && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
+                    {filteredMedications.length > 0 ? (
+                      filteredMedications.map((medication) => (
+                        <button
+                          key={medication.id}
+                          type="button"
+                          onClick={() => addMedication(medication)}
+                          className="p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-white transition-all duration-200 text-left min-h-[140px] flex flex-col justify-between bg-white shadow-sm"
+                          disabled={selectedMedications.some(med => med.medicationId === medication.id)}
+                        >
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center space-x-2 flex-1">
+                                <Pill size={16} className="text-green-600 flex-shrink-0" />
+                                <span className="font-medium text-gray-900 text-sm leading-tight">{medication.name}</span>
+                              </div>
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex-shrink-0 ml-2">
+                                Stock: {medication.currentStock}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-500">{medication.category}</div>
+                            <div className="text-xs text-gray-400 leading-relaxed">
+                              {medication.genericName && (
+                                <div>Generic: {medication.genericName}</div>
+                              )}
+                              <div>{medication.strength} {medication.dosageForm}</div>
+                              <div>{medication.manufacturer}</div>
+                            </div>
+                          </div>
+                          {selectedMedications.some(med => med.medicationId === medication.id) && (
+                            <div className="text-xs text-green-600 font-medium mt-2 flex items-center">
+                              <span className="bg-green-100 px-2 py-1 rounded-full">✓ Added</span>
+                            </div>
+                          )}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="col-span-3 text-center py-8 text-gray-500">
+                        <Pill size={48} className="mx-auto text-gray-300 mb-4" />
+                        <p>No medications found matching your search</p>
+                        <p className="text-sm text-gray-400 mt-1">Try searching with different keywords</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+
+                {/* Error state */}
+                {medicationsError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <div className="flex items-center space-x-2 text-red-800 mb-2">
+                      <AlertCircle size={16} />
+                      <span className="font-medium">Error loading medications</span>
+                    </div>
+                    <p className="text-red-700 text-sm mb-3">{medicationsError}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMedicationsFetched(false);
+                        setMedicationsError(null);
+                        fetchMedications();
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                      disabled={medicationsLoading}
+                    >
+                      {medicationsLoading ? 'Retrying...' : 'Retry'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Available medications when no search */}
+                {!medicationSearchTerm && !medicationsError && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Available medications: {(availableMedications || []).length} items
+                      {medicationsLoading && ' (Loading...)'}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
+                      {(availableMedications || []).map((medication) => (
+                        <button
+                          key={medication.id}
+                          type="button"
+                          onClick={() => addMedication(medication)}
+                          className="p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-white transition-all duration-200 text-left min-h-[140px] flex flex-col justify-between bg-white shadow-sm"
+                          disabled={selectedMedications.some(med => med.medicationId === medication.id)}
+                        >
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center space-x-2 flex-1">
+                                <Pill size={16} className="text-green-600 flex-shrink-0" />
+                                <span className="font-medium text-gray-900 text-sm leading-tight">{medication.name}</span>
+                              </div>
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex-shrink-0 ml-2">
+                                Stock: {medication.currentStock}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-500">{medication.category}</div>
+                            <div className="text-xs text-gray-400 leading-relaxed">
+                              {medication.genericName && (
+                                <div>Generic: {medication.genericName}</div>
+                              )}
+                              <div>{medication.strength} {medication.dosageForm}</div>
+                              <div>{medication.manufacturer}</div>
+                            </div>
+                          </div>
+                          {selectedMedications.some(med => med.medicationId === medication.id) && (
+                            <div className="text-xs text-green-600 font-medium mt-2 flex items-center">
+                              <span className="bg-green-100 px-2 py-1 rounded-full">✓ Added</span>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </form>
+
+            {/* Step 3: Selected Medications with Dosage Configuration */}
+            {selectedMedications.length > 0 && (
+              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-100">
+                <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
+                  <FileText size={20} className="mr-3 text-amber-600" />
+                  Step 3: Configure Selected Medications ({selectedMedications.length})
+                </h3>
+
+                <div className="space-y-4">
+                {selectedMedications.map((medication, index) => {
+                  const medicationErrors = validationErrors[`medication_${index}`] || {};
+                  const hasErrors = Object.keys(medicationErrors).length > 0;
+
+                  return (
+                    <div key={medication.id} className={`bg-white rounded-xl p-4 border ${hasErrors ? 'border-red-300 bg-red-50' : 'border-amber-200'}`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <Pill size={20} className="text-amber-600" />
+                          <div>
+                            <h4 className="font-medium text-gray-900">{medication.name}</h4>
+                            <p className="text-sm text-gray-500">
+                              {medication.category} • {medication.strength} {medication.dosageForm}
+                            </p>
+                            {medication.genericName && (
+                              <p className="text-xs text-gray-400">Generic: {medication.genericName}</p>
+                            )}
+                            <p className="text-xs text-gray-400">
+                              Stock: {medication.currentStock} • {medication.manufacturer}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeMedication(medication.id)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                        >
+                          <Minus size={20} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Dosage *
+                          </label>
+                          <select
+                            value={medication.dosage}
+                            onChange={(e) => updateMedication(medication.id, 'dosage', e.target.value)}
+                            className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 ${medicationErrors.dosage ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                          >
+                            {medication.availableDosages.map((dosage) => (
+                              <option key={dosage} value={dosage}>{dosage}</option>
+                            ))}
+                          </select>
+                          {medicationErrors.dosage && (
+                            <div className="mt-1 text-red-600 text-xs flex items-center">
+                              <AlertCircle size={12} className="mr-1" />
+                              {medicationErrors.dosage}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Frequency *
+                          </label>
+                          <select
+                            value={medication.frequency}
+                            onChange={(e) => updateMedication(medication.id, 'frequency', e.target.value)}
+                            className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 ${medicationErrors.frequency ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                          >
+                            {medication.availableFrequencies.map((frequency) => (
+                              <option key={frequency} value={frequency}>{frequency}</option>
+                            ))}
+                          </select>
+                          {medicationErrors.frequency && (
+                            <div className="mt-1 text-red-600 text-xs flex items-center">
+                              <AlertCircle size={12} className="mr-1" />
+                              {medicationErrors.frequency}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Quantity to Issue *
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={medication.quantity}
+                              onChange={(e) => updateMedication(medication.id, 'quantity', e.target.value)}
+                              className={`flex-1 px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 ${medicationErrors.quantity ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                              placeholder="Enter quantity"
+                            />
+                            <span className="text-sm text-gray-500 min-w-[60px]">
+                              {getQuantityUnit(medication.dosageForm)}
+                            </span>
+                          </div>
+                          {medicationErrors.quantity && (
+                            <div className="mt-1 text-red-600 text-xs flex items-center">
+                              <AlertCircle size={12} className="mr-1" />
+                              {medicationErrors.quantity}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Instructions
+                        </label>
+                        <textarea
+                          rows="2"
+                          value={medication.instructions}
+                          onChange={(e) => updateMedication(medication.id, 'instructions', e.target.value)}
+                          className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 resize-none ${medicationErrors.instructions ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                          placeholder="Special instructions for this medication..."
+                          maxLength="500"
+                        />
+                        {medicationErrors.instructions && (
+                          <div className="mt-1 text-red-600 text-xs flex items-center">
+                            <AlertCircle size={12} className="mr-1" />
+                            {medicationErrors.instructions}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-400 mt-1">
+                          {medication.instructions ? medication.instructions.length : 0}/500 characters
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                </div>
+              </div>
+            )}
+
+          </form>
         </div>
 
-        {/* Enhanced Footer */}
-        <div className="bg-gray-50 border-t border-gray-200 p-6">
+        {/* Enhanced Footer - Fixed at bottom */}
+        <div className="bg-white border-t border-gray-200 p-6 absolute bottom-0 left-0 right-0 shadow-lg z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <AlertCircle size={16} />
-              <span>Please review all details before generating prescription</span>
+              <span>
+                {!selectedPatient
+                  ? 'Please select a patient to continue'
+                  : selectedMedications.length === 0
+                  ? 'Please add at least one medication'
+                  : `Ready to create ${selectedMedications.length} prescription(s)`
+                }
+              </span>
             </div>
-            
+
             <div className="flex space-x-4">
               <button
                 type="button"
@@ -259,14 +1200,24 @@ const PrescriptionModal = ({ isOpen, onClose, patient }) => {
               >
                 Cancel
               </button>
-              
+
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2"
+                disabled={isSubmitting || isValidating || !selectedPatient || selectedMedications.length === 0}
+                className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
               >
-                <FileText size={18} />
-                <span>Generate E-Prescription</span>
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Creating Prescriptions...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText size={20} />
+                    <span>Create Prescription{selectedMedications.length > 1 ? 's' : ''}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -30,35 +30,7 @@ export default function PharmacyDashboard() {
   const [activeTab, setActiveTab] = useState('prescriptions');
   const [toasts, setToasts] = useState([]);
 
-  // Custom hooks for data management
-  const {
-    prescriptions,
-    loading: prescriptionsLoading,
-    processPrescription,
-    updatePrescriptionStatus,
-    dispenseMedication,
-    checkDrugInteractions
-  } = usePrescriptions(addToast);
-
-  const {
-    inventory,
-    loading: inventoryLoading,
-    updateStock,
-    addInventoryItem,
-    refreshInventory,
-    getExpiringItems,
-    getReorderSuggestions
-  } = useInventory(addToast);
-
-  const {
-    drugDatabase,
-    loading: drugLoading,
-    searchDrug,
-    getDrugInfo,
-    checkInteractions
-  } = useDrugDatabase(addToast);
-
-  // Toast functions
+  // Toast functions (defined before hooks that might need them)
   function addToast(type, title, message) {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, type, title, message }]);
@@ -68,56 +40,93 @@ export default function PharmacyDashboard() {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }
 
+  // Custom hooks for data management
+  const {
+    prescriptions,
+    loading: prescriptionsLoading,
+    processPrescription,
+    dispenseMedication,
+    verifyInteractions,
+    addPrescription,
+    getPrescriptionsByStatus,
+    getStats: getPrescriptionStats
+  } = usePrescriptions();
+
+  const {
+    inventory,
+    loading: inventoryLoading,
+    error: inventoryError,
+    updateStock,
+    addInventoryItem,
+    refreshInventory,
+    getLowStockItems,
+    getOutOfStockItems,
+    getExpiringItems,
+    searchInventory,
+    getStats: getInventoryStats,
+    getReorderSuggestions,
+    updateMultipleStock
+  } = useInventory();
+
+  const {
+    drugDatabase,
+    searchResults,
+    loading: drugLoading,
+    error: drugError,
+    pagination,
+    searchDrug,
+    fetchAllDrugs,
+    getDrugInfo,
+    getCategories,
+    clearSearch
+  } = useDrugDatabase();
+
   // Calculate pharmacy statistics
   const pharmacyStats = useMemo(() => {
-    const today = new Date().toDateString();
-    
-    // Prescription statistics
-    const totalPrescriptions = prescriptions.length;
-    const todayPrescriptions = prescriptions.filter(p => 
-      new Date(p.receivedDate).toDateString() === today
-    ).length;
-    const pendingPrescriptions = prescriptions.filter(p => p.status === 'received' || p.status === 'in-progress').length;
-    const readyPrescriptions = prescriptions.filter(p => p.status === 'ready').length;
-    const dispensedToday = prescriptions.filter(p => 
-      p.status === 'dispensed' && 
-      new Date(p.dispensedDate).toDateString() === today
-    ).length;
-
-    // Inventory statistics
-    const totalMedications = inventory.length;
-    const lowStockItems = inventory.filter(item => item.currentStock <= item.minimumStock).length;
-    const expiringItems = inventory.filter(item => {
-      const expiryDate = new Date(item.expiryDate);
-      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      return expiryDate <= thirtyDaysFromNow;
-    }).length;
-    const outOfStockItems = inventory.filter(item => item.currentStock === 0).length;
-
-    // Alert counts
-    const criticalAlerts = lowStockItems + expiringItems + outOfStockItems;
-    
-    // Processing efficiency
-    const processedToday = prescriptions.filter(p => 
-      p.status === 'dispensed' && 
-      new Date(p.processedDate).toDateString() === today
-    ).length;
-
-    return {
-      totalPrescriptions,
-      todayPrescriptions,
-      pendingPrescriptions,
-      readyPrescriptions,
-      dispensedToday,
-      totalMedications,
-      lowStockItems,
-      expiringItems,
-      outOfStockItems,
-      criticalAlerts,
-      processedToday,
-      processingRate: todayPrescriptions > 0 ? Math.round((processedToday / todayPrescriptions) * 100) : 0
+    const prescriptionStats = getPrescriptionStats ? getPrescriptionStats() : {
+      totalPrescriptions: prescriptions?.length || 0,
+      pendingPrescriptions: 0,
+      processingPrescriptions: 0,
+      readyPrescriptions: 0,
+      dispensedPrescriptions: 0,
+      dispensedToday: 0,
+      processingRate: 0
     };
-  }, [prescriptions, inventory]);
+
+    const inventoryStats = getInventoryStats ? getInventoryStats() : {
+      totalItems: inventory?.length || 0,
+      lowStockAlerts: 0,
+      outOfStockAlerts: 0,
+      expiryAlerts: 0,
+      totalValue: 0,
+      averageStockLevel: 0
+    };
+
+    // Combine stats from hooks with computed values
+    return {
+      // Prescription stats (matching PharmacyHeader expectations)
+      totalPrescriptions: prescriptionStats.totalPrescriptions,
+      todayPrescriptions: prescriptionStats.dispensedToday, // Using dispensedToday as today's prescriptions
+      pendingPrescriptions: prescriptionStats.pendingPrescriptions,
+      processingPrescriptions: prescriptionStats.processingPrescriptions,
+      readyPrescriptions: prescriptionStats.readyPrescriptions,
+      dispensedPrescriptions: prescriptionStats.dispensedPrescriptions,
+      dispensedToday: prescriptionStats.dispensedToday,
+      processingRate: prescriptionStats.processingRate,
+
+      // Inventory stats (matching PharmacyHeader expectations)
+      totalMedications: inventoryStats.totalItems,
+      lowStockItems: inventoryStats.lowStockAlerts, // Matching PharmacyHeader property name
+      lowStockAlerts: inventoryStats.lowStockAlerts,
+      outOfStockAlerts: inventoryStats.outOfStockAlerts,
+      expiryAlerts: inventoryStats.expiryAlerts,
+      totalValue: inventoryStats.totalValue,
+      averageStockLevel: inventoryStats.averageStockLevel,
+
+      // Combined alerts
+      criticalAlerts: inventoryStats.lowStockAlerts + inventoryStats.outOfStockAlerts + inventoryStats.expiryAlerts
+    };
+  }, [prescriptions, inventory, getPrescriptionStats, getInventoryStats]);
 
   // Tab configuration
   const tabs = [
@@ -170,9 +179,9 @@ export default function PharmacyDashboard() {
             prescriptions={prescriptions}
             loading={prescriptionsLoading}
             onProcessPrescription={processPrescription}
-            onUpdateStatus={updatePrescriptionStatus}
-            onCheckInteractions={checkDrugInteractions}
-            drugDatabase={drugDatabase}
+            onUpdateStatus={processPrescription} // Using processPrescription for status updates
+            onCheckInteractions={verifyInteractions}
+            drugDatabase={searchResults || drugDatabase}
             stats={pharmacyStats}
           />
         );
@@ -202,10 +211,15 @@ export default function PharmacyDashboard() {
         return (
           <DrugDatabase
             drugDatabase={drugDatabase}
+            searchResults={searchResults}
             loading={drugLoading}
+            pagination={pagination}
+            error={drugError}
             onSearchDrug={searchDrug}
+            onFetchAllDrugs={fetchAllDrugs}
             onGetDrugInfo={getDrugInfo}
-            onCheckInteractions={checkInteractions}
+            onGetCategories={getCategories}
+            onClearSearch={clearSearch}
           />
         );
       case 'analytics':

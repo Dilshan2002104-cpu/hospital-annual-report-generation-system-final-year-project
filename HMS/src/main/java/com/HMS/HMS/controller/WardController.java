@@ -25,4 +25,6 @@ public class WardController {
     public ResponseEntity<List<BasicWardDTO>> getAllWards(){
         return ResponseEntity.ok(wardService.getAllWards());
     }
+
+
 }

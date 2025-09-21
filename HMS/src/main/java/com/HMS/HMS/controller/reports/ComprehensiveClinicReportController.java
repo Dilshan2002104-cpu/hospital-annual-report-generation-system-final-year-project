@@ -1,6 +1,7 @@
 package com.HMS.HMS.controller.reports;
 
 import com.HMS.HMS.DTO.reports.*;
+import com.HMS.HMS.DTO.reports.ErrorResponseDTO;
 import com.HMS.HMS.service.reports.ClinicReportService;
 import com.HMS.HMS.service.reports.PDFReportGeneratorService;
 import com.HMS.HMS.service.reports.ChartGenerationService;
@@ -47,21 +48,47 @@ public class ComprehensiveClinicReportController {
     }
 
     @GetMapping("/full-report/{year}")
-    public ResponseEntity<ClinicStatisticsReportDTO> getComprehensiveClinicReport(@PathVariable int year) {
+    public ResponseEntity<?> getComprehensiveClinicReport(@PathVariable int year) {
+        // Check if data exists for the year
+        if (!hasDataForYear(year)) {
+            ErrorResponseDTO error = new ErrorResponseDTO(
+                "No Data Found",
+                String.format("No appointment data found for year %d. Cannot generate comprehensive clinic report.", year),
+                year,
+                404
+            );
+            return ResponseEntity.status(404).body(error);
+        }
+
         try {
             ClinicStatisticsReportDTO report = generateComprehensiveReport(year);
             return ResponseEntity.ok(report);
         } catch (Exception e) {
-            // For debugging - include error in response
-            ClinicStatisticsReportDTO errorReport = new ClinicStatisticsReportDTO();
-            errorReport.setYear(year);
-            errorReport.setIntroductionText("Error: " + e.getMessage() + " - " + e.getClass().getSimpleName());
-            return ResponseEntity.ok(errorReport);
+            ErrorResponseDTO error = new ErrorResponseDTO(
+                "Report Generation Failed",
+                "An error occurred while generating the comprehensive clinic report: " + e.getMessage(),
+                year,
+                500
+            );
+            return ResponseEntity.status(500).body(error);
         }
     }
 
     @GetMapping("/full-report/{year}/pdf")
-    public ResponseEntity<byte[]> downloadComprehensiveReportPDF(@PathVariable int year) {
+    public ResponseEntity<?> downloadComprehensiveReportPDF(@PathVariable int year) {
+        // Check if data exists for the year
+        if (!hasDataForYear(year)) {
+            ErrorResponseDTO error = new ErrorResponseDTO(
+                "No Data Found",
+                String.format("No appointment data found for year %d. Cannot generate PDF report.", year),
+                year,
+                404
+            );
+            return ResponseEntity.status(404)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
+        }
+
         try {
             ClinicStatisticsReportDTO reportData = generateComprehensiveReport(year);
             byte[] pdfBytes = pdfReportGenerator.generateComprehensiveClinicReportPDF(reportData);
@@ -79,7 +106,15 @@ public class ComprehensiveClinicReportController {
                     .headers(headers)
                     .body(pdfBytes);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            ErrorResponseDTO error = new ErrorResponseDTO(
+                "Report Generation Failed",
+                "An error occurred while generating the PDF report: " + e.getMessage(),
+                year,
+                500
+            );
+            return ResponseEntity.status(500)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
         }
     }
 
@@ -199,6 +234,16 @@ public class ComprehensiveClinicReportController {
     }
 
     // Helper methods
+    private boolean hasDataForYear(int year) {
+        try {
+            ClinicStatisticsReportDTO baseReport = clinicReportService.generateClinicStatisticsReport(year);
+            long totalAppointments = baseReport.getTotalAppointments();
+            return totalAppointments > 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private ClinicStatisticsReportDTO generateComprehensiveReport(int year) {
         // Get basic report
         ClinicStatisticsReportDTO baseReport;

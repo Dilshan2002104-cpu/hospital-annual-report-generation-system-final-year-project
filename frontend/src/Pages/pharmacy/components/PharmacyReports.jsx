@@ -25,7 +25,7 @@ export default function PharmacyReports({ prescriptions, inventory, stats }) {
   const reportData = useMemo(() => {
     const startDate = new Date(dateRange.startDate);
     const endDate = new Date(dateRange.endDate);
-    const filteredPrescriptions = prescriptions.filter(p => {
+    const filteredPrescriptions = (prescriptions || []).filter(p => {
       const date = new Date(p.receivedDate);
       return date >= startDate && date <= endDate;
     });
@@ -52,7 +52,7 @@ export default function PharmacyReports({ prescriptions, inventory, stats }) {
     // Top prescribed medications
     const medicationCounts = {};
     prescriptions.forEach(prescription => {
-      prescription.medications.forEach(med => {
+      (prescription.medications || []).forEach(med => {
         medicationCounts[med.drugName] = (medicationCounts[med.drugName] || 0) + 1;
       });
     });
@@ -117,21 +117,21 @@ export default function PharmacyReports({ prescriptions, inventory, stats }) {
   }
 
   function generateComplianceReport(prescriptions, inventory) {
-    const expiryAlerts = inventory.filter(item => {
+    const expiryAlerts = (inventory || []).filter(item => {
       const expiryDate = new Date(item.expiryDate);
       const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       return expiryDate <= thirtyDaysFromNow;
     }).length;
 
-    const lowStockAlerts = inventory.filter(item => 
+    const lowStockAlerts = (inventory || []).filter(item =>
       item.currentStock <= item.minimumStock
     ).length;
 
-    const outOfStockAlerts = inventory.filter(item => 
+    const outOfStockAlerts = (inventory || []).filter(item =>
       item.currentStock === 0
     ).length;
 
-    const prescriptionsWithWarnings = prescriptions.filter(p => 
+    const prescriptionsWithWarnings = prescriptions.filter(p =>
       p.warnings && p.warnings.length > 0
     ).length;
 

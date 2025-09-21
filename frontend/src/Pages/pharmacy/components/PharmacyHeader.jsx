@@ -9,11 +9,21 @@ import {
   Clock
 } from 'lucide-react';
 
-export default function PharmacyHeader({ stats }) {
+export default function PharmacyHeader({ stats = {} }) {
+  // Provide default values for stats to prevent runtime errors
+  const safeStats = {
+    todayPrescriptions: 0,
+    pendingPrescriptions: 0,
+    readyPrescriptions: 0,
+    lowStockItems: 0,
+    processingRate: 0,
+    ...stats
+  };
+
   const statCards = [
     {
       label: 'Today\'s Prescriptions',
-      value: stats.todayPrescriptions,
+      value: safeStats.todayPrescriptions,
       icon: ClipboardList,
       color: 'blue',
       bgColor: 'bg-blue-50',
@@ -22,7 +32,7 @@ export default function PharmacyHeader({ stats }) {
     },
     {
       label: 'Pending Processing',
-      value: stats.pendingPrescriptions,
+      value: safeStats.pendingPrescriptions,
       icon: Clock,
       color: 'yellow',
       bgColor: 'bg-yellow-50',
@@ -31,7 +41,7 @@ export default function PharmacyHeader({ stats }) {
     },
     {
       label: 'Ready to Dispense',
-      value: stats.readyPrescriptions,
+      value: safeStats.readyPrescriptions,
       icon: Shield,
       color: 'green',
       bgColor: 'bg-green-50',
@@ -40,7 +50,7 @@ export default function PharmacyHeader({ stats }) {
     },
     {
       label: 'Low Stock Alerts',
-      value: stats.lowStockItems,
+      value: safeStats.lowStockItems,
       icon: AlertTriangle,
       color: 'red',
       bgColor: 'bg-red-50',
@@ -49,7 +59,7 @@ export default function PharmacyHeader({ stats }) {
     },
     {
       label: 'Processing Rate',
-      value: `${stats.processingRate}%`,
+      value: `${safeStats.processingRate}%`,
       icon: TrendingUp,
       color: 'purple',
       bgColor: 'bg-purple-50',

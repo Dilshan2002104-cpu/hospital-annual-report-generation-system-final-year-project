@@ -31,11 +31,11 @@ export default function PrescriptionProcessing({
 
   // Filter prescriptions based on search and status
   const filteredPrescriptions = useMemo(() => {
-    return prescriptions.filter(prescription => {
-      const matchesSearch = !searchTerm || 
-        prescription.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        prescription.prescriptionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        prescription.doctorName.toLowerCase().includes(searchTerm.toLowerCase());
+    return (prescriptions || []).filter(prescription => {
+      const matchesSearch = !searchTerm ||
+        prescription.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        prescription.prescriptionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        prescription.doctorName?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = filterStatus === 'all' || prescription.status === filterStatus;
       

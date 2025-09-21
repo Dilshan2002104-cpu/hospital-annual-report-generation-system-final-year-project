@@ -26,38 +26,45 @@ public class ClinicReportService {
     }
 
     public ClinicStatisticsReportDTO generateClinicStatisticsReport(int year) {
-        // Get basic metrics
-        Long totalAppointments = clinicReportRepository.getTotalAppointmentsByYear(year);
-        Long totalAdmissions = clinicReportRepository.getTotalAdmissionsByYear(year);
+        try {
+            // Get basic metrics
+            Long totalAppointments = clinicReportRepository.getTotalAppointmentsByYear(year);
+            Long totalAdmissions = clinicReportRepository.getTotalAdmissionsByYear(year);
 
-        // Get previous year data for comparison
-        Long previousYearAppointments = clinicReportRepository.getTotalAppointmentsByYear(year - 1);
+            // Get previous year data for comparison
+            Long previousYearAppointments = clinicReportRepository.getTotalAppointmentsByYear(year - 1);
 
-        // Get monthly data
-        List<MonthlyVisitDataDTO> monthlyAppointments = getMonthlyAppointmentData(year);
-        List<MonthlyVisitDataDTO> monthlyAdmissions = getMonthlyAdmissionData(year);
+            // Get monthly data
+            List<MonthlyVisitDataDTO> monthlyAppointments = getMonthlyAppointmentData(year);
+            List<MonthlyVisitDataDTO> monthlyAdmissions = getMonthlyAdmissionData(year);
 
-        // Get specialization breakdown
-        List<SpecializationDataDTO> specializationData = getSpecializationBreakdown(year, totalAppointments);
+            // Get specialization breakdown
+            List<SpecializationDataDTO> specializationData = getSpecializationBreakdown(year, totalAppointments);
 
-        // Get ward occupancy data
-        List<WardOccupancyDataDTO> wardOccupancyData = getWardOccupancyData(year);
+            // Get ward occupancy data
+            List<WardOccupancyDataDTO> wardOccupancyData = getWardOccupancyData(year);
 
-        // Generate text content
-        return ClinicStatisticsReportDTO.builder()
-                .year(year)
-                .totalAppointments(totalAppointments != null ? totalAppointments : 0)
-                .totalAdmissions(totalAdmissions != null ? totalAdmissions : 0)
-                .previousYearAppointments(previousYearAppointments != null ? previousYearAppointments : 0)
-                .monthlyAppointments(monthlyAppointments)
-                .monthlyAdmissions(monthlyAdmissions)
-                .specializationBreakdown(specializationData)
-                .wardOccupancy(wardOccupancyData)
-                .introductionText(textGeneratorService.generateIntroductionText(year, totalAppointments, totalAdmissions))
-                .trendsAnalysisText(textGeneratorService.generateTrendsAnalysis(monthlyAppointments, monthlyAdmissions))
-                .impactAnalysisText(textGeneratorService.generateImpactAnalysis(year, totalAppointments, previousYearAppointments))
-                .conclusionText(textGeneratorService.generateConclusionText(specializationData, wardOccupancyData))
-                .build();
+            // Generate text content
+            return ClinicStatisticsReportDTO.builder()
+                    .year(year)
+                    .totalAppointments(totalAppointments != null ? totalAppointments : 0)
+                    .totalAdmissions(totalAdmissions != null ? totalAdmissions : 0)
+                    .previousYearAppointments(previousYearAppointments != null ? previousYearAppointments : 0)
+                    .monthlyAppointments(monthlyAppointments)
+                    .monthlyAdmissions(monthlyAdmissions)
+                    .specializationBreakdown(specializationData)
+                    .wardOccupancy(wardOccupancyData)
+                    .introductionText(textGeneratorService.generateIntroductionText(year, totalAppointments, totalAdmissions))
+                    .trendsAnalysisText(textGeneratorService.generateTrendsAnalysis(monthlyAppointments, monthlyAdmissions))
+                    .impactAnalysisText(textGeneratorService.generateImpactAnalysis(year, totalAppointments, previousYearAppointments))
+                    .conclusionText(textGeneratorService.generateConclusionText(specializationData, wardOccupancyData))
+                    .build();
+        } catch (Exception e) {
+            // Log the error for debugging
+            System.err.println("Error generating clinic statistics report for year " + year + ": " + e.getMessage());
+            e.printStackTrace();
+            throw e; // Re-throw to maintain original behavior while logging the error
+        }
     }
 
     private List<MonthlyVisitDataDTO> getMonthlyAppointmentData(int year) {
@@ -129,7 +136,7 @@ public class ClinicReportService {
                     projection.getWardType(),
                     projection.getTotalAdmissions(),
                     projection.getActiveAdmissions(),
-                    projection.getOccupancyRate()
+                    projection.getOccupancyRate() != null ? projection.getOccupancyRate() : 0.0
                 ))
                 .collect(Collectors.toList());
     }

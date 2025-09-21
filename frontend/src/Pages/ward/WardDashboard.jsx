@@ -20,9 +20,17 @@ import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
 import PrescriptionsManagement from './components/PrescriptionsManagement';
 import WardAnalytics from './components/WardAnalytics';
-import { ToastContainer } from '../Clinic/nurs/components/Toast';
+
+// Import modern notification components
+import { ToastContainer } from './components/notifications/Toast';
+import AlertBanner from './components/notifications/AlertBanner';
+import ConfirmDialog from './components/notifications/ConfirmDialog';
+import InlineAlert, { CapacityAlert, PatientAlert } from './components/notifications/InlineAlert';
+
+// Import hooks
 import useAdmissions from './hooks/useAdmissions';
 import usePatients from './hooks/usePatients';
+import useNotifications from './hooks/useNotifications';
 
 const WardDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -33,7 +41,8 @@ const WardDashboard = () => {
   const [confirmDischargeDialog, setConfirmDischargeDialog] = useState(false);
   const [patientDetailsModal, setPatientDetailsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
-  const [toasts, setToasts] = useState([]);
+  // Modern notification system
+  const notifications = useNotifications();
   
   // Use the admissions hook to get all admissions (both active and discharged)
   const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions, dischargePatient, loading } = useAdmissions();
@@ -69,18 +78,36 @@ const WardDashboard = () => {
   // Use the patients hook to get patient details
   const { selectedPatient: patientDetails, fetchingPatient, getPatientByNationalId, setSelectedPatient: setPatientDetails } = usePatients();
 
-  // Toast functions
-  const showToast = (type, title, message) => {
-    const id = Date.now() + Math.random();
-    const newToast = { id, type, title, message };
-    setToasts(prev => [...prev, newToast]);
+  // Modern confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    type: 'warning',
+    title: '',
+    message: '',
+    onConfirm: null,
+    patient: null,
+    loading: false
+  });
+
+  // Show modern confirmation dialog
+  const showConfirmDialog = (type, title, message, onConfirm, patient = null) => {
+    setConfirmDialog({
+      isOpen: true,
+      type,
+      title,
+      message,
+      onConfirm,
+      patient,
+      loading: false
+    });
   };
 
-  const closeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+  // Close confirmation dialog
+  const closeConfirmDialog = () => {
+    setConfirmDialog(prev => ({ ...prev, isOpen: false, loading: false }));
   };
 
-  // Handle transfer success
+  // Handle transfer success with modern notifications
   const handleTransferSuccess = (transferResult) => {
     // Store transfer information persistently
     if (transferResult && selectedPatient) {
@@ -92,8 +119,8 @@ const WardDashboard = () => {
       localStorage.setItem('patientTransfers', JSON.stringify(transferData));
 
       // Update the local patient data with transfer destination
-      const updatedData = (prevAdmissions) => 
-        prevAdmissions.map(admission => 
+      const updatedData = (prevAdmissions) =>
+        prevAdmissions.map(admission =>
           admission.admissionId === selectedPatient.admissionId
             ? {
                 ...admission,
@@ -102,11 +129,18 @@ const WardDashboard = () => {
               }
             : admission
         );
-      
+
       setLocalAllAdmissions(updatedData(allAdmissions));
       setLocalActiveAdmissions(updatedData(activeAdmissions));
+
+      // Show success notification
+      notifications.patientTransferred(
+        selectedPatient.patientName,
+        selectedPatient.wardName,
+        transferResult.toWardName
+      );
     }
-    
+
     // Refresh admissions data after a short delay to get updated data from backend
     setTimeout(() => {
       fetchAllAdmissions();
@@ -115,8 +149,6 @@ const WardDashboard = () => {
       setLocalAllAdmissions([]);
       setLocalActiveAdmissions([]);
     }, 2000);
-    
-    console.log('Transfer completed:', transferResult);
   };
 
   // Sample ward data
@@ -174,23 +206,52 @@ const WardDashboard = () => {
 
   const handleDischargePatient = (patient) => {
     setSelectedPatient(patient);
-    setConfirmDischargeDialog(true);
+    showConfirmDialog(
+      'warning',
+      'Confirm Patient Discharge',
+      `Are you sure you want to discharge ${patient.patientName}? This action cannot be undone.`,
+      async () => {
+        setConfirmDialog(prev => ({ ...prev, loading: true }));
+        try {
+          await dischargePatient(patient.admissionId);
+          notifications.patientDischarged(patient.patientName);
+          await fetchAllAdmissions();
+          await fetchActiveAdmissions();
+          closeConfirmDialog();
+          setSelectedPatient(null);
+        } catch (error) {
+          setConfirmDialog(prev => ({ ...prev, loading: false }));
+          notifications.dischargeFailed(patient.patientName, error.message || 'Unknown error occurred');
+        }
+      },
+      patient
+    );
   };
 
-  const confirmDischarge = async () => {
-    if (selectedPatient) {
-      try {
-        await dischargePatient(selectedPatient.admissionId);
-        // Refresh the data after successful discharge
-        await fetchAllAdmissions();
-        await fetchActiveAdmissions();
-        setSelectedPatient(null);
-      } catch (error) {
-        console.error('Failed to discharge patient:', error);
-        // Error is already handled in the hook with toast notifications
-      }
+  // Calculate ward alerts for modern notifications
+  const wardAlerts = useMemo(() => {
+    const alerts = [];
+
+    // Capacity alerts
+    const criticalWards = wards.filter(ward => {
+      const available = ward.total - displayActiveAdmissions.filter(a => a.wardName === ward.name).length;
+      return available <= 1;
+    });
+
+    const warningWards = wards.filter(ward => {
+      const available = ward.total - displayActiveAdmissions.filter(a => a.wardName === ward.name).length;
+      return available <= 3 && available > 1;
+    });
+
+    if (criticalWards.length > 0) {
+      notifications.capacityAlert(criticalWards.map(w => ({
+        ...w,
+        available: w.total - displayActiveAdmissions.filter(a => a.wardName === w.name).length
+      })));
     }
-  };
+
+    return { criticalWards, warningWards };
+  }, [wards, displayActiveAdmissions, notifications]);
 
   // Fetch all admissions when component mounts
   useEffect(() => {
@@ -202,13 +263,29 @@ const WardDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <WardOverview 
-          wardStats={wardStats} 
-          wards={wards} 
-          activeAdmissions={displayActiveAdmissions}
-          allAdmissions={displayAllAdmissions}
-          showToast={null} 
-        />;
+        return (
+          <>
+            {/* Capacity Alerts */}
+            {wardAlerts.criticalWards.length > 0 && (
+              <CapacityAlert
+                wards={wardAlerts.criticalWards.map(w => ({
+                  ...w,
+                  available: w.total - displayActiveAdmissions.filter(a => a.wardName === w.name).length
+                }))}
+                onViewWards={() => setActiveTab('beds')}
+                onDismiss={() => {}}
+              />
+            )}
+
+            <WardOverview
+              wardStats={wardStats}
+              wards={wards}
+              activeAdmissions={displayActiveAdmissions}
+              allAdmissions={displayAllAdmissions}
+              notifications={notifications}
+            />
+          </>
+        );
       case 'patients':
         return (
           <PatientList
@@ -334,7 +411,7 @@ const WardDashboard = () => {
       case 'beds':
         return <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">Bed Management (To be implemented)</div>;
       case 'prescriptions':
-        return <PrescriptionsManagement activeAdmissions={displayActiveAdmissions} />;
+        return <PrescriptionsManagement />;
       case 'transfers':
         return <TransferManagement />;
       default:
@@ -382,19 +459,10 @@ const WardDashboard = () => {
           setSelectedPatient(null);
         }}
         patient={selectedPatient}
-        showToast={showToast}
+        showToast={notifications.success}
         onTransferSuccess={handleTransferSuccess}
       />
-      <ConfirmDischargeDialog
-        isOpen={confirmDischargeDialog}
-        onClose={() => {
-          setConfirmDischargeDialog(false);
-          setSelectedPatient(null);
-        }}
-        onConfirm={confirmDischarge}
-        patient={selectedPatient}
-        loading={loading}
-      />
+      {/* Legacy modals - will be replaced by modern dialogs */}
       <PatientDetailsModal
         isOpen={patientDetailsModal}
         onClose={() => {
@@ -407,14 +475,50 @@ const WardDashboard = () => {
       <AdmitPatientModal
         isOpen={admitPatientModal}
         onClose={() => setAdmitPatientModal(false)}
-        onAdmissionSuccess={() => {
+        onAdmissionSuccess={(patientName, wardName) => {
+          notifications.patientAdmitted(patientName, wardName);
           fetchAllAdmissions();
           fetchActiveAdmissions();
         }}
       />
       
-      {/* Toast Container */}
-      <ToastContainer toasts={toasts} onClose={closeToast} />
+      {/* Modern Notification Components */}
+      <ToastContainer toasts={notifications.toasts} onClose={notifications.removeToast} />
+
+      <AlertBanner
+        alerts={notifications.alerts}
+        onDismiss={notifications.removeAlert}
+        onAction={(alert) => {
+          // Handle alert actions based on type
+          switch (alert.type) {
+            case 'bed_capacity':
+              setActiveTab('beds');
+              break;
+            case 'staff_shortage':
+              setActiveTab('overview');
+              break;
+            case 'patient_critical':
+              setActiveTab('patients');
+              break;
+            default:
+              break;
+          }
+        }}
+        position="bottom-right"
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={closeConfirmDialog}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        loading={confirmDialog.loading}
+        patient={confirmDialog.patient}
+        confirmText={confirmDialog.loading ? 'Processing...' : 'Confirm'}
+        cancelText="Cancel"
+      />
     </div>
   );
 };

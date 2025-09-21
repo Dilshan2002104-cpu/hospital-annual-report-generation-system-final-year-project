@@ -239,7 +239,7 @@ export default function AdminLogin() {
             );
             showToast("Access denied. Admin privileges required.", "error");
             break;
-          default:
+          default: {
             const errorMsg =
               err.response.data?.message ||
               "An error occurred. Please try again.";
@@ -250,6 +250,7 @@ export default function AdminLogin() {
               </div>
             );
             showToast(errorMsg, "error");
+          }
         }
       } else if (err.request) {
         const networkError =
