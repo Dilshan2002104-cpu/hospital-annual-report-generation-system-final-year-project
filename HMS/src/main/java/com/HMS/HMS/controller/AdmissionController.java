@@ -91,7 +91,7 @@ public class AdmissionController {
     }
 
     @GetMapping("/patient/{nationalId}")
-    public ResponseEntity<List<AdmissionResponseDTO>> getAdmissionsByPatient(@PathVariable Long nationalId) {
+    public ResponseEntity<List<AdmissionResponseDTO>> getAdmissionsByPatient(@PathVariable String nationalId) {
         List<AdmissionResponseDTO> admissions = admissionService.getAdmissionsByPatient(nationalId);
         return ResponseEntity.ok(admissions);
     }

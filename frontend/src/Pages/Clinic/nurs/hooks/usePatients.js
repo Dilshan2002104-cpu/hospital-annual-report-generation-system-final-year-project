@@ -90,14 +90,62 @@ const usePatients = (showToast = null) => {
       
     } catch (error) {
       console.error('Error registering patient:', error);
-      
-      // Set error message for component to use
-      if (error.response && error.response.data && error.response.data.message) {
-        setLastError(error.response.data.message);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      let errorMessage = 'An error occurred while registering the patient.';
+
+      // Handle different types of errors
+      if (error.response) {
+        // Server responded with error status
+        const status = error.response.status;
+        const serverData = error.response.data;
+
+        switch (status) {
+          case 400:
+            errorMessage = serverData?.message || 'Invalid patient data. Please check all fields and try again.';
+            break;
+          case 401:
+            errorMessage = 'Your session has expired. Please log in again.';
+            break;
+          case 403:
+            errorMessage = 'You do not have permission to register patients.';
+            break;
+          case 409:
+            errorMessage = 'A patient with this National ID already exists.';
+            break;
+          case 500:
+            errorMessage = 'Server error occurred. Please try again later or contact IT support.';
+            if (serverData?.message) {
+              errorMessage += ` Details: ${serverData.message}`;
+            }
+            break;
+          default:
+            errorMessage = serverData?.message || `Server error (${status}). Please try again.`;
+        }
+      } else if (error.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your internet connection and try again.';
       } else {
-        setLastError('An error occurred while registering the patient.');
+        // Something else happened
+        errorMessage = error.message || 'An unexpected error occurred. Please try again.';
       }
-      
+
+      setLastError(errorMessage);
+
+      // Show toast notification if available
+      if (showToast) {
+        const toastTitle = error.response?.status === 500 ? 'Server Error' :
+                          error.response?.status === 409 ? 'Duplicate Patient' :
+                          error.response?.status === 400 ? 'Validation Error' :
+                          'Registration Failed';
+
+        showToast('error', toastTitle, errorMessage);
+      }
+
       return false;
     } finally {
       setSubmitting(false);

@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PatientRepository extends JpaRepository<Patient,Long> {
-    boolean existsByNationalId(Long nationalId);
-    Patient findByNationalId(Long nationalId);
+public interface PatientRepository extends JpaRepository<Patient,String> {
+    boolean existsByNationalId(String nationalId);
+    Patient findByNationalId(String nationalId);
 
     // Search by first name
     List<Patient> findByFirstNameContainingIgnoreCase(String firstName);

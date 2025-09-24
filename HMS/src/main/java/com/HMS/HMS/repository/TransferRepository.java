@@ -11,7 +11,7 @@ import java.util.List;
 
 @Repository
 public interface TransferRepository extends JpaRepository<Transfer,Long> {
-    List<Transfer> findByPatientNationalId(Long nationalId);
+    List<Transfer> findByPatientNationalId(String nationalId);
     List<Transfer> findByFromWardWardId(Long wardId);
     List<Transfer> findByToWardWardId(Long wardId);
 
@@ -20,6 +20,6 @@ public interface TransferRepository extends JpaRepository<Transfer,Long> {
                                              @Param("endDate") LocalDateTime endDate);
 
     @Query("SELECT t FROM Transfer t WHERE t.patient.nationalId = :nationalId ORDER BY t.transferDate DESC")
-    List<Transfer> findPatientTransferHistory(@Param("nationalId") Long nationalId);
+    List<Transfer> findPatientTransferHistory(@Param("nationalId") String nationalId);
 
 }

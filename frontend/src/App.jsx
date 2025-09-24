@@ -8,6 +8,7 @@ import ClinicDashboard from './Pages/Clinic/nurs/ClinicDashboard'
 import WardDashboard from './Pages/ward/WardDashboard'
 import DialysisDashboard from './Pages/Dialysis/DialysisDashboard'
 import PharmacyDashboard from './Pages/pharmacy/PharmacyDashboard'
+import LabDashboard from './Pages/lab/LabDashboard'
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
         <Route path='/wardManagement' element={<WardDashboard/>}/>
         <Route path='/dialysisManagement' element={<DialysisDashboard/>}/>
         <Route path='/pharmacyManagement' element={<PharmacyDashboard/>}/>
+        <Route path='/labManagement' element={<LabDashboard/>}/>
       </Routes>
     </Router>
   )

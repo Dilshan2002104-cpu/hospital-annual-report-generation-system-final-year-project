@@ -87,7 +87,7 @@ public class TransferService {
         return convertToResponseDTO(savedTransfer);
     }
 
-    public List<TransferResponseDTO> getTransferHistory(Long patientNationalId){
+    public List<TransferResponseDTO> getTransferHistory(String patientNationalId){
         return transferRepository.findPatientTransferHistory(patientNationalId)
                 .stream()
                 .map(this::convertToResponseDTO)

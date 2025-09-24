@@ -37,6 +37,12 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
     if (!selectedPatient.patientName || !selectedPatient.patientNationalId) {
       return 'Selected patient has incomplete information';
     }
+    if (!selectedPatient.admissionId) {
+      return 'Patient must be admitted to receive prescriptions';
+    }
+    if (!selectedPatient.wardName || !selectedPatient.bedNumber) {
+      return 'Patient location information is missing';
+    }
     return null;
   };
 
@@ -48,17 +54,74 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
       return errors;
     }
 
+    if (selectedMedications.length > 10) {
+      errors.medications = 'Maximum 10 medications allowed per prescription';
+    }
+
     selectedMedications.forEach((medication, index) => {
       const medicationErrors = {};
+
+      // Validate medication name
+      if (!medication.name || medication.name.trim() === '') {
+        medicationErrors.name = 'Medication name is required';
+      }
 
       // Validate dosage
       if (!medication.dosage || medication.dosage.trim() === '') {
         medicationErrors.dosage = 'Dosage is required';
+      } else {
+        // Enhanced dosage format validation with more units
+        const dosagePattern = /^\d+(\.\d{1,3})?\s*(mg|g|ml|mcg|μg|iu|unit|units?|tab|tabs?|cap|caps?|drop|drops?|puff|puffs?|spray|sprays?|patch|patches?)$/i;
+        if (!dosagePattern.test(medication.dosage.trim())) {
+          medicationErrors.dosage = 'Invalid dosage format (e.g., 500mg, 1.5g, 10ml, 2tabs, 1puff)';
+        } else {
+          // Check for reasonable dosage ranges
+          const numericValue = parseFloat(medication.dosage.match(/^\d+(\.\d+)?/)[0]);
+          const unit = medication.dosage.replace(/[\d.\s]/g, '').toLowerCase();
+
+          // Set reasonable limits per unit type
+          const dosageLimits = {
+            'mg': { min: 0.1, max: 5000 },
+            'mcg': { min: 0.1, max: 10000 },
+            'μg': { min: 0.1, max: 10000 },
+            'g': { min: 0.01, max: 50 },
+            'ml': { min: 0.1, max: 1000 },
+            'iu': { min: 1, max: 100000 },
+            'unit': { min: 1, max: 1000 },
+            'units': { min: 1, max: 1000 },
+            'tab': { min: 0.25, max: 20 },
+            'tabs': { min: 0.25, max: 20 },
+            'cap': { min: 0.5, max: 20 },
+            'caps': { min: 0.5, max: 20 },
+            'drop': { min: 1, max: 50 },
+            'drops': { min: 1, max: 50 },
+            'puff': { min: 1, max: 20 },
+            'puffs': { min: 1, max: 20 },
+            'spray': { min: 1, max: 10 },
+            'sprays': { min: 1, max: 10 },
+            'patch': { min: 0.5, max: 10 },
+            'patches': { min: 0.5, max: 10 }
+          };
+
+          const limits = dosageLimits[unit];
+          if (limits && (numericValue < limits.min || numericValue > limits.max)) {
+            medicationErrors.dosage = `Dosage should be between ${limits.min} and ${limits.max} ${unit}`;
+          }
+        }
       }
 
       // Validate frequency
       if (!medication.frequency || medication.frequency.trim() === '') {
         medicationErrors.frequency = 'Frequency is required';
+      } else {
+        const validFrequencies = [
+          'Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)',
+          'Four times daily (QDS)', 'As needed (PRN)', 'Before meals',
+          'After meals', 'At bedtime', 'As per sliding scale'
+        ];
+        if (!validFrequencies.includes(medication.frequency)) {
+          medicationErrors.frequency = 'Please select a valid frequency';
+        }
       }
 
       // Validate quantity
@@ -66,24 +129,102 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
         medicationErrors.quantity = 'Quantity is required';
       } else {
         const quantity = parseFloat(medication.quantity);
-        if (isNaN(quantity) || quantity <= 0) {
-          medicationErrors.quantity = 'Quantity must be a positive number';
+        if (isNaN(quantity)) {
+          medicationErrors.quantity = 'Quantity must be a number';
+        } else if (quantity <= 0) {
+          medicationErrors.quantity = 'Quantity must be greater than 0';
         } else if (quantity > 1000) {
-          medicationErrors.quantity = 'Quantity seems unusually high (max 1000)';
+          medicationErrors.quantity = 'Quantity exceeds maximum limit (1000)';
+        } else {
+          // Enhanced validation for different dosage forms
+          const dosageForm = (medication.dosageForm || '').toLowerCase();
+
+          // Check decimal precision based on dosage form
+          const decimals = (quantity.toString().split('.')[1] || '').length;
+
+          if (['tablet', 'capsule', 'suppository', 'patch'].includes(dosageForm)) {
+            if (quantity % 0.5 !== 0) {
+              medicationErrors.quantity = 'Quantity for tablets/capsules must be in increments of 0.5';
+            }
+          } else if (['injection', 'vial', 'ampoule'].includes(dosageForm)) {
+            if (quantity % 1 !== 0) {
+              medicationErrors.quantity = 'Quantity for injections must be whole numbers';
+            }
+          } else if (['syrup', 'suspension', 'solution'].includes(dosageForm)) {
+            if (decimals > 1) {
+              medicationErrors.quantity = 'Liquid quantities should not exceed 1 decimal place';
+            }
+            if (quantity < 5) {
+              medicationErrors.quantity = 'Minimum liquid quantity is 5ml';
+            }
+          }
+
+          // Check for reasonable quantity limits by category
+          const category = (medication.category || '').toLowerCase();
+          if (category.includes('controlled') || category.includes('narcotic')) {
+            if (quantity > 30) {
+              medicationErrors.quantity = 'Controlled substances limited to 30 units maximum';
+            }
+          }
         }
       }
 
       // Validate against available stock
-      if (medication.currentStock && medication.quantity) {
+      if (medication.currentStock !== undefined && medication.quantity) {
         const requestedQuantity = parseFloat(medication.quantity);
-        if (requestedQuantity > medication.currentStock) {
+        if (!isNaN(requestedQuantity) && requestedQuantity > medication.currentStock) {
           medicationErrors.quantity = `Only ${medication.currentStock} ${getQuantityUnit(medication.dosageForm)} available in stock`;
         }
       }
 
-      // Validate instructions length
-      if (medication.instructions && medication.instructions.length > 500) {
-        medicationErrors.instructions = 'Instructions too long (max 500 characters)';
+      // Validate instructions
+      if (medication.instructions) {
+        if (medication.instructions.length > 500) {
+          medicationErrors.instructions = 'Instructions too long (max 500 characters)';
+        } else if (medication.instructions.trim().length > 0 && medication.instructions.trim().length < 3) {
+          medicationErrors.instructions = 'Instructions too short (min 3 characters)';
+        }
+
+        // Enhanced safety checks for dangerous instructions
+        const dangerousWords = [
+          'overdose', 'double dose', 'triple dose', 'quadruple dose',
+          'as much as possible', 'unlimited', 'no limit', 'maximum dose',
+          'crush and inject', 'inject', 'snort', 'abuse',
+          'all at once', 'entire bottle', 'whole pack'
+        ];
+        const containsDangerous = dangerousWords.some(word =>
+          medication.instructions.toLowerCase().includes(word)
+        );
+        if (containsDangerous) {
+          medicationErrors.instructions = 'Instructions contain potentially unsafe language';
+        }
+
+        // Check for contradictory instructions
+        const contradictoryPairs = [
+          ['with food', 'on empty stomach'],
+          ['before meals', 'after meals'],
+          ['morning', 'bedtime'],
+          ['with milk', 'avoid dairy']
+        ];
+
+        const lowerInstructions = medication.instructions.toLowerCase();
+        for (const [term1, term2] of contradictoryPairs) {
+          if (lowerInstructions.includes(term1) && lowerInstructions.includes(term2)) {
+            medicationErrors.instructions = `Instructions contain contradictory terms: '${term1}' and '${term2}'`;
+            break;
+          }
+        }
+      }
+
+      // Validate expiry date if available
+      if (medication.expiryDate) {
+        const expiryDate = new Date(medication.expiryDate);
+        const today = new Date();
+        if (expiryDate < today) {
+          medicationErrors.expiry = 'This medication has expired and cannot be prescribed';
+        } else if (expiryDate < new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) {
+          medicationErrors.expiry = 'Warning: This medication expires within 30 days';
+        }
       }
 
       if (Object.keys(medicationErrors).length > 0) {
@@ -96,38 +237,86 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
 
   const validatePrescriptionData = () => {
     const errors = {};
-
-    // Validate start date
-    if (!prescriptionData.startDate) {
-      errors.startDate = 'Start date is required';
-    } else {
-      const startDate = new Date(prescriptionData.startDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (startDate < today) {
-        errors.startDate = 'Start date cannot be in the past';
-      }
-
-      const maxFutureDate = new Date();
-      maxFutureDate.setDate(maxFutureDate.getDate() + 365);
-
-      if (startDate > maxFutureDate) {
-        errors.startDate = 'Start date cannot be more than 1 year in the future';
-      }
-    }
-
+    // No prescription data validation needed since start date section was removed
     return errors;
   };
 
   const validateDuplicateMedications = () => {
-    const drugNames = selectedMedications.map(med => med.name.toLowerCase());
-    const duplicates = drugNames.filter((drug, index) => drugNames.indexOf(drug) !== index);
+    const errors = [];
+    const drugNames = selectedMedications.map(med => med.name?.toLowerCase().trim()).filter(Boolean);
+    const genericNames = selectedMedications.map(med => med.genericName?.toLowerCase().trim()).filter(Boolean);
 
+    // Check for duplicate drug names
+    const duplicates = drugNames.filter((drug, index) => drugNames.indexOf(drug) !== index);
     if (duplicates.length > 0) {
-      return `Duplicate medications detected: ${duplicates.join(', ')}`;
+      const uniqueDuplicates = [...new Set(duplicates)];
+      errors.push(`Duplicate medications detected: ${uniqueDuplicates.join(', ')}`);
     }
-    return null;
+
+    // Check for duplicate generic names (same drug, different brand)
+    const genericDuplicates = genericNames.filter((generic, index) => genericNames.indexOf(generic) !== index);
+    if (genericDuplicates.length > 0) {
+      const uniqueGenericDuplicates = [...new Set(genericDuplicates)];
+      errors.push(`Duplicate active ingredients detected: ${uniqueGenericDuplicates.join(', ')}`);
+    }
+
+    // Enhanced drug interaction checking
+    const dangerousCombinations = [
+      // Bleeding risk combinations
+      { drugs: ['warfarin', 'aspirin'], warning: 'Warfarin and Aspirin combination increases bleeding risk' },
+      { drugs: ['warfarin', 'clopidogrel'], warning: 'Warfarin and Clopidogrel combination increases bleeding risk' },
+      { drugs: ['heparin', 'aspirin'], warning: 'Heparin and Aspirin combination increases bleeding risk' },
+
+      // Cardiovascular interactions
+      { drugs: ['digoxin', 'furosemide'], warning: 'Digoxin and Furosemide may cause electrolyte imbalance' },
+      { drugs: ['ace inhibitor', 'potassium'], warning: 'ACE inhibitors with potassium may cause hyperkalemia' },
+      { drugs: ['beta blocker', 'verapamil'], warning: 'Beta blockers with Verapamil may cause heart block' },
+
+      // CNS interactions
+      { drugs: ['morphine', 'lorazepam'], warning: 'Opioids with Benzodiazepines increase respiratory depression risk' },
+      { drugs: ['tramadol', 'sertraline'], warning: 'Tramadol with SSRIs increases serotonin syndrome risk' },
+      { drugs: ['phenytoin', 'warfarin'], warning: 'Phenytoin affects Warfarin metabolism' },
+
+      // Diabetic medications
+      { drugs: ['metformin', 'insulin'], warning: 'Monitor blood glucose closely with Metformin and Insulin' },
+      { drugs: ['glipizide', 'metformin'], warning: 'Monitor for hypoglycemia with multiple antidiabetic drugs' },
+
+      // Antibiotic interactions
+      { drugs: ['clarithromycin', 'warfarin'], warning: 'Clarithromycin increases Warfarin effect' },
+      { drugs: ['ciprofloxacin', 'theophylline'], warning: 'Ciprofloxacin increases Theophylline toxicity risk' },
+
+      // Gastric medications
+      { drugs: ['omeprazole', 'clopidogrel'], warning: 'PPI may reduce Clopidogrel effectiveness' },
+
+      // Multiple same-class drugs
+      { drugs: ['lisinopril', 'enalapril'], warning: 'Multiple ACE inhibitors should not be used together' },
+      { drugs: ['amlodipine', 'nifedipine'], warning: 'Multiple calcium channel blockers may cause hypotension' }
+    ];
+
+    // Check interactions using both drug names and generic names
+    const allDrugTerms = [...drugNames, ...genericNames];
+
+    dangerousCombinations.forEach(combo => {
+      const foundDrugs = combo.drugs.filter(drug =>
+        allDrugTerms.some(selectedDrug => selectedDrug.includes(drug))
+      );
+      if (foundDrugs.length >= 2) {
+        errors.push(combo.warning);
+      }
+    });
+
+    // Check for multiple drugs of same category
+    const categories = selectedMedications.map(med => med.category?.toLowerCase().trim()).filter(Boolean);
+    const problematicCategories = ['analgesic', 'antibiotic', 'antihypertensive', 'diuretic'];
+
+    problematicCategories.forEach(category => {
+      const categoryCount = categories.filter(cat => cat.includes(category)).length;
+      if (categoryCount > 2) {
+        errors.push(`Multiple ${category} medications detected - review for appropriateness`);
+      }
+    });
+
+    return errors.length > 0 ? errors.join('; ') : null;
   };
 
   const validateForm = () => {
@@ -450,17 +639,185 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
     setSelectedMedications(selectedMedications.filter(med => med.id !== id));
   };
 
-  // Update medication details
-  const updateMedication = (id, field, value) => {
-    setSelectedMedications(selectedMedications.map(med =>
-      med.id === id ? { ...med, [field]: value } : med
-    ));
+  // Enhanced real-time field validation
+  const validateField = (field, value, medication = null) => {
+    switch (field) {
+      case 'quantity': {
+        if (!value || value.trim() === '') return 'Quantity is required';
+        const quantity = parseFloat(value);
+        if (isNaN(quantity)) return 'Quantity must be a number';
+        if (quantity <= 0) return 'Quantity must be greater than 0';
+        if (quantity > 1000) return 'Quantity exceeds maximum limit (1000)';
 
-    // Clear validation errors for this field
-    const medicationIndex = selectedMedications.findIndex(med => med.id === id);
-    if (medicationIndex !== -1) {
-      clearFieldError(`medication_${medicationIndex}`);
+        // Check stock availability
+        if (medication && medication.currentStock && quantity > medication.currentStock) {
+          return `Only ${medication.currentStock} available in stock`;
+        }
+
+        // Enhanced validation for different dosage forms
+        if (medication && medication.dosageForm) {
+          const dosageForm = medication.dosageForm.toLowerCase();
+          const decimals = (quantity.toString().split('.')[1] || '').length;
+
+          if (['tablet', 'capsule', 'suppository', 'patch'].includes(dosageForm)) {
+            if (quantity % 0.5 !== 0) {
+              return 'Quantity for tablets/capsules must be in increments of 0.5';
+            }
+          } else if (['injection', 'vial', 'ampoule'].includes(dosageForm)) {
+            if (quantity % 1 !== 0) {
+              return 'Quantity for injections must be whole numbers';
+            }
+          } else if (['syrup', 'suspension', 'solution'].includes(dosageForm)) {
+            if (decimals > 1) {
+              return 'Liquid quantities should not exceed 1 decimal place';
+            }
+            if (quantity < 5) {
+              return 'Minimum liquid quantity is 5ml';
+            }
+          }
+        }
+
+        return null;
+      }
+
+      case 'dosage': {
+        if (!value || value.trim() === '') return 'Dosage is required';
+
+        // Enhanced dosage pattern with more units
+        const dosagePattern = /^\d+(\.\d{1,3})?\s*(mg|g|ml|mcg|μg|iu|unit|units?|tab|tabs?|cap|caps?|drop|drops?|puff|puffs?|spray|sprays?|patch|patches?)$/i;
+        if (!dosagePattern.test(value.trim())) {
+          return 'Invalid format (e.g., 500mg, 1.5g, 10ml, 2tabs, 1puff)';
+        }
+
+        // Check for reasonable dosage ranges
+        const numericValue = parseFloat(value.match(/^\d+(\.\d+)?/)[0]);
+        const unit = value.replace(/[\d.\s]/g, '').toLowerCase();
+
+        const dosageLimits = {
+          'mg': { min: 0.1, max: 5000 },
+          'mcg': { min: 0.1, max: 10000 },
+          'μg': { min: 0.1, max: 10000 },
+          'g': { min: 0.01, max: 50 },
+          'ml': { min: 0.1, max: 1000 },
+          'iu': { min: 1, max: 100000 },
+          'unit': { min: 1, max: 1000 },
+          'units': { min: 1, max: 1000 },
+          'tab': { min: 0.25, max: 20 },
+          'tabs': { min: 0.25, max: 20 },
+          'cap': { min: 0.5, max: 20 },
+          'caps': { min: 0.5, max: 20 },
+          'drop': { min: 1, max: 50 },
+          'drops': { min: 1, max: 50 },
+          'puff': { min: 1, max: 20 },
+          'puffs': { min: 1, max: 20 }
+        };
+
+        const limits = dosageLimits[unit];
+        if (limits && (numericValue < limits.min || numericValue > limits.max)) {
+          return `Dosage should be between ${limits.min} and ${limits.max} ${unit}`;
+        }
+
+        return null;
+      }
+
+      case 'instructions': {
+        if (value && value.length > 500) return 'Instructions too long (max 500 characters)';
+        if (value && value.trim().length > 0 && value.trim().length < 3) {
+          return 'Instructions too short (min 3 characters)';
+        }
+
+        // Enhanced safety checks
+        if (value) {
+          const dangerousWords = [
+            'overdose', 'double dose', 'triple dose', 'quadruple dose',
+            'as much as possible', 'unlimited', 'no limit', 'maximum dose',
+            'crush and inject', 'inject', 'snort', 'abuse',
+            'all at once', 'entire bottle', 'whole pack'
+          ];
+
+          if (dangerousWords.some(word => value.toLowerCase().includes(word))) {
+            return 'Instructions contain potentially unsafe language';
+          }
+
+          // Check for contradictory instructions
+          const contradictoryPairs = [
+            ['with food', 'on empty stomach'],
+            ['before meals', 'after meals'],
+            ['morning', 'bedtime'],
+            ['with milk', 'avoid dairy']
+          ];
+
+          const lowerInstructions = value.toLowerCase();
+          for (const [term1, term2] of contradictoryPairs) {
+            if (lowerInstructions.includes(term1) && lowerInstructions.includes(term2)) {
+              return `Contradictory terms: '${term1}' and '${term2}'`;
+            }
+          }
+        }
+
+        return null;
+      }
+
+      case 'frequency': {
+        if (!value || value.trim() === '') return 'Frequency is required';
+
+        const validFrequencies = [
+          'Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)',
+          'Four times daily (QDS)', 'As needed (PRN)', 'Before meals',
+          'After meals', 'At bedtime', 'As per sliding scale'
+        ];
+
+        if (!validFrequencies.includes(value)) {
+          return 'Please select a valid frequency';
+        }
+        return null;
+      }
+
+      default:
+        return null;
     }
+  };
+
+  // Update medication details with real-time validation
+  const updateMedication = (id, field, value) => {
+    // Update the medication
+    const updatedMedications = selectedMedications.map(med =>
+      med.id === id ? { ...med, [field]: value } : med
+    );
+    setSelectedMedications(updatedMedications);
+
+    // Real-time validation for specific fields
+    const medication = selectedMedications.find(med => med.id === id);
+    const medicationIndex = selectedMedications.findIndex(med => med.id === id);
+
+    if (['quantity', 'dosage', 'instructions'].includes(field)) {
+      const fieldError = validateField(field, value, medication);
+
+      if (fieldError) {
+        setValidationErrors(prev => ({
+          ...prev,
+          [`medication_${medicationIndex}`]: {
+            ...prev[`medication_${medicationIndex}`],
+            [field]: fieldError
+          }
+        }));
+      } else {
+        // Clear the specific field error
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          if (newErrors[`medication_${medicationIndex}`]) {
+            delete newErrors[`medication_${medicationIndex}`][field];
+            if (Object.keys(newErrors[`medication_${medicationIndex}`]).length === 0) {
+              delete newErrors[`medication_${medicationIndex}`];
+            }
+          }
+          return newErrors;
+        });
+      }
+    }
+
+    // Clear general validation errors for this medication
+    clearFieldError(`medication_${medicationIndex}`);
   };
 
   // Reset form when modal opens and fetch medications
@@ -766,9 +1123,6 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
                   {validationErrors.duplicates && (
                     <div className="text-red-700 text-sm">• {validationErrors.duplicates}</div>
                   )}
-                  {validationErrors.startDate && (
-                    <div className="text-red-700 text-sm">• {validationErrors.startDate}</div>
-                  )}
                   {Object.keys(validationErrors).filter(key => key.startsWith('medication_')).length > 0 && (
                     <div className="text-red-700 text-sm">• Some medications have validation errors (see below)</div>
                   )}
@@ -776,11 +1130,24 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
               </div>
             )}
             {/* Step 1: Patient Search and Selection */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+            <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border ${validationErrors.patient ? 'border-red-300 bg-red-50' : 'border-blue-100'}`}>
               <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
                 <User size={20} className="mr-3 text-blue-600" />
                 Step 1: Search and Select Patient
+                {validationErrors.patient && (
+                  <span className="ml-2 text-red-600">
+                    <AlertCircle size={16} />
+                  </span>
+                )}
               </h3>
+              {validationErrors.patient && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                  <div className="text-red-700 text-sm flex items-center">
+                    <AlertCircle size={14} className="mr-2" />
+                    {validationErrors.patient}
+                  </div>
+                </div>
+              )}
 
               {!selectedPatient ? (
                 <div className="space-y-4">
@@ -891,11 +1258,24 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
             </div>
 
             {/* Step 2: Medication Search and Selection */}
-            <div className={`bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100 ${!selectedPatient ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className={`bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border ${validationErrors.medications ? 'border-red-300 bg-red-50' : 'border-green-100'} ${!selectedPatient ? 'opacity-50 pointer-events-none' : ''}`}>
               <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
                 <Pill size={20} className="mr-3 text-green-600" />
                 Step 2: Search and Add Medications
+                {validationErrors.medications && (
+                  <span className="ml-2 text-red-600">
+                    <AlertCircle size={16} />
+                  </span>
+                )}
               </h3>
+              {validationErrors.medications && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                  <div className="text-red-700 text-sm flex items-center">
+                    <AlertCircle size={14} className="mr-2" />
+                    {validationErrors.medications}
+                  </div>
+                </div>
+              )}
 
               {/* Medication Search */}
               <div className="space-y-4">
@@ -1038,11 +1418,24 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
 
             {/* Step 3: Selected Medications with Dosage Configuration */}
             {selectedMedications.length > 0 && (
-              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-100">
+              <div className={`bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border ${validationErrors.duplicates || Object.keys(validationErrors).some(key => key.startsWith('medication_')) ? 'border-red-300 bg-red-50' : 'border-amber-100'}`}>
                 <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
                   <FileText size={20} className="mr-3 text-amber-600" />
                   Step 3: Configure Selected Medications ({selectedMedications.length})
+                  {(validationErrors.duplicates || Object.keys(validationErrors).some(key => key.startsWith('medication_'))) && (
+                    <span className="ml-2 text-red-600">
+                      <AlertCircle size={16} />
+                    </span>
+                  )}
                 </h3>
+                {validationErrors.duplicates && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                    <div className="text-red-700 text-sm flex items-center">
+                      <AlertCircle size={14} className="mr-2" />
+                      {validationErrors.duplicates}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                 {selectedMedications.map((medication, index) => {
@@ -1174,22 +1567,41 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
               </div>
             )}
 
+
           </form>
         </div>
 
         {/* Enhanced Footer - Fixed at bottom */}
         <div className="bg-white border-t border-gray-200 p-6 absolute bottom-0 left-0 right-0 shadow-lg z-10">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <AlertCircle size={16} />
-              <span>
-                {!selectedPatient
-                  ? 'Please select a patient to continue'
-                  : selectedMedications.length === 0
-                  ? 'Please add at least one medication'
-                  : `Ready to create ${selectedMedications.length} prescription(s)`
-                }
-              </span>
+            <div className="flex items-center space-x-2 text-sm">
+              {Object.keys(validationErrors).length > 0 ? (
+                <>
+                  <AlertTriangle size={16} className="text-red-500" />
+                  <span className="text-red-600 font-medium">
+                    {Object.keys(validationErrors).length} validation error(s) - Please fix before submitting
+                  </span>
+                </>
+              ) : !selectedPatient ? (
+                <>
+                  <AlertCircle size={16} className="text-gray-500" />
+                  <span className="text-gray-500">Please select a patient to continue</span>
+                </>
+              ) : selectedMedications.length === 0 ? (
+                <>
+                  <AlertCircle size={16} className="text-gray-500" />
+                  <span className="text-gray-500">Please add at least one medication</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-green-600 font-medium">
+                    Ready to create {selectedMedications.length} prescription(s)
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="flex space-x-4">

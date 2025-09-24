@@ -19,7 +19,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByDoctorEmployeeId(Long doctorId);
 
     // Find all appointments for a specific patient
-    List<Appointment> findByPatientNationalId(Long patientId);
+    List<Appointment> findByPatientNationalId(String patientId);
 
     // Find appointments by date
     List<Appointment> findByAppointmentDate(LocalDate date);
@@ -28,7 +28,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByDoctorEmployeeIdAndAppointmentDate(Long doctorId, LocalDate date);
 
     // Find appointments for a patient on a specific date
-    List<Appointment> findByPatientNationalIdAndAppointmentDate(Long patientId, LocalDate date);
+    List<Appointment> findByPatientNationalIdAndAppointmentDate(String patientId, LocalDate date);
 
     // Find appointments by status
     List<Appointment> findByStatus(AppointmentStatus status);
@@ -62,7 +62,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             "AND (a.appointmentDate > :currentDate OR " +
             "(a.appointmentDate = :currentDate AND a.appointmentTime >= :currentTime)) " +
             "ORDER BY a.appointmentDate, a.appointmentTime")
-    List<Appointment> findUpcomingAppointmentsByPatient(@Param("patientId") Long patientId,
+    List<Appointment> findUpcomingAppointmentsByPatient(@Param("patientId") String patientId,
                                                         @Param("currentDate") LocalDate currentDate,
                                                         @Param("currentTime") LocalTime currentTime);
 }

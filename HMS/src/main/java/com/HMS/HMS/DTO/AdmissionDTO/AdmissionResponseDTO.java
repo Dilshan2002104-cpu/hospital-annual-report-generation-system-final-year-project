@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 public class AdmissionResponseDTO {
     private Long admissionId;
-    private Long patientNationalId;
+    private String patientNationalId;
     private String patientName;
     private Long wardId;
     private String wardName;
@@ -18,7 +18,7 @@ public class AdmissionResponseDTO {
     // Constructors
     public AdmissionResponseDTO() {}
 
-    public AdmissionResponseDTO(Long admissionId, Long patientNationalId, String patientName,
+    public AdmissionResponseDTO(Long admissionId, String patientNationalId, String patientName,
                                 Long wardId, String wardName, String bedNumber,
                                 LocalDateTime admissionDate, LocalDateTime dischargeDate,
                                 AdmissionStatus status) {
@@ -42,11 +42,11 @@ public class AdmissionResponseDTO {
         this.admissionId = admissionId;
     }
 
-    public Long getPatientNationalId() {
+    public String getPatientNationalId() {
         return patientNationalId;
     }
 
-    public void setPatientNationalId(Long patientNationalId) {
+    public void setPatientNationalId(String patientNationalId) {
         this.patientNationalId = patientNationalId;
     }
 

@@ -136,7 +136,7 @@ public class AdmissionService {
                 .collect(Collectors.toList());
     }
 
-    public List<AdmissionResponseDTO> getAdmissionsByPatient(Long nationalId) {
+    public List<AdmissionResponseDTO> getAdmissionsByPatient(String nationalId) {
         return admissionRepository.findByPatientNationalId(nationalId)
                 .stream()
                 .map(this::convertToResponseDTO)

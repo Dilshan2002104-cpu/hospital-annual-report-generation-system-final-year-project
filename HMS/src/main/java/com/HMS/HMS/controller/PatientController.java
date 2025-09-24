@@ -40,7 +40,7 @@ public class PatientController {
     }
 
     @GetMapping("/{nationalId}")
-    public ResponseEntity<PatientResponseDTO> getPatientByNationalId(@PathVariable Long nationalId){
+    public ResponseEntity<PatientResponseDTO> getPatientByNationalId(@PathVariable String nationalId){
         try{
             PatientResponseDTO patient = patientService.getPatientByNationalId(nationalId);
             return ResponseEntity.ok(patient);
@@ -80,7 +80,7 @@ public class PatientController {
     }
 
     @PutMapping("/{nationalId}")
-    public CommonResponseDTO updatePatient(@PathVariable Long nationalId, @RequestBody PatientRequestDTO patientRequestDTO){
+    public CommonResponseDTO updatePatient(@PathVariable String nationalId, @RequestBody PatientRequestDTO patientRequestDTO){
         try{
             patientService.updatePatient(nationalId,patientRequestDTO);
             return new CommonResponseDTO(true,"Patient updated successfully.");
@@ -90,7 +90,7 @@ public class PatientController {
     }
 
     @DeleteMapping("/{nationalId}")
-    public CommonResponseDTO deletePatient(@PathVariable Long nationalId){
+    public CommonResponseDTO deletePatient(@PathVariable String nationalId){
         try{
             patientService.deletePatient(nationalId);
             return new CommonResponseDTO(true,"Patient deleted successfully.");

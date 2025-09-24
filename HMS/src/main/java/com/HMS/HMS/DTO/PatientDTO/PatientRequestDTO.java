@@ -3,7 +3,7 @@ package com.HMS.HMS.DTO.PatientDTO;
 import java.time.LocalDate;
 
 public class PatientRequestDTO {
-    private Long nationalId;
+    private String nationalId;
     private String firstName;
     private String lastName;
     private String address;
@@ -15,7 +15,7 @@ public class PatientRequestDTO {
     public PatientRequestDTO() {
     }
 
-    public PatientRequestDTO(Long nationalId, String firstName, String lastName, String address,
+    public PatientRequestDTO(String nationalId, String firstName, String lastName, String address,
                              LocalDate dateOfBirth, String contactNumber, String emergencyContactNumber, String gender) {
         this.nationalId = nationalId;
         this.firstName = firstName;
@@ -27,11 +27,11 @@ public class PatientRequestDTO {
         this.gender = gender;
     }
 
-    public Long getNationalId() {
+    public String getNationalId() {
         return nationalId;
     }
 
-    public void setNationalId(Long nationalId) {
+    public void setNationalId(String nationalId) {
         this.nationalId = nationalId;
     }
 

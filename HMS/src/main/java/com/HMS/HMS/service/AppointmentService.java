@@ -74,7 +74,7 @@ public class AppointmentService {
     }
 
     // Get appointments by patient ID
-    public List<AppointmentResponse> getAppointmentsByPatientId(Long patientId){
+    public List<AppointmentResponse> getAppointmentsByPatientId(String patientId){
         return appointmentRepository.findByPatientNationalId(patientId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -160,7 +160,7 @@ public class AppointmentService {
     }
 
     // Get upcoming appointments for patient
-    public List<AppointmentResponse> getUpcomingAppointmentsByPatient(Long patientId) {
+    public List<AppointmentResponse> getUpcomingAppointmentsByPatient(String patientId) {
         LocalDate currentDate = LocalDate.now();
         LocalTime currentTime = LocalTime.now();
 

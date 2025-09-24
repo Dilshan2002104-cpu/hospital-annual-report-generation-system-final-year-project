@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 public class TransferResponseDTO {
     private Long transferId;
-    private Long patientNationalId;
+    private String patientNationalId;
     private String patientName;
     private Long fromWardId;
     private String fromWardName;
@@ -20,7 +20,7 @@ public class TransferResponseDTO {
     public TransferResponseDTO() {
     }
 
-    public TransferResponseDTO(LocalDateTime transferDate, Long transferId, Long patientNationalId, String patientName, Long fromWardId, String fromWardName, Long toWardId, String toWardName, String fromBedNumber, String toBedNumber, String transferReason, Long oldAdmissionId, Long newAdmissionId) {
+    public TransferResponseDTO(LocalDateTime transferDate, Long transferId, String patientNationalId, String patientName, Long fromWardId, String fromWardName, Long toWardId, String toWardName, String fromBedNumber, String toBedNumber, String transferReason, Long oldAdmissionId, Long newAdmissionId) {
         this.transferDate = transferDate;
         this.transferId = transferId;
         this.patientNationalId = patientNationalId;
@@ -44,11 +44,11 @@ public class TransferResponseDTO {
         this.transferId = transferId;
     }
 
-    public Long getPatientNationalId() {
+    public String getPatientNationalId() {
         return patientNationalId;
     }
 
-    public void setPatientNationalId(Long patientNationalId) {
+    public void setPatientNationalId(String patientNationalId) {
         this.patientNationalId = patientNationalId;
     }
 

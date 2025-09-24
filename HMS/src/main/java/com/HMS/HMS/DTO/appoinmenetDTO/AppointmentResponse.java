@@ -11,7 +11,7 @@ public class AppointmentResponse {
     private Long doctorEmployeeId;
     private String doctorName;
     private String doctorSpecialization;
-    private Long patientNationalId;
+    private String patientNationalId;
     private String patientName;
     private LocalDate appointmentDate;
     private LocalTime appointmentTime;
@@ -55,11 +55,11 @@ public class AppointmentResponse {
         this.doctorSpecialization = doctorSpecialization;
     }
 
-    public Long getPatientNationalId() {
+    public String getPatientNationalId() {
         return patientNationalId;
     }
 
-    public void setPatientNationalId(Long patientNationalId) {
+    public void setPatientNationalId(String patientNationalId) {
         this.patientNationalId = patientNationalId;
     }
 

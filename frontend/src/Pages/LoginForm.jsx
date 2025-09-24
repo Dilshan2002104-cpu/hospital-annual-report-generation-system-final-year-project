@@ -62,8 +62,9 @@ export default function LoginForm() {
       case 'PHARMACIST':
         navigate('/pharmacyManagement');
         break;
+      case 'LAB_TECH':
       case 'LAB_TECHNICIAN':
-        navigate('/LabManagement');
+        navigate('/labManagement');
         break;
       default:
         navigate('/dialysisManagement');

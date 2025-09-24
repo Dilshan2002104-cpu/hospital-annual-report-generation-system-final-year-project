@@ -16,7 +16,7 @@ public class Patient {
 
     @Id
     @Column(unique = true, nullable = false)
-    private Long nationalId;
+    private String nationalId;
 
     private String firstName;
     private String lastName;
@@ -41,7 +41,7 @@ public class Patient {
     public Patient() {
     }
 
-    public Patient(Long nationalId, String firstName, String lastName, String address, LocalDate dateOfBirth,
+    public Patient(String nationalId, String firstName, String lastName, String address, LocalDate dateOfBirth,
                    String contactNumber, String emergencyContactNumber, String gender) {
         this.nationalId = nationalId;
         this.firstName = firstName;
@@ -91,11 +91,11 @@ public class Patient {
     }
 
     // Getters and Setters
-    public Long getNationalId() {
+    public String getNationalId() {
         return nationalId;
     }
 
-    public void setNationalId(Long nationalId) {
+    public void setNationalId(String nationalId) {
         this.nationalId = nationalId;
     }
 

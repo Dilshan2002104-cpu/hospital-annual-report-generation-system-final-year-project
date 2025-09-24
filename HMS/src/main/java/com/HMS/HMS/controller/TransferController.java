@@ -34,7 +34,7 @@ public class TransferController {
     }
 
     @GetMapping("/patient/{nationalId}/history")
-    public ResponseEntity<List<TransferResponseDTO>> getPatientTransferHistory(@PathVariable Long nationalId){
+    public ResponseEntity<List<TransferResponseDTO>> getPatientTransferHistory(@PathVariable String nationalId){
         List<TransferResponseDTO> transfers = transferService.getTransferHistory(nationalId);
         return ResponseEntity.ok(transfers);
     }

@@ -22,6 +22,140 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
     bedNumber: ''
   });
 
+  const [validationErrors, setValidationErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  // Validation functions
+  const validateAdmission = () => {
+    const errors = {};
+
+    // Patient validation
+    if (!selectedPatient) {
+      errors.patient = 'Please select a patient to admit';
+    }
+
+    // Ward validation
+    if (!admission.wardId) {
+      errors.wardId = 'Please select a ward';
+    }
+
+    // Bed number validation
+    if (!admission.bedNumber || !admission.bedNumber.trim()) {
+      errors.bedNumber = 'Bed number is required';
+    } else if (admission.bedNumber.length > 10) {
+      errors.bedNumber = 'Bed number must be 10 characters or less';
+    } else if (!/^[A-Za-z0-9\-]+$/.test(admission.bedNumber.trim())) {
+      errors.bedNumber = 'Bed number can only contain letters, numbers, and hyphens';
+    }
+
+    // Date validation
+    if (!admission.admissionDate) {
+      errors.admissionDate = 'Admission date is required';
+    } else {
+      const admissionDate = new Date(admission.admissionDate);
+      const today = new Date();
+      const maxFutureDate = new Date();
+      maxFutureDate.setDate(today.getDate() + 30); // Allow up to 30 days in future
+
+      if (admissionDate < today.setHours(0, 0, 0, 0)) {
+        errors.admissionDate = 'Admission date cannot be in the past';
+      } else if (admissionDate > maxFutureDate) {
+        errors.admissionDate = 'Admission date cannot be more than 30 days in the future';
+      }
+    }
+
+    // Time validation
+    if (!admission.admissionTime) {
+      errors.admissionTime = 'Admission time is required';
+    } else if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(admission.admissionTime)) {
+      errors.admissionTime = 'Please enter a valid time (HH:MM)';
+    }
+
+    // Check if patient is already admitted
+    if (selectedPatient && activeAdmissions && Array.isArray(activeAdmissions)) {
+      const isAlreadyAdmitted = activeAdmissions.some(
+        adm => String(adm.patientNationalId) === String(selectedPatient.nationalId)
+      );
+      if (isAlreadyAdmitted) {
+        errors.patient = 'This patient is already admitted to a ward';
+      }
+    }
+
+    // Check if bed is already occupied (if we have ward data)
+    if (admission.wardId && admission.bedNumber && activeAdmissions && Array.isArray(activeAdmissions)) {
+      const isBedOccupied = activeAdmissions.some(
+        adm => String(adm.wardId) === String(admission.wardId) &&
+               adm.bedNumber?.toLowerCase() === admission.bedNumber?.toLowerCase()
+      );
+      if (isBedOccupied) {
+        errors.bedNumber = 'This bed is already occupied';
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Real-time validation for individual fields
+  const validateField = (fieldName, value) => {
+    const errors = { ...validationErrors };
+
+    switch (fieldName) {
+      case 'bedNumber':
+        if (!value || !value.trim()) {
+          errors.bedNumber = 'Bed number is required';
+        } else if (value.length > 10) {
+          errors.bedNumber = 'Bed number must be 10 characters or less';
+        } else if (!/^[A-Za-z0-9\-]+$/.test(value.trim())) {
+          errors.bedNumber = 'Bed number can only contain letters, numbers, and hyphens';
+        } else {
+          delete errors.bedNumber;
+        }
+        break;
+      case 'admissionDate':
+        if (!value) {
+          errors.admissionDate = 'Admission date is required';
+        } else {
+          const admissionDate = new Date(value);
+          const today = new Date();
+          const maxFutureDate = new Date();
+          maxFutureDate.setDate(today.getDate() + 30);
+
+          if (admissionDate < today.setHours(0, 0, 0, 0)) {
+            errors.admissionDate = 'Admission date cannot be in the past';
+          } else if (admissionDate > maxFutureDate) {
+            errors.admissionDate = 'Admission date cannot be more than 30 days in the future';
+          } else {
+            delete errors.admissionDate;
+          }
+        }
+        break;
+      case 'admissionTime':
+        if (!value) {
+          errors.admissionTime = 'Admission time is required';
+        } else if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+          errors.admissionTime = 'Please enter a valid time (HH:MM)';
+        } else {
+          delete errors.admissionTime;
+        }
+        break;
+      default:
+        break;
+    }
+
+    setValidationErrors(errors);
+  };
+
+  // Handle input changes with validation
+  const handleInputChange = (field, value) => {
+    setAdmission(prev => ({ ...prev, [field]: value }));
+    setTouched(prev => ({ ...prev, [field]: true }));
+
+    // Real-time validation
+    if (touched[field]) {
+      validateField(field, value);
+    }
+  };
 
   // Search and filter patients
   const handleSearchChange = (e) => {
@@ -108,16 +242,18 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!selectedPatient) {
-      return;
-    }
 
-    if (!admission.wardId) {
-      return;
-    }
+    // Mark all fields as touched to show validation errors
+    setTouched({
+      patient: true,
+      wardId: true,
+      bedNumber: true,
+      admissionDate: true,
+      admissionTime: true
+    });
 
-    if (!admission.bedNumber.trim()) {
+    // Validate the form
+    if (!validateAdmission()) {
       return;
     }
     

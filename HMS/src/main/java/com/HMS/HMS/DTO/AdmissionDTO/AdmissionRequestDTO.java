@@ -1,7 +1,7 @@
 package com.HMS.HMS.DTO.AdmissionDTO;
 
 public class AdmissionRequestDTO {
-    private Long patientNationalId;
+    private String patientNationalId;
     private Long wardId;
     private String bedNumber;
 
@@ -9,18 +9,18 @@ public class AdmissionRequestDTO {
     // Constructors
     public AdmissionRequestDTO() {}
 
-    public AdmissionRequestDTO(Long patientNationalId, Long wardId, String bedNumber) {
+    public AdmissionRequestDTO(String patientNationalId, Long wardId, String bedNumber) {
         this.patientNationalId = patientNationalId;
         this.wardId = wardId;
         this.bedNumber = bedNumber;
     }
 
     // Getters and Setters
-    public Long getPatientNationalId() {
+    public String getPatientNationalId() {
         return patientNationalId;
     }
 
-    public void setPatientNationalId(Long patientNationalId) {
+    public void setPatientNationalId(String patientNationalId) {
         this.patientNationalId = patientNationalId;
     }
 

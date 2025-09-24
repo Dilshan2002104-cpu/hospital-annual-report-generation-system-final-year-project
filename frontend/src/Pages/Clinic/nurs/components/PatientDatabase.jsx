@@ -48,9 +48,12 @@ const PatientDatabase = ({
   const filteredPatients = useMemo(() => {
     return patients.filter(patient => {
       const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
+      const nationalId = String(patient.nationalId || '');
+      const contactNumber = String(patient.contactNumber || '');
+
       return fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.nationalId.includes(searchTerm) ||
-        patient.contactNumber.includes(searchTerm);
+        nationalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contactNumber.toLowerCase().includes(searchTerm.toLowerCase());
     });
   }, [patients, searchTerm]);
 

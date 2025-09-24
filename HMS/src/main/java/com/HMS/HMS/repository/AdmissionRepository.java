@@ -13,14 +13,14 @@ import java.util.Optional;
 @Repository
 public interface AdmissionRepository extends JpaRepository<Admission,Long> {
 
-    List<Admission> findByPatientNationalId(Long nationalId);
+    List<Admission> findByPatientNationalId(String nationalId);
 
     List<Admission> findByWardWardId(Long wardId);
 
     List<Admission> findByStatus(AdmissionStatus status);
 
     @Query("SELECT a FROM Admission a WHERE a.patient.nationalId = :nationalId AND a.status = :status")
-    Optional<Admission> findActiveAdmissionByPatient(@Param("nationalId") Long nationalId, @Param("status") AdmissionStatus status);
+    Optional<Admission> findActiveAdmissionByPatient(@Param("nationalId") String nationalId, @Param("status") AdmissionStatus status);
 
     @Query("SELECT COUNT(a) FROM Admission a WHERE a.ward.wardId = :wardId AND a.status = 'ACTIVE'")
     int countActiveAdmissionsByWard(@Param("wardId") Long wardId);

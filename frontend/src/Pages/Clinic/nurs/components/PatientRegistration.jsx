@@ -27,39 +27,53 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
 
-  // Form validation
+  // Enhanced form validation
   const validateForm = () => {
     const newErrors = {};
-    
-    // National ID validation (Sri Lankan format)
+
+    // National ID validation (Sri Lankan format - both old and new)
     if (!newPatient.nationalId) {
       newErrors.nationalId = 'National ID is required';
-    } else if (!/^\d{9}[Vv]|\d{12}$/.test(newPatient.nationalId)) {
-      newErrors.nationalId = 'Invalid National ID format';
+    } else {
+      const cleanNIC = newPatient.nationalId.trim().toUpperCase();
+      // Old format: 9 digits + V or X, New format: 12 digits
+      if (!/^\d{9}[VvXx]$/.test(cleanNIC) && !/^\d{12}$/.test(cleanNIC)) {
+        newErrors.nationalId = 'Invalid National ID format (9 digits + V/X or 12 digits)';
+      }
     }
 
     // First name validation
     if (!newPatient.firstName || newPatient.firstName.trim().length < 2) {
       newErrors.firstName = 'First name must be at least 2 characters';
+    } else if (newPatient.firstName.trim().length > 50) {
+      newErrors.firstName = 'First name must be less than 50 characters';
+    } else if (!/^[a-zA-Z\s\-'.]+$/.test(newPatient.firstName.trim())) {
+      newErrors.firstName = 'First name can only contain letters, spaces, hyphens, and apostrophes';
     }
 
     // Last name validation
     if (!newPatient.lastName || newPatient.lastName.trim().length < 2) {
       newErrors.lastName = 'Last name must be at least 2 characters';
+    } else if (newPatient.lastName.trim().length > 50) {
+      newErrors.lastName = 'Last name must be less than 50 characters';
+    } else if (!/^[a-zA-Z\s\-'.]+$/.test(newPatient.lastName.trim())) {
+      newErrors.lastName = 'Last name can only contain letters, spaces, hyphens, and apostrophes';
     }
 
-    // Phone number validation
+    // Phone number validation (Sri Lankan format)
     if (!newPatient.contactNumber) {
       newErrors.contactNumber = 'Contact number is required';
-    } else if (!/^0\d{9}$/.test(newPatient.contactNumber)) {
+    } else if (!/^0\d{9}$/.test(newPatient.contactNumber.replace(/[\s-]/g, ''))) {
       newErrors.contactNumber = 'Invalid phone number format (0XXXXXXXXX)';
     }
 
     // Emergency contact validation
     if (!newPatient.emergencyContactNumber) {
       newErrors.emergencyContactNumber = 'Emergency contact is required';
-    } else if (!/^0\d{9}$/.test(newPatient.emergencyContactNumber)) {
+    } else if (!/^0\d{9}$/.test(newPatient.emergencyContactNumber.replace(/[\s-]/g, ''))) {
       newErrors.emergencyContactNumber = 'Invalid phone number format (0XXXXXXXXX)';
+    } else if (newPatient.emergencyContactNumber === newPatient.contactNumber) {
+      newErrors.emergencyContactNumber = 'Emergency contact must be different from primary contact';
     }
 
     // Date of birth validation
@@ -69,14 +83,22 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
       const birthDate = new Date(newPatient.dateOfBirth);
       const today = new Date();
       const age = today.getFullYear() - birthDate.getFullYear();
-      if (age > 150 || birthDate > today) {
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+
+      if (birthDate > today) {
+        newErrors.dateOfBirth = 'Date of birth cannot be in the future';
+      } else if (age > 150) {
         newErrors.dateOfBirth = 'Please enter a valid date of birth';
+      } else if (age < 0 || (age === 0 && monthDiff < 0)) {
+        newErrors.dateOfBirth = 'Date of birth cannot be in the future';
       }
     }
 
     // Address validation
     if (!newPatient.address || newPatient.address.trim().length < 10) {
       newErrors.address = 'Address must be at least 10 characters';
+    } else if (newPatient.address.trim().length > 200) {
+      newErrors.address = 'Address must be less than 200 characters';
     }
 
     // Gender validation
@@ -86,6 +108,111 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Real-time field validation
+  const validateField = (fieldName, value) => {
+    const newErrors = { ...errors };
+
+    switch (fieldName) {
+      case 'nationalId':
+        if (!value) {
+          newErrors.nationalId = 'National ID is required';
+        } else {
+          const cleanNIC = value.trim().toUpperCase();
+          if (!/^\d{9}[VvXx]$/.test(cleanNIC) && !/^\d{12}$/.test(cleanNIC)) {
+            newErrors.nationalId = 'Invalid National ID format (9 digits + V/X or 12 digits)';
+          } else {
+            delete newErrors.nationalId;
+          }
+        }
+        break;
+      case 'firstName':
+        if (!value || value.trim().length < 2) {
+          newErrors.firstName = 'First name must be at least 2 characters';
+        } else if (value.trim().length > 50) {
+          newErrors.firstName = 'First name must be less than 50 characters';
+        } else if (!/^[a-zA-Z\s\-'.]+$/.test(value.trim())) {
+          newErrors.firstName = 'First name can only contain letters, spaces, hyphens, and apostrophes';
+        } else {
+          delete newErrors.firstName;
+        }
+        break;
+      case 'lastName':
+        if (!value || value.trim().length < 2) {
+          newErrors.lastName = 'Last name must be at least 2 characters';
+        } else if (value.trim().length > 50) {
+          newErrors.lastName = 'Last name must be less than 50 characters';
+        } else if (!/^[a-zA-Z\s\-'.]+$/.test(value.trim())) {
+          newErrors.lastName = 'Last name can only contain letters, spaces, hyphens, and apostrophes';
+        } else {
+          delete newErrors.lastName;
+        }
+        break;
+      case 'contactNumber':
+        if (!value) {
+          newErrors.contactNumber = 'Contact number is required';
+        } else if (!/^0\d{9}$/.test(value.replace(/[\s-]/g, ''))) {
+          newErrors.contactNumber = 'Invalid phone number format (0XXXXXXXXX)';
+        } else {
+          delete newErrors.contactNumber;
+        }
+        break;
+      case 'emergencyContactNumber':
+        if (!value) {
+          newErrors.emergencyContactNumber = 'Emergency contact is required';
+        } else if (!/^0\d{9}$/.test(value.replace(/[\s-]/g, ''))) {
+          newErrors.emergencyContactNumber = 'Invalid phone number format (0XXXXXXXXX)';
+        } else if (value === newPatient.contactNumber) {
+          newErrors.emergencyContactNumber = 'Emergency contact must be different from primary contact';
+        } else {
+          delete newErrors.emergencyContactNumber;
+        }
+        break;
+      case 'dateOfBirth':
+        if (!value) {
+          newErrors.dateOfBirth = 'Date of birth is required';
+        } else {
+          const birthDate = new Date(value);
+          const today = new Date();
+          if (birthDate > today) {
+            newErrors.dateOfBirth = 'Date of birth cannot be in the future';
+          } else {
+            delete newErrors.dateOfBirth;
+          }
+        }
+        break;
+      case 'address':
+        if (!value || value.trim().length < 10) {
+          newErrors.address = 'Address must be at least 10 characters';
+        } else if (value.trim().length > 200) {
+          newErrors.address = 'Address must be less than 200 characters';
+        } else {
+          delete newErrors.address;
+        }
+        break;
+      default:
+        break;
+    }
+
+    setErrors(newErrors);
+  };
+
+  // Handle input change with real-time validation
+  const handleInputChange = (field, value) => {
+    setNewPatient(prev => ({ ...prev, [field]: value }));
+
+    // Clear previous error immediately when user starts typing
+    if (errors[field]) {
+      const newErrors = { ...errors };
+      delete newErrors[field];
+      setErrors(newErrors);
+    }
+  };
+
+  // Handle field blur for validation
+  const handleFieldBlur = (field, value) => {
+    validateField(field, value);
   };
 
   const handleSubmit = async (e) => {
@@ -101,6 +228,13 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
     }
 
     try {
+      console.log('Submitting patient data:', {
+        ...newPatient,
+        // Don't log sensitive data in production
+        nationalId: newPatient.nationalId ? '[REDACTED]' : '',
+        contactNumber: newPatient.contactNumber ? '[REDACTED]' : ''
+      });
+
       const success = await onRegisterPatient(newPatient);
       if (success) {
         addToast({
@@ -108,7 +242,7 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
           title: 'Registration Successful',
           message: `${newPatient.firstName} ${newPatient.lastName} has been successfully registered.`,
         });
-        
+
         setNewPatient({
           nationalId: '',
           firstName: '',
@@ -122,13 +256,20 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
         setErrors({});
         setShowPatientForm(false);
       } else {
-        addToast({
-          type: 'error',
-          title: 'Registration Failed',
-          message: lastError || 'Failed to register patient. Please try again.',
-        });
+        // Error message is already shown by the usePatients hook
+        console.log('Registration failed, lastError:', lastError);
+
+        // Only show toast if lastError is available and no toast was shown by the hook
+        if (lastError && !lastError.includes('Server error')) {
+          addToast({
+            type: 'error',
+            title: 'Registration Failed',
+            message: lastError,
+          });
+        }
       }
-    } catch {
+    } catch (error) {
+      console.error('Unexpected error in handleSubmit:', error);
       addToast({
         type: 'error',
         title: 'System Error',
@@ -186,21 +327,22 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                 <XCircle size={18} className="text-gray-500" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">National ID</label>
                   <input
                     type="text"
                     value={newPatient.nationalId}
-                    onChange={(e) => setNewPatient({...newPatient, nationalId: e.target.value})}
+                    onChange={(e) => handleInputChange('nationalId', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('nationalId', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                      errors.nationalId 
+                      errors.nationalId
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
                     placeholder="200112345678 or 123456789V"
-                    required
+                    maxLength={12}
                   />
                   {errors.nationalId && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -214,14 +356,15 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   <input
                     type="text"
                     value={newPatient.firstName}
-                    onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('firstName', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                      errors.firstName 
+                      errors.firstName
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
                     placeholder="Enter first name"
-                    required
+                    maxLength={50}
                   />
                   {errors.firstName && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -238,15 +381,16 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   <input
                     type="text"
                     value={newPatient.lastName}
-                    onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('lastName', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
                       errors.lastName 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
                     placeholder="Enter last name"
-                    required
-                  />
+                    maxLength={50}
+                    />
                   {errors.lastName && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertTriangle size={14} className="mr-1" />
@@ -260,7 +404,8 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <textarea
                   value={newPatient.address}
-                  onChange={(e) => setNewPatient({...newPatient, address: e.target.value})}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  onBlur={(e) => handleFieldBlur('address', e.target.value)}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
                     errors.address 
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
@@ -268,7 +413,7 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   }`}
                   placeholder="Enter complete address"
                   rows="2"
-                  required
+                  maxLength={200}
                 />
                 {errors.address && (
                   <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -284,14 +429,14 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   <input
                     type="date"
                     value={newPatient.dateOfBirth}
-                    onChange={(e) => setNewPatient({...newPatient, dateOfBirth: e.target.value})}
+                    onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('dateOfBirth', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
                       errors.dateOfBirth 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
-                    required
-                  />
+                    />
                   {errors.dateOfBirth && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertTriangle size={14} className="mr-1" />
@@ -303,14 +448,14 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                   <select
                     value={newPatient.gender}
-                    onChange={(e) => setNewPatient({...newPatient, gender: e.target.value})}
+                    onChange={(e) => handleInputChange('gender', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('gender', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
                       errors.gender 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
-                    required
-                  >
+                    >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -331,15 +476,17 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   <input
                     type="tel"
                     value={newPatient.contactNumber}
-                    onChange={(e) => setNewPatient({...newPatient, contactNumber: e.target.value})}
+                    onChange={(e) => handleInputChange('contactNumber', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('contactNumber', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
                       errors.contactNumber 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
                     placeholder="0771234567"
-                    required
-                  />
+                    maxLength={10}
+                    pattern="[0-9]*"
+                    />
                   {errors.contactNumber && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertTriangle size={14} className="mr-1" />
@@ -352,15 +499,17 @@ const PatientRegistration = ({ patients, loading, onRegisterPatient, submitting,
                   <input
                     type="tel"
                     value={newPatient.emergencyContactNumber}
-                    onChange={(e) => setNewPatient({...newPatient, emergencyContactNumber: e.target.value})}
+                    onChange={(e) => handleInputChange('emergencyContactNumber', e.target.value)}
+                    onBlur={(e) => handleFieldBlur('emergencyContactNumber', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
                       errors.emergencyContactNumber 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     }`}
                     placeholder="0712345678"
-                    required
-                  />
+                    maxLength={10}
+                    pattern="[0-9]*"
+                    />
                   {errors.emergencyContactNumber && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertTriangle size={14} className="mr-1" />

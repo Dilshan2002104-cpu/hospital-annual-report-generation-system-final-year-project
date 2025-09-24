@@ -6,14 +6,14 @@ import java.time.LocalTime;
 public class CreateAppointmentRequest {
 
     private Long doctorEmployeeId;
-    private Long patientNationalId;
+    private String patientNationalId;
     private LocalDate appointmentDate;
     private LocalTime appointmentTime;
 
     public CreateAppointmentRequest() {
     }
 
-    public CreateAppointmentRequest(Long doctorEmployeeId, Long patientNationalId,
+    public CreateAppointmentRequest(Long doctorEmployeeId, String patientNationalId,
                                     LocalDate appointmentDate, LocalTime appointmentTime) {
         this.doctorEmployeeId = doctorEmployeeId;
         this.patientNationalId = patientNationalId;
@@ -29,11 +29,11 @@ public class CreateAppointmentRequest {
         this.doctorEmployeeId = doctorEmployeeId;
     }
 
-    public Long getPatientNationalId() {
+    public String getPatientNationalId() {
         return patientNationalId;
     }
 
-    public void setPatientNationalId(Long patientNationalId) {
+    public void setPatientNationalId(String patientNationalId) {
         this.patientNationalId = patientNationalId;
     }
 
