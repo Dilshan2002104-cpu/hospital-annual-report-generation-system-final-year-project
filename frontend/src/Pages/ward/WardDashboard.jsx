@@ -20,6 +20,7 @@ import TransferManagement from './components/TransferManagement';
 import AdmitPatientModal from './components/AdmitPatientModal';
 import PrescriptionsManagement from './components/PrescriptionsManagement';
 import WardAnalytics from './components/WardAnalytics';
+import BedManagement from './components/BedManagement';
 
 // Import modern notification components
 import { ToastContainer } from './components/notifications/Toast';
@@ -409,7 +410,7 @@ const WardDashboard = () => {
           />
         );
       case 'beds':
-        return <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">Bed Management (To be implemented)</div>;
+        return <BedManagement />;
       case 'prescriptions':
         return <PrescriptionsManagement />;
       case 'transfers':

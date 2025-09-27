@@ -997,42 +997,48 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
     setIsSubmitting(true);
 
     try {
-      // Create separate prescriptions for each medication
-      const prescriptions = selectedMedications.map(medication => ({
-        drugName: medication.name,
-        dose: medication.dosage,
-        frequency: medication.frequency,
-        quantity: medication.quantity,
-        quantityUnit: getQuantityUnit(medication.dosageForm),
-        instructions: medication.instructions,
-        startDate: prescriptionData.startDate,
-        patientName: selectedPatient.patientName,
-        patientId: selectedPatient.patientId || `P${selectedPatient.patientNationalId}`,
+      // Create single grouped prescription with multiple medications (NEW API format)
+      const groupedPrescription = {
+        // Patient and prescription metadata
         patientNationalId: selectedPatient.patientNationalId,
+        patientName: selectedPatient.patientName,
         admissionId: selectedPatient.admissionId,
-        wardNumber: selectedPatient.wardNumber || `W${selectedPatient.wardId}`,
+        startDate: prescriptionData.startDate,
+        endDate: null, // Optional - can be set later
+        prescribedBy: 'Current Doctor', // TODO: Get from auth context
         wardName: selectedPatient.wardName,
         bedNumber: selectedPatient.bedNumber,
-        prescribedBy: 'Current Doctor', // TODO: Get from auth context
-        prescribedDate: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        status: 'active'
-      }));
+        prescriptionNotes: `Prescription for ${selectedMedications.length} medication(s)`,
 
-      // Submit all prescriptions
+        // Convert selected medications to prescriptionItems format
+        medications: selectedMedications.map(medication => ({
+          drugName: medication.name,
+          dose: medication.dosage,
+          frequency: medication.frequency,
+          quantity: parseInt(medication.quantity) || 1,
+          quantityUnit: getQuantityUnit(medication.dosageForm),
+          instructions: medication.instructions || '',
+          route: medication.route || 'Oral',
+          isUrgent: medication.isUrgent || false,
+          dosageForm: medication.dosageForm || 'tablet',
+          genericName: medication.genericName || '',
+          manufacturer: medication.manufacturer || '',
+          notes: medication.notes || ''
+        }))
+      };
+
+      // Submit single grouped prescription
       if (onPrescriptionAdded) {
-        for (const prescription of prescriptions) {
-          await onPrescriptionAdded(prescription);
-        }
+        await onPrescriptionAdded(groupedPrescription);
       }
 
       // Show success notification
       notifications.success(
-        'Prescriptions Created Successfully',
-        `${selectedMedications.length} medication(s) prescribed for ${selectedPatient.patientName}`,
+        'Grouped Prescription Created Successfully',
+        `Single prescription with ${selectedMedications.length} medication(s) created for ${selectedPatient.patientName}`,
         {
           action: {
-            label: 'View Prescriptions',
+            label: 'View Prescription',
             onClick: () => console.log('Navigate to prescriptions list')
           }
         }
@@ -1042,10 +1048,10 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
       handleClose();
 
     } catch (error) {
-      console.error('Error creating prescriptions:', error);
+      console.error('Error creating grouped prescription:', error);
       notifications.error(
-        'Failed to Create Prescriptions',
-        error.message || 'An unexpected error occurred while creating the prescriptions'
+        'Failed to Create Grouped Prescription',
+        error.message || 'An unexpected error occurred while creating the prescription with multiple medications'
       );
     } finally {
       setIsSubmitting(false);
@@ -1196,6 +1202,30 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
                           No patients found matching your search
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Show message when no active patients available */}
+                  {!patientSearchTerm && activePatients.length === 0 && (
+                    <div className="text-center py-8">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                        <div className="flex items-center justify-center mb-4">
+                          <AlertCircle className="text-yellow-600" size={48} />
+                        </div>
+                        <h4 className="text-lg font-semibold text-yellow-800 mb-2">No Active Patients Available</h4>
+                        <p className="text-yellow-700 mb-4">
+                          There are currently no active patients available for prescriptions.
+                          Only patients who are currently admitted with an active status can receive prescriptions.
+                        </p>
+                        <div className="text-sm text-yellow-600">
+                          <p className="font-medium mb-2">A patient must have:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li>Active admission status</li>
+                            <li>Assigned ward and bed</li>
+                            <li>No discharge date</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   )}
 

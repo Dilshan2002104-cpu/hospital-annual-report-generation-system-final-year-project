@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -156,7 +156,7 @@ export default function WardAnalytics({
     }, {});
 
     // Age Group Analysis (assuming we have patient data)
-    const ageGroups = activeAdmissions.reduce((acc, admission) => {
+    const ageGroups = activeAdmissions.reduce((acc) => {
       // Since we don't have direct age data, we'll create sample distribution
       // In real implementation, this would calculate from patient.dateOfBirth
       const groups = ['0-18', '19-35', '36-55', '56-70', '70+'];

@@ -69,6 +69,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/reports/comprehensive-clinic/**").permitAll()
                         .requestMatchers("/api/reports/appointment-analytics/**").permitAll()
                         .requestMatchers("/api/test/**").permitAll()
+                        .requestMatchers("/api/prescriptions/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
