@@ -528,14 +528,14 @@ public class WardStatisticsService {
 
             document.add(kpiTable);
 
-            // Monthly Performance Analysis
-            addSectionHeader(document, "MONTHLY PERFORMANCE ANALYSIS", primaryBlue, boldFont);
+            // All Wards Performance Analysis
+            addSectionHeader(document, "ALL WARDS PERFORMANCE ANALYSIS", primaryBlue, boldFont);
 
-            Table monthlyTable = new Table(UnitValue.createPercentArray(new float[]{25, 20, 20, 20, 15})).useAllAvailableWidth();
-            monthlyTable.setMarginBottom(20);
+            Table wardsTable = new Table(UnitValue.createPercentArray(new float[]{25, 15, 15, 15, 15, 15})).useAllAvailableWidth();
+            wardsTable.setMarginBottom(20);
 
             // Headers with styling
-            String[] headers = {"Month", "Admissions", "Discharges", "Avg Occupancy", "Avg LOS"};
+            String[] headers = {"Ward Name", "Type", "Admissions", "Occupancy", "Avg LOS", "YoY Growth"};
             for (String header : headers) {
                 Cell headerCell = new Cell()
                     .add(new Paragraph(header)
@@ -545,23 +545,154 @@ public class WardStatisticsService {
                     .setBackgroundColor(primaryBlue)
                     .setTextAlignment(TextAlignment.CENTER)
                     .setPadding(8);
-                monthlyTable.addHeaderCell(headerCell);
+                wardsTable.addHeaderCell(headerCell);
             }
 
-            // Monthly data rows
-            if (report.getMonthlyData() != null) {
-                boolean isEvenRow = false;
-                for (WardStatisticsReportDTO.MonthlyWardDataDTO monthData : report.getMonthlyData()) {
+            // Get data for all 4 wards
+            String[] wardNames = {"Ward 1", "Ward 2", "Ward 3", "Ward 4"};
+            String[] wardTypes = {"General", "General", "ICU", "Dialysis"};
+            DeviceRgb[] wardColors = {
+                new DeviceRgb(46, 204, 113),    // Green for General
+                new DeviceRgb(46, 204, 113),    // Green for General
+                new DeviceRgb(231, 76, 60),     // Red for ICU
+                new DeviceRgb(155, 89, 182)     // Purple for Dialysis
+            };
+
+            boolean isEvenRow = false;
+            for (int i = 0; i < wardNames.length; i++) {
+                try {
+                    WardStatisticsReportDTO wardStats = generateWardStatistics(wardNames[i], year);
                     DeviceRgb rowColor = isEvenRow ? new DeviceRgb(255, 255, 255) : lightGray;
 
-                    addMonthlyDataRow(monthlyTable, monthData.getMonthName(), rowColor, normalFont);
-                    addMonthlyDataRow(monthlyTable, String.valueOf(monthData.getAdmissions()), rowColor, normalFont);
-                    addMonthlyDataRow(monthlyTable, String.valueOf(monthData.getDischarges()), rowColor, normalFont);
-                    addMonthlyDataRow(monthlyTable, String.format("%.1f%%", monthData.getAverageOccupancy()), rowColor, normalFont);
-                    addMonthlyDataRow(monthlyTable, String.format("%.1f", monthData.getAverageLengthOfStay()), rowColor, normalFont);
+                    // Ward Name with color coding
+                    Cell wardNameCell = new Cell()
+                        .add(new Paragraph(wardNames[i])
+                            .setFont(boldFont)
+                            .setFontSize(9)
+                            .setFontColor(wardColors[i]))
+                        .setBackgroundColor(rowColor)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setPadding(6);
+                    wardsTable.addCell(wardNameCell);
+
+                    // Ward Type
+                    addWardDataRow(wardsTable, wardTypes[i], rowColor, normalFont);
+
+                    // Admissions
+                    addWardDataRow(wardsTable, String.valueOf(wardStats.getTotalAdmissions()), rowColor, normalFont);
+
+                    // Occupancy
+                    addWardDataRow(wardsTable, String.format("%.1f%%", wardStats.getCurrentOccupancyRate()), rowColor, normalFont);
+
+                    // Avg LOS
+                    addWardDataRow(wardsTable, String.format("%.1f days", wardStats.getAverageLengthOfStay()), rowColor, normalFont);
+
+                    // YoY Growth
+                    String growthText = wardStats.getYearOverYearGrowth() >= 0 ?
+                        String.format("+%.1f%%", wardStats.getYearOverYearGrowth()) :
+                        String.format("%.1f%%", wardStats.getYearOverYearGrowth());
+                    addWardDataRow(wardsTable, growthText, rowColor, normalFont);
+
+                    isEvenRow = !isEvenRow;
+                } catch (Exception e) {
+                    // If ward has no data, show zeros
+                    DeviceRgb rowColor = isEvenRow ? new DeviceRgb(255, 255, 255) : lightGray;
+
+                    Cell wardNameCell = new Cell()
+                        .add(new Paragraph(wardNames[i])
+                            .setFont(boldFont)
+                            .setFontSize(9)
+                            .setFontColor(wardColors[i]))
+                        .setBackgroundColor(rowColor)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setPadding(6);
+                    wardsTable.addCell(wardNameCell);
+
+                    addWardDataRow(wardsTable, wardTypes[i], rowColor, normalFont);
+                    addWardDataRow(wardsTable, "0", rowColor, normalFont);
+                    addWardDataRow(wardsTable, "0.0%", rowColor, normalFont);
+                    addWardDataRow(wardsTable, "0.0 days", rowColor, normalFont);
+                    addWardDataRow(wardsTable, "0.0%", rowColor, normalFont);
 
                     isEvenRow = !isEvenRow;
                 }
+            }
+
+            document.add(wardsTable);
+
+            // Monthly Performance Analysis for all wards
+            addSectionHeader(document, "MONTHLY PERFORMANCE ANALYSIS - ALL WARDS", primaryBlue, boldFont);
+
+            Table monthlyTable = new Table(UnitValue.createPercentArray(new float[]{15, 17, 17, 17, 17, 17})).useAllAvailableWidth();
+            monthlyTable.setMarginBottom(20);
+
+            // Headers with styling
+            String[] monthlyHeaders = {"Month", "Ward 1", "Ward 2", "Ward 3", "Ward 4", "Total"};
+            DeviceRgb[] headerColors = {
+                primaryBlue,                   // Month
+                new DeviceRgb(46, 204, 113),  // Ward 1 (General) - Green
+                new DeviceRgb(46, 204, 113),  // Ward 2 (General) - Green
+                new DeviceRgb(231, 76, 60),   // Ward 3 (ICU) - Red
+                new DeviceRgb(155, 89, 182),  // Ward 4 (Dialysis) - Purple
+                primaryBlue                   // Total
+            };
+
+            for (int i = 0; i < monthlyHeaders.length; i++) {
+                Cell headerCell = new Cell()
+                    .add(new Paragraph(monthlyHeaders[i])
+                        .setFont(boldFont)
+                        .setFontSize(10)
+                        .setFontColor(ColorConstants.WHITE))
+                    .setBackgroundColor(headerColors[i])
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setPadding(8);
+                monthlyTable.addHeaderCell(headerCell);
+            }
+
+            // Generate monthly data for all wards
+            String[] allWardNames = {"Ward 1", "Ward 2", "Ward 3", "Ward 4"};
+
+            // Get monthly data for all wards
+            Map<String, List<WardStatisticsReportDTO.MonthlyWardDataDTO>> allWardsMonthlyData = new HashMap<>();
+            for (String ward : allWardNames) {
+                try {
+                    WardStatisticsReportDTO wardReport = generateWardStatistics(ward, year);
+                    allWardsMonthlyData.put(ward, wardReport.getMonthlyData());
+                } catch (Exception e) {
+                    allWardsMonthlyData.put(ward, new ArrayList<>());
+                }
+            }
+
+            // Create rows for each month
+            String[] monthNames = {"January", "February", "March", "April", "May", "June",
+                                 "July", "August", "September", "October", "November", "December"};
+
+            boolean isEvenMonthRow = false;
+            for (int monthIndex = 0; monthIndex < 12; monthIndex++) {
+                DeviceRgb rowColor = isEvenMonthRow ? new DeviceRgb(255, 255, 255) : lightGray;
+
+                // Month name
+                addMonthlyDataRow(monthlyTable, monthNames[monthIndex], rowColor, boldFont);
+
+                long totalAdmissions = 0;
+
+                // Data for each ward
+                for (String ward : allWardNames) {
+                    List<WardStatisticsReportDTO.MonthlyWardDataDTO> monthlyData = allWardsMonthlyData.get(ward);
+                    long admissions = 0;
+
+                    if (monthlyData != null && monthIndex < monthlyData.size()) {
+                        admissions = monthlyData.get(monthIndex).getAdmissions();
+                    }
+
+                    totalAdmissions += admissions;
+                    addMonthlyDataRow(monthlyTable, String.valueOf(admissions), rowColor, normalFont);
+                }
+
+                // Total column
+                addMonthlyDataRow(monthlyTable, String.valueOf(totalAdmissions), rowColor, boldFont);
+
+                isEvenMonthRow = !isEvenMonthRow;
             }
 
             document.add(monthlyTable);
@@ -703,6 +834,17 @@ public class WardStatisticsService {
     }
 
     private void addMonthlyDataRow(Table table, String data, DeviceRgb backgroundColor, PdfFont font) {
+        Cell cell = new Cell()
+            .add(new Paragraph(data)
+                .setFont(font)
+                .setFontSize(9))
+            .setBackgroundColor(backgroundColor)
+            .setTextAlignment(TextAlignment.CENTER)
+            .setPadding(6);
+        table.addCell(cell);
+    }
+
+    private void addWardDataRow(Table table, String data, DeviceRgb backgroundColor, PdfFont font) {
         Cell cell = new Cell()
             .add(new Paragraph(data)
                 .setFont(font)
