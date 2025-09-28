@@ -1,6 +1,7 @@
 package com.HMS.HMS.controller.reports;
 
 import com.HMS.HMS.DTO.reports.WardStatisticsReportDTO;
+import com.HMS.HMS.DTO.reports.HospitalWideStatisticsDTO;
 import com.HMS.HMS.service.reports.WardStatisticsService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -164,6 +165,54 @@ public class WardStatisticsController {
             quickStats.put("monthlyAverage", currentStats.getMonthlyAverageAdmissions());
 
             return ResponseEntity.ok(quickStats);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Get comprehensive hospital-wide statistics for all wards
+     */
+    @GetMapping("/hospital-wide/{year}")
+    public ResponseEntity<HospitalWideStatisticsDTO> getHospitalWideStatistics(@PathVariable int year) {
+        try {
+            HospitalWideStatisticsDTO hospitalStats = wardStatisticsService.generateHospitalWideStatistics(year);
+            return ResponseEntity.ok(hospitalStats);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Get current year hospital-wide statistics
+     */
+    @GetMapping("/hospital-wide/current")
+    public ResponseEntity<HospitalWideStatisticsDTO> getCurrentHospitalWideStatistics() {
+        try {
+            int currentYear = Year.now().getValue();
+            HospitalWideStatisticsDTO hospitalStats = wardStatisticsService.generateHospitalWideStatistics(currentYear);
+            return ResponseEntity.ok(hospitalStats);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Export comprehensive hospital-wide statistics as PDF
+     */
+    @GetMapping("/hospital-wide/export-pdf/{year}")
+    public ResponseEntity<byte[]> exportHospitalWideStatisticsPDF(@PathVariable int year) {
+        try {
+            byte[] pdfBytes = wardStatisticsService.exportHospitalWideStatisticsAsPDF(year);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment",
+                String.format("Hospital_Wide_Statistics_%d.pdf", year));
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }

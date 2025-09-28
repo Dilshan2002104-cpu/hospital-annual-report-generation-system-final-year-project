@@ -42,79 +42,206 @@ ChartJS.register(
 );
 
 const WardStatisticsReport = () => {
-  const [selectedWard, setSelectedWard] = useState('Ward 1');
+  const [reportMode, setReportMode] = useState('hospital-wide'); // 'hospital-wide', 'individual-ward'
+  const [selectedWard, setSelectedWard] = useState('Ward1');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState(null);
+  const [hospitalData, setHospitalData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [apiStatus, setApiStatus] = useState('checking'); // 'checking', 'online', 'offline'
 
   const wards = [
-    { id: 1, name: 'Ward 1 - General' },
-    { id: 2, name: 'Ward 2 - General' },
-    { id: 3, name: 'Ward 3 - ICU' },
-    { id: 4, name: 'Ward 4 - Dialysis' }
+    { id: 1, apiName: 'Ward1', displayName: 'Ward 1 - General', type: 'General' },
+    { id: 2, apiName: 'Ward2', displayName: 'Ward 2 - General', type: 'General' },
+    { id: 3, apiName: 'Ward3', displayName: 'Ward 3 - ICU', type: 'ICU' },
+    { id: 4, apiName: 'Ward4', displayName: 'Ward 4 - Dialysis', type: 'Dialysis' }
   ];
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   useEffect(() => {
-    fetchWardStatistics();
-  }, [selectedWard, selectedYear]);
+    if (reportMode === 'hospital-wide') {
+      fetchHospitalWideStatistics();
+    } else {
+      fetchWardStatistics();
+    }
+  }, [reportMode, selectedWard, selectedYear]);
 
   const fetchWardStatistics = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8080/api/reports/ward-statistics/ward/${selectedWard}/year/${selectedYear}`);
+      const response = await fetch(`http://localhost:8080/api/reports/ward-statistics/ward/${selectedWard}/year/${selectedYear}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to fetch ward statistics');
+        if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}): Please check if the backend service is running`);
+        } else if (response.status === 404) {
+          throw new Error('Ward statistics endpoint not found. Please verify the API configuration.');
+        } else {
+          throw new Error(`Failed to fetch ward statistics (HTTP ${response.status})`);
+        }
       }
+
       const data = await response.json();
       setReportData(data);
+      setApiStatus('online');
+      console.log('Ward statistics loaded successfully:', data);
+
     } catch (err) {
+      console.error('Error fetching ward statistics:', err);
       setError(err.message);
+      setApiStatus('offline');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchHospitalWideStatistics = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`http://localhost:8080/api/reports/ward-statistics/hospital-wide/${selectedYear}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}): Please check if the backend service is running`);
+        } else if (response.status === 404) {
+          throw new Error('Hospital-wide statistics endpoint not found. Please verify the API configuration.');
+        } else {
+          throw new Error(`Failed to fetch hospital-wide statistics (HTTP ${response.status})`);
+        }
+      }
+
+      const data = await response.json();
+      setHospitalData(data);
+      setReportData(null); // Clear individual ward data
+      setApiStatus('online');
+      console.log('Hospital-wide statistics loaded successfully:', data);
+
+    } catch (err) {
+      console.error('Error fetching hospital-wide statistics:', err);
+      setError(err.message);
+      setApiStatus('offline');
     } finally {
       setLoading(false);
     }
   };
 
   const downloadPDF = async () => {
+    setPdfDownloading(true);
+    setError(null);
+
     try {
-      const response = await fetch(`http://localhost:8080/api/reports/ward-statistics/ward/${selectedWard}/export-pdf/${selectedYear}`);
+      let url, filename, logMessage;
+
+      if (reportMode === 'hospital-wide') {
+        url = `http://localhost:8080/api/reports/ward-statistics/hospital-wide/export-pdf/${selectedYear}`;
+        filename = `Hospital_Wide_Statistics_${selectedYear}.pdf`;
+        logMessage = `Downloading hospital-wide PDF for ${selectedYear}`;
+      } else {
+        const selectedWardData = wards.find(w => w.apiName === selectedWard);
+        const wardDisplayName = selectedWardData ? selectedWardData.displayName : selectedWard;
+        url = `http://localhost:8080/api/reports/ward-statistics/ward/${selectedWard}/export-pdf/${selectedYear}`;
+        filename = `Ward_${selectedWard}_Statistics_${selectedYear}.pdf`;
+        logMessage = `Downloading PDF for ${selectedWard} (${selectedYear})`;
+      }
+
+      console.log(logMessage);
+
+      // Alternative method 1: Try direct window location
+      try {
+        window.location.href = url;
+        console.log('PDF download initiated using window.location');
+        return;
+      } catch (directError) {
+        console.log('Direct download failed, trying fetch method:', directError);
+      }
+
+      // Alternative method 2: Fetch with different headers
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf,*/*',
+        },
+        credentials: 'omit', // Don't send credentials to avoid CORS issues
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to download PDF');
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to generate PDF report'}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/pdf')) {
+        // Try creating a new tab instead
+        window.open(url, '_blank');
+        console.log('PDF opened in new tab');
+        return;
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+
+      if (blob.size === 0) {
+        throw new Error('Received empty PDF file');
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = `${selectedWard}_Statistics_${selectedYear}.pdf`;
+      link.href = downloadUrl;
+      link.download = filename;
+
+      // Ensure the link is properly added to DOM
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+      }, 100);
+
+      console.log(`PDF downloaded successfully: ${filename}`);
+
     } catch (err) {
-      setError('Failed to download PDF: ' + err.message);
+      console.error('PDF download error:', err);
+      setError(`Failed to download PDF report: ${err.message}`);
+    } finally {
+      setPdfDownloading(false);
     }
   };
 
   const getAdmissionChartData = () => {
-    if (!reportData?.monthlyData) return null;
+    const monthlyData = reportMode === 'hospital-wide' ? hospitalData?.hospitalMonthlyData : reportData?.monthlyData;
+    if (!monthlyData) return null;
 
     return {
-      labels: reportData.monthlyData.map(month => month.monthName),
+      labels: monthlyData.map(month => month.monthName),
       datasets: [
         {
-          label: 'Admissions',
-          data: reportData.monthlyData.map(month => month.admissions),
+          label: reportMode === 'hospital-wide' ? 'Total Admissions' : 'Admissions',
+          data: monthlyData.map(month => reportMode === 'hospital-wide' ? month.totalAdmissions : month.admissions),
           backgroundColor: 'rgba(59, 130, 246, 0.5)',
           borderColor: 'rgba(59, 130, 246, 1)',
           borderWidth: 1
         },
         {
-          label: 'Discharges',
-          data: reportData.monthlyData.map(month => month.discharges),
+          label: reportMode === 'hospital-wide' ? 'Total Discharges' : 'Discharges',
+          data: monthlyData.map(month => reportMode === 'hospital-wide' ? month.totalDischarges : month.discharges),
           backgroundColor: 'rgba(16, 185, 129, 0.5)',
           borderColor: 'rgba(16, 185, 129, 1)',
           borderWidth: 1
@@ -124,14 +251,15 @@ const WardStatisticsReport = () => {
   };
 
   const getOccupancyChartData = () => {
-    if (!reportData?.monthlyData) return null;
+    const monthlyData = reportMode === 'hospital-wide' ? hospitalData?.hospitalMonthlyData : reportData?.monthlyData;
+    if (!monthlyData) return null;
 
     return {
-      labels: reportData.monthlyData.map(month => month.monthName),
+      labels: monthlyData.map(month => month.monthName),
       datasets: [
         {
-          label: 'Average Occupancy (%)',
-          data: reportData.monthlyData.map(month => month.averageOccupancy),
+          label: reportMode === 'hospital-wide' ? 'Hospital Average Occupancy (%)' : 'Average Occupancy (%)',
+          data: monthlyData.map(month => month.averageOccupancy),
           borderColor: 'rgba(168, 85, 247, 1)',
           backgroundColor: 'rgba(168, 85, 247, 0.1)',
           fill: true,
@@ -142,10 +270,11 @@ const WardStatisticsReport = () => {
   };
 
   const getGenderChartData = () => {
-    if (!reportData?.genderBreakdown) return null;
+    const genderBreakdown = reportMode === 'hospital-wide' ? hospitalData?.hospitalGenderBreakdown : reportData?.genderBreakdown;
+    if (!genderBreakdown) return null;
 
-    const labels = Object.keys(reportData.genderBreakdown);
-    const data = Object.values(reportData.genderBreakdown);
+    const labels = Object.keys(genderBreakdown);
+    const data = Object.values(genderBreakdown);
 
     return {
       labels,
@@ -169,10 +298,11 @@ const WardStatisticsReport = () => {
   };
 
   const getAgeGroupChartData = () => {
-    if (!reportData?.ageGroupBreakdown) return null;
+    const ageGroupBreakdown = reportMode === 'hospital-wide' ? hospitalData?.hospitalAgeGroupBreakdown : reportData?.ageGroupBreakdown;
+    if (!ageGroupBreakdown) return null;
 
-    const labels = Object.keys(reportData.ageGroupBreakdown);
-    const data = Object.values(reportData.ageGroupBreakdown);
+    const labels = Object.keys(ageGroupBreakdown);
+    const data = Object.values(ageGroupBreakdown);
 
     return {
       labels,
@@ -292,61 +422,111 @@ const WardStatisticsReport = () => {
             </button>
             <button
               onClick={downloadPDF}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              disabled={pdfDownloading}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Download size={16} className="mr-2" />
-              Export PDF
+              {pdfDownloading ? (
+                <RefreshCw size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Download size={16} className="mr-2" />
+              )}
+              {pdfDownloading ? 'Generating PDF...' : 'Export PDF Report'}
             </button>
+            <div className="flex items-center ml-4">
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                apiStatus === 'online' ? 'bg-green-500' :
+                apiStatus === 'offline' ? 'bg-red-500' : 'bg-yellow-500'
+              }`}></div>
+              <span className="text-xs text-gray-600">
+                API: {apiStatus === 'online' ? 'Connected' : apiStatus === 'offline' ? 'Disconnected' : 'Checking...'}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Ward</label>
-            <select
-              value={selectedWard}
-              onChange={(e) => setSelectedWard(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {wards.map(ward => (
-                <option key={ward.id} value={ward.name.split(' - ')[0]}>{ward.name}</option>
-              ))}
-            </select>
+        <div className="space-y-4">
+          {/* Report Mode Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="hospital-wide"
+                  checked={reportMode === 'hospital-wide'}
+                  onChange={(e) => setReportMode(e.target.value)}
+                  className="mr-2 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Hospital-Wide Report (All Wards)</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="individual-ward"
+                  checked={reportMode === 'individual-ward'}
+                  onChange={(e) => setReportMode(e.target.value)}
+                  className="mr-2 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Individual Ward Report</span>
+              </label>
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Year</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {years.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+
+          {/* Ward and Year Selection */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {reportMode === 'individual-ward' && (
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Ward</label>
+                <select
+                  value={selectedWard}
+                  onChange={(e) => setSelectedWard(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {wards.map(ward => (
+                    <option key={ward.id} value={ward.apiName}>{ward.displayName}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Year</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {years.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
-      {reportData && (
+      {(reportData || hospitalData) && (
         <>
           {/* Key Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-600 text-sm font-medium">Total Admissions</p>
-                  <p className="text-2xl font-bold text-blue-900">{reportData.totalAdmissions}</p>
-                  {reportData.yearOverYearGrowth !== 0 && (
+                  <p className="text-blue-600 text-sm font-medium">
+                    {reportMode === 'hospital-wide' ? 'Total Hospital Admissions' : 'Total Admissions'}
+                  </p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {reportMode === 'hospital-wide' ? hospitalData?.totalHospitalAdmissions : reportData?.totalAdmissions}
+                  </p>
+                  {reportMode === 'individual-ward' && reportData?.yearOverYearGrowth !== 0 && (
                     <div className="flex items-center mt-2">
-                      {reportData.yearOverYearGrowth > 0 ? (
+                      {reportData?.yearOverYearGrowth > 0 ? (
                         <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
                       ) : (
                         <TrendingDown className="h-4 w-4 text-red-600 mr-1" />
                       )}
-                      <span className={`text-sm font-medium ${reportData.yearOverYearGrowth > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {Math.abs(reportData.yearOverYearGrowth).toFixed(1)}%
+                      <span className={`text-sm font-medium ${reportData?.yearOverYearGrowth > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {Math.abs(reportData?.yearOverYearGrowth || 0).toFixed(1)}%
                       </span>
                     </div>
                   )}
@@ -358,9 +538,18 @@ const WardStatisticsReport = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-600 text-sm font-medium">Occupancy Rate</p>
-                  <p className="text-2xl font-bold text-purple-900">{reportData.currentOccupancyRate.toFixed(1)}%</p>
-                  <p className="text-sm text-gray-600 mt-1">Current rate</p>
+                  <p className="text-purple-600 text-sm font-medium">
+                    {reportMode === 'hospital-wide' ? 'Hospital Occupancy Rate' : 'Occupancy Rate'}
+                  </p>
+                  <p className="text-2xl font-bold text-purple-900">
+                    {reportMode === 'hospital-wide' ?
+                      hospitalData?.hospitalOccupancyRate?.toFixed(1) :
+                      reportData?.currentOccupancyRate?.toFixed(1)
+                    }%
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {reportMode === 'hospital-wide' ? 'Average rate' : 'Current rate'}
+                  </p>
                 </div>
                 <Activity className="h-8 w-8 text-purple-600" />
               </div>
@@ -369,8 +558,15 @@ const WardStatisticsReport = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-600 text-sm font-medium">Avg Length of Stay</p>
-                  <p className="text-2xl font-bold text-green-900">{reportData.averageLengthOfStay.toFixed(1)}</p>
+                  <p className="text-green-600 text-sm font-medium">
+                    {reportMode === 'hospital-wide' ? 'Hospital Avg Length of Stay' : 'Avg Length of Stay'}
+                  </p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {reportMode === 'hospital-wide' ?
+                      hospitalData?.averageHospitalLengthOfStay?.toFixed(1) :
+                      reportData?.averageLengthOfStay?.toFixed(1)
+                    }
+                  </p>
                   <p className="text-sm text-gray-600 mt-1">days</p>
                 </div>
                 <Clock className="h-8 w-8 text-green-600" />
@@ -380,9 +576,18 @@ const WardStatisticsReport = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-orange-600 text-sm font-medium">Bed Utilization</p>
-                  <p className="text-2xl font-bold text-orange-900">{reportData.bedUtilizationRate.toFixed(1)}%</p>
-                  <p className="text-sm text-gray-600 mt-1">Annual rate</p>
+                  <p className="text-orange-600 text-sm font-medium">
+                    {reportMode === 'hospital-wide' ? 'Hospital Bed Utilization' : 'Bed Utilization'}
+                  </p>
+                  <p className="text-2xl font-bold text-orange-900">
+                    {reportMode === 'hospital-wide' ?
+                      hospitalData?.hospitalBedUtilizationRate?.toFixed(1) :
+                      reportData?.bedUtilizationRate?.toFixed(1)
+                    }%
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {reportMode === 'hospital-wide' ? 'Average rate' : 'Annual rate'}
+                  </p>
                 </div>
                 <Bed className="h-8 w-8 text-orange-600" />
               </div>
@@ -393,16 +598,58 @@ const WardStatisticsReport = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <FileText className="h-5 w-5 mr-2" />
-              Executive Summary
+              {reportMode === 'hospital-wide' ? 'Hospital-Wide Executive Summary' : 'Executive Summary'}
             </h2>
-            <p className="text-gray-700 leading-relaxed">{reportData.executiveSummary}</p>
+            <p className="text-gray-700 leading-relaxed">
+              {reportMode === 'hospital-wide' ? hospitalData?.hospitalExecutiveSummary : reportData?.executiveSummary}
+            </p>
           </div>
+
+          {/* Hospital-Wide Ward Comparison Table */}
+          {reportMode === 'hospital-wide' && hospitalData?.wardReports && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <BarChart3 className="h-5 w-5 mr-2" />
+                All Wards Performance Comparison
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ward</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admissions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupancy</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg LOS</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bed Util</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {hospitalData.wardReports.map((ward, index) => (
+                      <tr key={ward.wardName} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{ward.wardName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {ward.wardName.includes('3') ? 'ICU' : ward.wardName.includes('4') ? 'Dialysis' : 'General'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ward.totalAdmissions}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ward.currentOccupancyRate?.toFixed(1)}%</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ward.averageLengthOfStay?.toFixed(1)} days</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ward.bedUtilizationRate?.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Admissions and Discharges Chart */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Admissions & Discharges</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {reportMode === 'hospital-wide' ? 'Hospital Monthly Admissions & Discharges' : 'Monthly Admissions & Discharges'}
+              </h3>
               {getAdmissionChartData() && (
                 <Bar data={getAdmissionChartData()} options={chartOptions} />
               )}
@@ -410,7 +657,9 @@ const WardStatisticsReport = () => {
 
             {/* Occupancy Trend Chart */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Occupancy Trend</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {reportMode === 'hospital-wide' ? 'Hospital Occupancy Trend' : 'Occupancy Trend'}
+              </h3>
               {getOccupancyChartData() && (
                 <Line data={getOccupancyChartData()} options={lineChartOptions} />
               )}
@@ -418,7 +667,9 @@ const WardStatisticsReport = () => {
 
             {/* Gender Distribution */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Gender Distribution</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {reportMode === 'hospital-wide' ? 'Hospital-Wide Gender Distribution' : 'Gender Distribution'}
+              </h3>
               {getGenderChartData() && (
                 <div className="h-64 flex items-center justify-center">
                   <Doughnut data={getGenderChartData()} options={doughnutOptions} />
@@ -428,7 +679,9 @@ const WardStatisticsReport = () => {
 
             {/* Age Group Distribution */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Age Group Distribution</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {reportMode === 'hospital-wide' ? 'Hospital-Wide Age Group Distribution' : 'Age Group Distribution'}
+              </h3>
               {getAgeGroupChartData() && (
                 <Bar data={getAgeGroupChartData()} options={chartOptions} />
               )}
@@ -440,17 +693,21 @@ const WardStatisticsReport = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <TrendingUp className="h-5 w-5 mr-2" />
-                Trend Analysis
+                {reportMode === 'hospital-wide' ? 'Hospital Trend Analysis' : 'Trend Analysis'}
               </h3>
-              <p className="text-gray-700 leading-relaxed">{reportData.trendAnalysis}</p>
+              <p className="text-gray-700 leading-relaxed">
+                {reportMode === 'hospital-wide' ? hospitalData?.hospitalTrendAnalysis : reportData?.trendAnalysis}
+              </p>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <Info className="h-5 w-5 mr-2" />
-                Performance Insights
+                {reportMode === 'hospital-wide' ? 'Hospital Performance Insights' : 'Performance Insights'}
               </h3>
-              <p className="text-gray-700 leading-relaxed">{reportData.performanceInsights}</p>
+              <p className="text-gray-700 leading-relaxed">
+                {reportMode === 'hospital-wide' ? hospitalData?.hospitalPerformanceInsights : reportData?.performanceInsights}
+              </p>
             </div>
           </div>
 
@@ -458,33 +715,53 @@ const WardStatisticsReport = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <CheckCircle className="h-5 w-5 mr-2" />
-              Recommendations
+              {reportMode === 'hospital-wide' ? 'Strategic Recommendations' : 'Recommendations'}
             </h3>
-            <p className="text-gray-700 leading-relaxed">{reportData.recommendations}</p>
+            <p className="text-gray-700 leading-relaxed">
+              {reportMode === 'hospital-wide' ? hospitalData?.hospitalRecommendations : reportData?.recommendations}
+            </p>
           </div>
 
           {/* Monthly Data Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Breakdown</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {reportMode === 'hospital-wide' ? 'Hospital Monthly Breakdown' : 'Monthly Breakdown'}
+            </h3>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admissions</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discharges</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {reportMode === 'hospital-wide' ? 'Total Admissions' : 'Admissions'}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {reportMode === 'hospital-wide' ? 'Total Discharges' : 'Discharges'}
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Occupancy</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg LOS</th>
+                    {reportMode === 'individual-ward' && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg LOS</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {reportData.monthlyData?.map((month) => (
+                  {(reportMode === 'hospital-wide' ? hospitalData?.hospitalMonthlyData : reportData?.monthlyData)?.map((month) => (
                     <tr key={month.month} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{month.monthName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{month.admissions}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{month.discharges}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{month.averageOccupancy.toFixed(1)}%</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{month.averageLengthOfStay.toFixed(1)} days</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {reportMode === 'hospital-wide' ? month.totalAdmissions : month.admissions}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {reportMode === 'hospital-wide' ? month.totalDischarges : month.discharges}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {month.averageOccupancy?.toFixed(1)}%
+                      </td>
+                      {reportMode === 'individual-ward' && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {month.averageLengthOfStay?.toFixed(1)} days
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -496,12 +773,21 @@ const WardStatisticsReport = () => {
           <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Report generated on: {new Date(reportData.generatedAt).toLocaleString()}</p>
-                <p className="text-sm text-gray-600">Ward: {reportData.wardName} | Year: {reportData.year}</p>
+                <p className="text-sm text-gray-600">
+                  Report generated on: {new Date((reportMode === 'hospital-wide' ? hospitalData?.generatedAt : reportData?.generatedAt) || new Date()).toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {reportMode === 'hospital-wide' ?
+                    `Hospital-Wide Report | Year: ${hospitalData?.year || selectedYear}` :
+                    `Ward: ${reportData?.wardName} | Year: ${reportData?.year || selectedYear}`
+                  }
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-600">Hospital Management System</p>
-                <p className="text-sm text-gray-500">Ward Analytics Module</p>
+                <p className="text-sm text-gray-500">
+                  {reportMode === 'hospital-wide' ? 'Hospital-Wide Analytics Module' : 'Ward Analytics Module'}
+                </p>
               </div>
             </div>
           </div>

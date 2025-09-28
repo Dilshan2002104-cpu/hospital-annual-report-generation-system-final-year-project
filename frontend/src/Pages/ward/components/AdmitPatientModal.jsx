@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, User, ChevronDown, Check } from 'lucide-react';
+import { UserPlus, Search, User, ChevronDown, Check, X, AlertTriangle, Bed, Shield } from 'lucide-react';
 import usePatients from '../hooks/usePatients';
 import useWards from '../hooks/useWards';
 import useAdmissions from '../hooks/useAdmissions';
@@ -13,6 +13,9 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [showWardDropdown, setShowWardDropdown] = useState(false);
+  const [availableBeds, setAvailableBeds] = useState([]);
+  const [showBedDropdown, setShowBedDropdown] = useState(false);
+  const [alreadyAdmittedPatient, setAlreadyAdmittedPatient] = useState(null);
   
   const [admission, setAdmission] = useState({
     patientId: '',
@@ -24,6 +27,55 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
 
   const [validationErrors, setValidationErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  // Generate available beds for the selected ward
+  const generateAvailableBeds = (wardId) => {
+    if (!wardId || !wards || !activeAdmissions) return [];
+
+    const selectedWard = wards.find(w => w.wardId === parseInt(wardId));
+    if (!selectedWard) return [];
+
+    // Generate bed numbers based on ward type
+    let bedNumbers = [];
+    const wardCapacity = getWardCapacity(selectedWard.wardType);
+
+    for (let i = 1; i <= wardCapacity; i++) {
+      const bedNumber = `${selectedWard.wardName.charAt(selectedWard.wardName.length - 1)}${i.toString().padStart(2, '0')}`;
+      bedNumbers.push(bedNumber);
+    }
+
+    // Filter out occupied beds
+    const occupiedBeds = activeAdmissions
+      .filter(admission => String(admission.wardId) === String(wardId))
+      .map(admission => admission.bedNumber);
+
+    return bedNumbers.filter(bed => !occupiedBeds.includes(bed));
+  };
+
+  // Get ward capacity based on type
+  const getWardCapacity = (wardType) => {
+    switch (wardType?.toLowerCase()) {
+      case 'general':
+        return 20;
+      case 'icu':
+        return 10;
+      case 'dialysis':
+        return 8;
+      default:
+        return 15;
+    }
+  };
+
+  // Check if patient is already admitted and active
+  const checkPatientAdmissionStatus = (patientNationalId) => {
+    if (!activeAdmissions || !patientNationalId) return null;
+
+    const existingAdmission = activeAdmissions.find(
+      admission => String(admission.patientNationalId) === String(patientNationalId)
+    );
+
+    return existingAdmission;
+  };
 
   // Validation functions
   const validateAdmission = () => {
@@ -169,13 +221,27 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
 
   // Select a patient and populate form
   const handlePatientSelect = (patient) => {
-    setSelectedPatient(patient);
-    
-    setAdmission(prev => ({
-      ...prev,
-      patientId: patient.nationalId.toString()
-    }));
-    
+    // Check if patient is already admitted and active
+    const existingAdmission = checkPatientAdmissionStatus(patient.nationalId);
+
+    if (existingAdmission) {
+      // Patient is already admitted - show warning
+      setAlreadyAdmittedPatient({
+        patient: patient,
+        admission: existingAdmission
+      });
+      setSelectedPatient(null);
+    } else {
+      // Patient is not admitted - proceed normally
+      setSelectedPatient(patient);
+      setAlreadyAdmittedPatient(null);
+
+      setAdmission(prev => ({
+        ...prev,
+        patientId: patient.nationalId.toString()
+      }));
+    }
+
     setShowPatientSearch(false);
     setSearchTerm('');
   };
@@ -193,6 +259,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
     setSelectedPatient(null);
     setSearchTerm('');
     setShowPatientSearch(false);
+    setAlreadyAdmittedPatient(null);
   };
 
   // Fetch patients and recent admissions, set current date/time when modal opens
@@ -223,12 +290,25 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
     }
   }, [patients]);
 
+  // Update available beds when ward changes
+  useEffect(() => {
+    if (admission.wardId) {
+      const beds = generateAvailableBeds(admission.wardId);
+      setAvailableBeds(beds);
+      // Reset bed selection when ward changes
+      setAdmission(prev => ({ ...prev, bedNumber: '' }));
+    } else {
+      setAvailableBeds([]);
+    }
+  }, [admission.wardId, activeAdmissions, wards]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.patient-search') && !event.target.closest('.ward-dropdown')) {
+      if (!event.target.closest('.patient-search') && !event.target.closest('.ward-dropdown') && !event.target.closest('.bed-dropdown')) {
         setShowPatientSearch(false);
         setShowWardDropdown(false);
+        setShowBedDropdown(false);
       }
     };
 
@@ -310,8 +390,15 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full m-4 max-h-[90vh] overflow-y-auto relative">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+        <div className="p-6 border-b border-gray-200 relative">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            type="button"
+          >
+            <X size={20} />
+          </button>
+          <h2 className="text-xl font-bold text-gray-900 flex items-center pr-12">
             <UserPlus size={20} className="mr-2 text-green-600" />
             Admit New Patient
           </h2>
@@ -404,14 +491,55 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="text-red-700 text-sm">
-                    ⚠️ Please select a patient from the search results above to proceed with admission.
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center text-amber-800">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mr-2 flex-shrink-0" />
+                    <span className="text-sm font-medium">
+                      Please select a patient from the search results above to proceed with admission.
+                    </span>
                   </div>
                 </div>
               )}
             </div>
 
+            {/* Already Admitted Patient Warning */}
+            {alreadyAdmittedPatient && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <Shield className="h-5 w-5 text-red-600 mr-3 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <h4 className="text-sm font-semibold text-red-800">Patient Already Admitted</h4>
+                    </div>
+                    <p className="text-sm text-red-700 mb-3">
+                      <strong>{alreadyAdmittedPatient.patient.firstName} {alreadyAdmittedPatient.patient.lastName}</strong> (ID: {alreadyAdmittedPatient.patient.nationalId}) is currently admitted and active in the hospital.
+                    </p>
+                    <div className="bg-red-100 border border-red-200 rounded-md p-3 mb-3">
+                      <div className="text-xs text-red-600 space-y-1">
+                        <div><strong>Current Ward:</strong> {alreadyAdmittedPatient.admission.wardName || 'Ward information not available'}</div>
+                        <div><strong>Bed Number:</strong> {alreadyAdmittedPatient.admission.bedNumber || 'Bed information not available'}</div>
+                        <div><strong>Admission Date:</strong> {alreadyAdmittedPatient.admission.admissionDate ? new Date(alreadyAdmittedPatient.admission.admissionDate).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        }) : 'Date not available'}</div>
+                        <div><strong>Status:</strong> <span className="px-2 py-0.5 bg-red-200 text-red-800 rounded-full text-xs">Active</span></div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-red-600">
+                      <strong>Action Required:</strong> To admit this patient to a different ward, please discharge them from their current location first, or contact the ward supervisor for transfer procedures.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAlreadyAdmittedPatient(null)}
+                      className="mt-3 text-xs text-red-600 hover:text-red-800 underline"
+                    >
+                      Dismiss this message
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Admission Details */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -509,15 +637,56 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bed Number</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={admission.bedNumber}
-                    onChange={(e) => setAdmission({...admission, bedNumber: e.target.value})}
-                    placeholder="A101"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bed Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative bed-dropdown">
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-left bg-white flex items-center justify-between"
+                      onClick={() => setShowBedDropdown(!showBedDropdown)}
+                      disabled={!admission.wardId}
+                    >
+                      <div className="flex items-center">
+                        <Bed className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className={admission.bedNumber ? 'text-gray-900' : 'text-gray-500'}>
+                          {admission.bedNumber || (admission.wardId ? 'Select available bed' : 'Select ward first')}
+                        </span>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showBedDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showBedDropdown && admission.wardId && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {availableBeds.length > 0 ? (
+                          availableBeds.map((bedNumber) => (
+                            <button
+                              type="button"
+                              key={bedNumber}
+                              onClick={() => {
+                                setAdmission({...admission, bedNumber});
+                                setShowBedDropdown(false);
+                              }}
+                              className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center justify-between group"
+                            >
+                              <div className="flex items-center">
+                                <Bed className="h-4 w-4 text-green-600 mr-3" />
+                                <span className="font-medium text-gray-900">{bedNumber}</span>
+                              </div>
+                              <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                                Available
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-center text-gray-500">
+                            <Bed className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                            No beds available in this ward
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

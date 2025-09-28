@@ -1,12 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Activity, 
-  FileText, 
-  ArrowUpDown, 
+import {
+  Activity,
+  FileText,
+  ArrowUpDown,
   Users,
   Bed,
   UserPlus,
-  BarChart3
+  BarChart3,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 // Import components
@@ -43,6 +47,8 @@ const WardDashboard = () => {
   const [confirmDischargeDialog, setConfirmDischargeDialog] = useState(false);
   const [patientDetailsModal, setPatientDetailsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Modern notification system
   const notifications = useNotifications();
   
@@ -425,36 +431,98 @@ const WardDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Header */}
-      <WardHeader />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex">
+      {/* Sidebar */}
+      <div className={`bg-white shadow-lg border-r border-gray-200 transition-all duration-300 ease-in-out ${
+        sidebarCollapsed ? 'w-16' : 'w-56'
+      } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed h-screen z-50 lg:relative lg:translate-x-0 flex-shrink-0`}>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-2 py-4 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <tab.icon size={18} />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
+        {/* Sidebar Header */}
+        <div className="p-3 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            {!sidebarCollapsed && (
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <Activity className="h-5 w-5 text-blue-600" />
+                </div>
+                <span className="text-sm font-semibold text-gray-900">Ward Management</span>
+              </div>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              ) : (
+                <ChevronLeft className="h-4 w-4 text-gray-500" />
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Navigation */}
+        <nav className="p-2 space-y-1 flex-1 overflow-y-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center space-x-2 px-2 py-2 rounded-md text-sm font-medium transition-all duration-200 text-left group ${
+                activeTab === tab.id
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? tab.label : ''}
+            >
+              <tab.icon
+                size={18}
+                className={`flex-shrink-0 ${
+                  activeTab === tab.id ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
+                }`}
+              />
+              {!sidebarCollapsed && (
+                <span className="truncate">{tab.label}</span>
+              )}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderContent()}
-      </main>
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Top Header */}
+        <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-30">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                <Menu className="h-6 w-6 text-gray-600" />
+              </button>
+
+              {/* Ward Header Content */}
+              <div className="flex-1 lg:ml-0 ml-2">
+                <WardHeader />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 p-4 sm:p-6 overflow-auto bg-gray-50">
+          {renderContent()}
+        </main>
+      </div>
 
       {/* Modals */}
       <TransferModal

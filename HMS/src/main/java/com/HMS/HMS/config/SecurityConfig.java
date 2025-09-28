@@ -60,6 +60,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/transfers/**").permitAll()
                         .requestMatchers("/api/reports/admissions/**").permitAll()
                         .requestMatchers("/api/reports/ward-statistics/**").permitAll()
+                        .requestMatchers("/api/reports/hospital-wide/**").permitAll()
                         .requestMatchers("/api/pharmacy/medications/**").permitAll()
                         .requestMatchers("/api/patients/**").permitAll()
                         .requestMatchers("/api/doctors/**").permitAll()
