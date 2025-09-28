@@ -34,7 +34,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:5175", "http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -58,8 +58,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/delete/**").hasRole("ADMIN")
 
                                 .requestMatchers("/api/transfers/**").permitAll()
-                                .requestMatchers("/api/reports/admissions/**").permitAll()
-                                .requestMatchers("/api/pharmacy/medications/**").permitAll()
+                        .requestMatchers("/api/reports/admissions/**").permitAll()
+                        .requestMatchers("/api/reports/ward-statistics/**").permitAll()
+                        .requestMatchers("/api/pharmacy/medications/**").permitAll()
                         .requestMatchers("/api/patients/**").permitAll()
                         .requestMatchers("/api/doctors/**").permitAll()
                         .requestMatchers("/api/appointments/**").permitAll()

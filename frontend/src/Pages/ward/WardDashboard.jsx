@@ -21,6 +21,7 @@ import AdmitPatientModal from './components/AdmitPatientModal';
 import PrescriptionsManagement from './components/PrescriptionsManagement';
 import WardAnalytics from './components/WardAnalytics';
 import BedManagement from './components/BedManagement';
+import WardStatisticsReport from './components/WardStatisticsReport';
 
 // Import modern notification components
 import { ToastContainer } from './components/notifications/Toast';
@@ -185,6 +186,7 @@ const WardDashboard = () => {
     { id: 'patients', label: 'Patient List', icon: Users },
     { id: 'admit', label: 'Admit Patients', icon: UserPlus },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'reports', label: 'Statistics Report', icon: FileText },
     { id: 'beds', label: 'Bed Management', icon: Bed },
     { id: 'prescriptions', label: 'Prescriptions', icon: FileText },
     { id: 'transfers', label: 'Transfers', icon: ArrowUpDown }
@@ -398,7 +400,7 @@ const WardDashboard = () => {
         );
       case 'analytics':
         return (
-          <WardAnalytics 
+          <WardAnalytics
             allAdmissions={displayAllAdmissions}
             activeAdmissions={displayActiveAdmissions}
             wards={wards}
@@ -409,6 +411,8 @@ const WardDashboard = () => {
             }}
           />
         );
+      case 'reports':
+        return <WardStatisticsReport />;
       case 'beds':
         return <BedManagement />;
       case 'prescriptions':
