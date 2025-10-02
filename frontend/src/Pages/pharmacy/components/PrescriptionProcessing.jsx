@@ -17,7 +17,6 @@ import {
 export default function PrescriptionProcessing({ 
   prescriptions, 
   loading, 
-  onProcessPrescription, 
   onUpdateStatus,
   onCheckInteractions,
   onDispenseMedication,
@@ -59,27 +58,32 @@ export default function PrescriptionProcessing({
       const matchesSearch = !searchTerm ||
         prescription.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         prescription.prescriptionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        prescription.doctorName?.toLowerCase().includes(searchTerm.toLowerCase());
+        prescription.prescribedBy?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = filterStatus === 'all' || prescription.status === filterStatus;
+      const matchesStatus = filterStatus === 'all' || 
+        prescription.status?.toUpperCase() === filterStatus.toUpperCase();
       
       return matchesSearch && matchesStatus;
     });
   }, [prescriptions, searchTerm, filterStatus]);
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'received':
+    switch (status?.toUpperCase()) {
+      case 'ACTIVE':
+      case 'RECEIVED':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'processing':
+      case 'IN_PROGRESS':
+      case 'PROCESSING':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'ready':
+      case 'READY':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'dispensed':
+      case 'COMPLETED':
+      case 'DISPENSED':
         return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'cancelled':
+      case 'DISCONTINUED':
+      case 'CANCELLED':
         return 'bg-red-100 text-red-800 border-red-200';
-      case 'expired':
+      case 'EXPIRED':
         return 'bg-orange-100 text-orange-800 border-orange-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -87,18 +91,21 @@ export default function PrescriptionProcessing({
   };
 
   const getStatusIcon = (status) => {
-    switch (status) {
-      case 'received':
+    switch (status?.toUpperCase()) {
+      case 'ACTIVE':
+      case 'RECEIVED':
         return <ClipboardList className="w-4 h-4" />;
-      case 'processing':
+      case 'IN_PROGRESS':
+      case 'PROCESSING':
         return <Clock className="w-4 h-4" />;
-      case 'ready':
+      case 'READY':
         return <CheckCircle className="w-4 h-4" />;
-      case 'dispensed':
+      case 'COMPLETED':
+      case 'DISPENSED':
         return <Shield className="w-4 h-4" />;
-      case 'cancelled':
-        return <AlertTriangle className="w-4 h-4" />;
-      case 'expired':
+      case 'DISCONTINUED':
+      case 'CANCELLED':
+      case 'EXPIRED':
         return <AlertTriangle className="w-4 h-4" />;
       default:
         return <FileText className="w-4 h-4" />;
@@ -117,6 +124,16 @@ export default function PrescriptionProcessing({
   };
 
   const handleViewPrescription = async (prescription) => {
+    console.log('🔍 Viewing prescription:', prescription);
+    console.log('📊 Prescription data structure:', {
+      prescriptionId: prescription?.prescriptionId,
+      totalMedications: prescription?.totalMedications,
+      prescriptionItems: prescription?.prescriptionItems?.length,
+      medications: prescription?.medications?.length,
+      prescriptionItemsData: prescription?.prescriptionItems,
+      medicationsData: prescription?.medications
+    });
+    
     setSelectedPrescription(prescription);
     setShowDetails(true);
     
@@ -142,14 +159,6 @@ export default function PrescriptionProcessing({
       await onCancelPrescription(prescriptionId, reason);
     } catch (error) {
       console.error('Failed to cancel prescription:', error);
-    }
-  };
-
-  const handleProcessPrescription = async (prescription) => {
-    try {
-      await onProcessPrescription(prescription.prescriptionId);
-    } catch (error) {
-      console.error('Failed to process prescription:', error);
     }
   };
 
@@ -253,11 +262,12 @@ export default function PrescriptionProcessing({
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="all">All Status</option>
-                <option value="received">Received</option>
-                <option value="in-progress">In Progress</option>
-                <option value="ready">Ready</option>
-                <option value="dispensed">Dispensed</option>
-                <option value="rejected">Rejected</option>
+                <option value="ACTIVE">Active</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="READY">Ready</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="DISCONTINUED">Cancelled</option>
+                <option value="EXPIRED">Expired</option>
               </select>
             </div>
           </div>
@@ -271,13 +281,13 @@ export default function PrescriptionProcessing({
       {/* Prescription List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">Prescription Processing</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Prescription Dispensing</h3>
         </div>
 
         <div className="divide-y divide-gray-100">
           {filteredPrescriptions.length > 0 ? (
-            filteredPrescriptions.map((prescription) => (
-              <div key={prescription.prescriptionId} className="p-6 hover:bg-gray-50 transition-colors">
+            filteredPrescriptions.filter(prescription => prescription != null).map((prescription, index) => (
+              <div key={prescription?.prescriptionId || `prescription-${index}`} className="p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                   {/* Prescription Info */}
                   <div className="flex-1">
@@ -290,13 +300,13 @@ export default function PrescriptionProcessing({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-3 mb-2">
                           <h4 className="text-lg font-semibold text-gray-900">
-                            {prescription.prescriptionId}
+                            {prescription?.prescriptionId || 'N/A'}
                           </h4>
-                          <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(prescription.status)}`}>
-                            {getStatusIcon(prescription.status)}
-                            <span className="capitalize">{prescription.status.replace('-', ' ')}</span>
+                          <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(prescription?.status)}`}>
+                            {getStatusIcon(prescription?.status)}
+                            <span className="capitalize">{(prescription?.status || 'active').toLowerCase().replace('_', ' ')}</span>
                           </span>
-                          {prescription.urgency !== 'normal' && (
+                          {prescription?.urgency && prescription.urgency !== 'normal' && (
                             <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(prescription.urgency)}`}>
                               {prescription.urgency.toUpperCase()}
                             </span>
@@ -306,32 +316,32 @@ export default function PrescriptionProcessing({
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4" />
-                            <span>Patient: {prescription.patientName}</span>
+                            <span>Patient: {prescription?.patientName || 'N/A'}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <FileText className="w-4 h-4" />
-                            <span>Doctor: {prescription.doctorName}</span>
+                            <span>Doctor: {prescription?.prescribedBy || prescription?.doctorName || 'N/A'}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4" />
-                            <span>Received: {formatDate(prescription.receivedAt || prescription.prescribedDate)}</span>
+                            <span>Received: {formatDate(prescription?.receivedAt || prescription?.prescribedDate)}</span>
                           </div>
                         </div>
 
                         {/* Medications Preview */}
                         <div className="mt-3">
                           <div className="text-sm font-medium text-gray-700 mb-1">
-                            Medications ({prescription.medications.length}):
+                            Medications ({prescription?.totalMedications || prescription?.prescriptionItems?.length || prescription?.medications?.length || 0}):
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {prescription.medications.slice(0, 3).map((med, index) => (
+                            {(prescription?.prescriptionItems || prescription?.medications || []).slice(0, 3).map((med, index) => (
                               <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                {med.drugName} - {med.dosage}
+                                {med.drugName} - {med.dose || med.dosage}
                               </span>
                             ))}
-                            {prescription.medications.length > 3 && (
+                            {(prescription?.totalMedications || prescription?.prescriptionItems?.length || prescription?.medications?.length || 0) > 3 && (
                               <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                +{prescription.medications.length - 3} more
+                                +{(prescription?.totalMedications || prescription?.prescriptionItems?.length || prescription?.medications?.length || 0) - 3} more
                               </span>
                             )}
                           </div>
@@ -358,27 +368,7 @@ export default function PrescriptionProcessing({
                       <span>View</span>
                     </button>
 
-                    {prescription.status === 'received' && (
-                      <button
-                        onClick={() => handleProcessPrescription(prescription)}
-                        className="flex items-center space-x-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
-                      >
-                        <Clock className="w-4 h-4" />
-                        <span>Process</span>
-                      </button>
-                    )}
-
-                    {prescription.status === 'processing' && (
-                      <button
-                        onClick={() => handleStatusUpdate(prescription.prescriptionId, 'ready')}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Mark Ready</span>
-                      </button>
-                    )}
-
-                    {(prescription.status === 'ready' || prescription.status === 'processing') && (
+                    {(prescription?.status === 'ACTIVE' || prescription?.status === 'received') && (
                       <button
                         onClick={() => handleDispenseMedication(prescription)}
                         className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
@@ -388,9 +378,29 @@ export default function PrescriptionProcessing({
                       </button>
                     )}
 
-                    {(prescription.status === 'received' || prescription.status === 'processing') && (
+                    {prescription?.status === 'processing' && (
                       <button
-                        onClick={() => handleCancelPrescription(prescription.prescriptionId, 'Cancelled by pharmacist')}
+                        onClick={() => handleStatusUpdate(prescription?.prescriptionId, 'ready')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Mark Ready</span>
+                      </button>
+                    )}
+
+                    {(prescription?.status === 'ready' || prescription?.status === 'IN_PROGRESS') && (
+                      <button
+                        onClick={() => handleDispenseMedication(prescription)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                      >
+                        <Pill className="w-4 h-4" />
+                        <span>Dispense</span>
+                      </button>
+                    )}
+
+                    {(prescription?.status === 'ACTIVE' || prescription?.status === 'received' || prescription?.status === 'processing' || prescription?.status === 'IN_PROGRESS') && (
+                      <button
+                        onClick={() => handleCancelPrescription(prescription?.prescriptionId, 'Cancelled by pharmacist')}
                         className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
                       >
                         <AlertTriangle className="w-4 h-4" />
@@ -436,53 +446,115 @@ export default function PrescriptionProcessing({
             
             <div className="p-6 max-h-[calc(90vh-80px)] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Patient Information</h3>
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <User className="w-5 h-5 text-blue-600 mr-2" />
+                    Patient Information
+                  </h3>
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium">Name:</span> {selectedPrescription.patientName}</p>
-                    <p><span className="font-medium">ID:</span> {selectedPrescription.patientId}</p>
-                    <p><span className="font-medium">Age:</span> {selectedPrescription.patientAge}</p>
-                    <p><span className="font-medium">Allergies:</span> {selectedPrescription.allergies || 'None recorded'}</p>
+                    <p><span className="font-medium">National ID:</span> {selectedPrescription.patientNationalId}</p>
+                    <p><span className="font-medium">Patient ID:</span> {selectedPrescription.patientId}</p>
+                    {selectedPrescription.wardName && (
+                      <p><span className="font-medium">Ward:</span> {selectedPrescription.wardName}</p>
+                    )}
+                    {selectedPrescription.bedNumber && (
+                      <p><span className="font-medium">Bed:</span> {selectedPrescription.bedNumber}</p>
+                    )}
+                    <p><span className="font-medium">Admission ID:</span> {selectedPrescription.admissionId}</p>
                   </div>
                 </div>
                 
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Prescription Details</h3>
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <FileText className="w-5 h-5 text-green-600 mr-2" />
+                    Prescription Details
+                  </h3>
                   <div className="space-y-2 text-sm">
-                    <p><span className="font-medium">Doctor:</span> {selectedPrescription.doctorName}</p>
-                    <p><span className="font-medium">Date:</span> {formatDateTime(selectedPrescription.prescribedDate)}</p>
-                    <p><span className="font-medium">Priority:</span> <span className="capitalize">{selectedPrescription.urgency}</span></p>
-                    <p><span className="font-medium">Status:</span> <span className="capitalize">{selectedPrescription.status}</span></p>
+                    <p><span className="font-medium">Prescribed By:</span> {selectedPrescription.prescribedBy}</p>
+                    <p><span className="font-medium">Prescribed Date:</span> {formatDateTime(selectedPrescription.prescribedDate)}</p>
+                    <p><span className="font-medium">Received:</span> {formatDate(selectedPrescription.receivedAt || selectedPrescription.createdAt || selectedPrescription.prescribedDate)}</p>
+                    <p><span className="font-medium">Start Date:</span> {formatDate(selectedPrescription.startDate)}</p>
+                    <p><span className="font-medium">End Date:</span> {formatDate(selectedPrescription.endDate)}</p>
+                    <p><span className="font-medium">Status:</span> 
+                      <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedPrescription.status?.toLowerCase() || 'active')}`}>
+                        {selectedPrescription.status || 'ACTIVE'}
+                      </span>
+                    </p>
+                    <p><span className="font-medium">Total Medications:</span> {selectedPrescription.totalMedications}</p>
                   </div>
                 </div>
               </div>
 
+              {/* Prescription Notes */}
+              {selectedPrescription.prescriptionNotes && (
+                <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
+                    <FileText className="w-5 h-5 text-yellow-600 mr-2" />
+                    Prescription Notes
+                  </h3>
+                  <p className="text-sm text-gray-700">{selectedPrescription.prescriptionNotes}</p>
+                </div>
+              )}
+
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3">Medications</h3>
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+                  <Pill className="w-5 h-5 text-green-600 mr-2" />
+                  Medicines Requested ({selectedPrescription?.totalMedications || (selectedPrescription?.prescriptionItems || selectedPrescription?.medications || []).length})
+                </h3>
                 <div className="space-y-3">
-                  {selectedPrescription.medications.map((medication, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {(selectedPrescription.prescriptionItems || selectedPrescription.medications || []).map((medication, index) => (
+                    <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                          <p className="font-medium">{medication.drugName}</p>
-                          <p className="text-sm text-gray-600">{medication.genericName}</p>
+                          <p className="font-medium text-gray-900">{medication.drugName}</p>
+                          {medication.genericName && (
+                            <p className="text-sm text-gray-600">{medication.genericName}</p>
+                          )}
+                          {medication.dosageForm && (
+                            <p className="text-xs text-gray-500">{medication.dosageForm}</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Dosage</p>
-                          <p className="font-medium">{medication.dosage}</p>
+                          <p className="font-medium">{medication.dose || medication.dosage}</p>
+                          {medication.route && (
+                            <p className="text-xs text-gray-500">Route: {medication.route}</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Frequency</p>
                           <p className="font-medium">{medication.frequency}</p>
+                          {medication.isUrgent && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                              Urgent
+                            </span>
+                          )}
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Duration</p>
-                          <p className="font-medium">{medication.duration}</p>
+                          <p className="text-sm text-gray-600">Quantity</p>
+                          <p className="font-medium">
+                            {medication.quantity} {medication.quantityUnit || medication.duration || 'units'}
+                          </p>
+                          {medication.manufacturer && (
+                            <p className="text-xs text-gray-500">Mfg: {medication.manufacturer}</p>
+                          )}
                         </div>
                       </div>
                       {medication.instructions && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-sm"><span className="font-medium">Instructions:</span> {medication.instructions}</p>
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-sm">
+                            <span className="font-medium text-gray-700">Instructions:</span>{' '}
+                            <span className="text-gray-600">{medication.instructions}</span>
+                          </p>
+                        </div>
+                      )}
+                      {medication.notes && (
+                        <div className="mt-2">
+                          <p className="text-sm">
+                            <span className="font-medium text-gray-700">Notes:</span>{' '}
+                            <span className="text-gray-600">{medication.notes}</span>
+                          </p>
                         </div>
                       )}
                     </div>
@@ -509,13 +581,48 @@ export default function PrescriptionProcessing({
                 </div>
               )}
 
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setShowDetails(false)}
                   className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   Close
                 </button>
+                
+                <div className="flex space-x-3">
+                  {selectedPrescription?.status === 'ACTIVE' && (
+                    <button
+                      onClick={() => {
+                        handleDispenseMedication(selectedPrescription);
+                        setShowDetails(false);
+                      }}
+                      className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Pill className="w-4 h-4" />
+                      <span>Dispense Medications</span>
+                    </button>
+                  )}
+                  
+                  {selectedPrescription?.status === 'COMPLETED' && (
+                    <span className="flex items-center space-x-2 px-6 py-2 bg-gray-100 text-gray-600 rounded-lg">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Already Dispensed</span>
+                    </span>
+                  )}
+                  
+                  {(selectedPrescription?.status === 'ACTIVE' || selectedPrescription?.status === 'IN_PROGRESS') && (
+                    <button
+                      onClick={() => {
+                        handleCancelPrescription(selectedPrescription?.prescriptionId, 'Cancelled by pharmacist');
+                        setShowDetails(false);
+                      }}
+                      className="flex items-center space-x-2 px-6 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Cancel</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

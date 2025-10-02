@@ -122,7 +122,7 @@ export default function PharmacyDashboard() {
       id: 'prescriptions', 
       label: 'Prescriptions', 
       icon: ClipboardList, 
-      description: 'Process & Track',
+      description: 'Dispense & Track',
       count: pharmacyStats.pendingPrescriptions
     },
     { 
@@ -166,7 +166,6 @@ export default function PharmacyDashboard() {
           <PrescriptionProcessing
             prescriptions={prescriptions}
             loading={prescriptionsLoading}
-            onProcessPrescription={processPrescription}
             onUpdateStatus={processPrescription} // Using processPrescription for status updates
             onCheckInteractions={verifyInteractions}
             onDispenseMedication={dispenseMedication}

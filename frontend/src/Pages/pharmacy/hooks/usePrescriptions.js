@@ -18,27 +18,11 @@ export const usePrescriptions = () => {
     };
   }, []);
 
-  // Helper function to map prescription status to pharmacy workflow status
-  const mapPrescriptionStatus = useCallback((originalStatus) => {
-    switch (originalStatus?.toLowerCase()) {
-      case 'active':
-        return 'received'; // New prescriptions are received in pharmacy
-      case 'completed':
-        return 'dispensed';
-      case 'discontinued':
-        return 'cancelled';
-      case 'expired':
-        return 'expired';
-      default:
-        return 'received';
-    }
-  }, []);
-
   // Helper function to determine prescription urgency
   const determinePrescriptionUrgency = useCallback((prescription) => {
     const urgentKeywords = ['emergency', 'urgent', 'stat', 'asap', 'critical'];
     const instructions = prescription.instructions?.toLowerCase() || '';
-    const notes = prescription.notes?.toLowerCase() || '';
+    const notes = (prescription.prescriptionNotes || prescription.notes)?.toLowerCase() || '';
     
     if (urgentKeywords.some(keyword => 
       instructions.includes(keyword) || notes.includes(keyword)
@@ -46,16 +30,15 @@ export const usePrescriptions = () => {
       return 'urgent';
     }
     
-    const urgentMedications = prescription.medications?.some(med => 
+    const urgentMedications = (prescription.prescriptionItems || prescription.medications || []).some(med => 
       med.drugName?.toLowerCase().includes('insulin') ||
       med.drugName?.toLowerCase().includes('epinephrine') ||
-      med.drugName?.toLowerCase().includes('nitroglycerin')
+      med.drugName?.toLowerCase().includes('nitroglycerin') ||
+      med.isUrgent === true
     );
     
     return urgentMedications ? 'urgent' : 'normal';
   }, []);
-
-  // TODO: Add the rest of the functions here
 
   // Fetch prescriptions from the main API
   const fetchPrescriptionsFromAPI = useCallback(async () => {
@@ -80,27 +63,36 @@ export const usePrescriptions = () => {
         prescriptionId: prescription.prescriptionId,
         patientName: prescription.patientName,
         patientId: prescription.patientId,
+        patientNationalId: prescription.patientNationalId,
         doctorName: prescription.doctorName || prescription.prescribedBy,
+        admissionId: prescription.admissionId,
+        wardName: prescription.wardName,
+        bedNumber: prescription.bedNumber,
         
-        // Prescription details
-        medications: prescription.medications || [],
-        status: mapPrescriptionStatus(prescription.status),
+        // Prescription details - map prescriptionItems to medications for compatibility
+        medications: prescription.prescriptionItems || prescription.medications || [],
+        prescriptionItems: prescription.prescriptionItems || [],
+        totalMedications: prescription.totalMedications || prescription.prescriptionItems?.length || prescription.medications?.length || 0,
+        status: prescription.status || 'ACTIVE', // Keep original backend status
         prescribedDate: prescription.prescribedDate,
         startDate: prescription.startDate,
         endDate: prescription.endDate,
         instructions: prescription.instructions,
-        notes: prescription.notes,
+        notes: prescription.prescriptionNotes || prescription.notes,
+        prescriptionNotes: prescription.prescriptionNotes,
         
         // Pharmacy-specific fields
         urgency: determinePrescriptionUrgency(prescription),
-        needsReview: prescription.medications?.some(med => med.isHighRisk) || false,
+        needsReview: (prescription.prescriptionItems || prescription.medications || []).some(med => med.isHighRisk) || false,
         interactions: [], // To be populated by drug interaction checks
         
         // Status tracking
         receivedAt: prescription.prescribedDate || prescription.createdAt || new Date().toISOString(),
         processedAt: null,
         dispensedAt: null,
-        processedBy: null
+        processedBy: null,
+        createdAt: prescription.createdAt,
+        lastModified: prescription.lastModified
       }));
 
       return transformedPrescriptions;
@@ -108,7 +100,7 @@ export const usePrescriptions = () => {
       console.error('Failed to fetch prescriptions from API:', error);
       throw error;
     }
-  }, [getAuthHeaders, mapPrescriptionStatus, determinePrescriptionUrgency]);
+  }, [getAuthHeaders, determinePrescriptionUrgency]);
 
   // Initialize prescriptions
   const initializePrescriptions = useCallback(async () => {

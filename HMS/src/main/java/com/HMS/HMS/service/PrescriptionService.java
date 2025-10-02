@@ -779,7 +779,8 @@ public class PrescriptionService {
      */
     private PrescriptionResponseDTO dispenseMedicationInternal(Prescription prescription, Map<String, Object> dispensingData) {
         // Validate that prescription can be dispensed
-        if (prescription.getStatus() != PrescriptionStatus.READY && 
+        if (prescription.getStatus() != PrescriptionStatus.ACTIVE && 
+            prescription.getStatus() != PrescriptionStatus.READY && 
             prescription.getStatus() != PrescriptionStatus.IN_PROGRESS) {
             throw new IllegalStateException("Prescription cannot be dispensed in current status: " + prescription.getStatus());
         }
