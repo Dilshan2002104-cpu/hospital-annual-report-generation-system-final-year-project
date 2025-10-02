@@ -1,5 +1,7 @@
 package com.HMS.HMS.model.Medication;
 
+import com.HMS.HMS.model.Prescription.PrescriptionItem;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -7,6 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "medications",uniqueConstraints = @UniqueConstraint(name = "uk_med_batch",columnNames = {"batch_number"}))
@@ -62,6 +66,10 @@ public class Medication {
 
     @Column(name="is_active", nullable=false)
     private Boolean isActive = Boolean.TRUE;
+
+    @OneToMany(mappedBy = "medication", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("medication-prescription-items")
+    private List<PrescriptionItem> prescriptionItems = new ArrayList<>();
 
     public Medication(){}
 
@@ -128,5 +136,23 @@ public class Medication {
 
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean active) { isActive = active; }
+
+    public List<PrescriptionItem> getPrescriptionItems() {
+        return prescriptionItems;
+    }
+
+    public void setPrescriptionItems(List<PrescriptionItem> prescriptionItems) {
+        this.prescriptionItems = prescriptionItems;
+    }
+
+    public void addPrescriptionItem(PrescriptionItem item) {
+        prescriptionItems.add(item);
+        item.setMedication(this);
+    }
+
+    public void removePrescriptionItem(PrescriptionItem item) {
+        prescriptionItems.remove(item);
+        item.setMedication(null);
+    }
 
 }

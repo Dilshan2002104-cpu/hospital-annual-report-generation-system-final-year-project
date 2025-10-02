@@ -1,7 +1,6 @@
 package com.HMS.HMS.repository.reports;
 
 import com.HMS.HMS.model.Appointment.Appointment;
-import com.HMS.HMS.model.Appointment.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

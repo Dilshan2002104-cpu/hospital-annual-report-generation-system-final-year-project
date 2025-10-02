@@ -77,7 +77,7 @@ public class ChartGenerationService {
     }
 
     public byte[] generateSpecializationPieChart(List<SpecializationDataDTO> specializationData, String title) {
-        DefaultPieDataset dataset = new DefaultPieDataset();
+        DefaultPieDataset<String> dataset = new DefaultPieDataset<>();
 
         for (SpecializationDataDTO data : specializationData) {
             dataset.setValue(data.getSpecialization(), data.getTotalVisits());
@@ -200,11 +200,12 @@ public class ChartGenerationService {
         rangeAxis.setTickLabelFont(new Font("Arial", Font.PLAIN, 10));
     }
 
+    @SuppressWarnings("unchecked")
     private void customizePieChart(JFreeChart chart) {
         chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
         chart.getTitle().setFont(new Font("Arial", Font.BOLD, 16));
 
-        PiePlot plot = (PiePlot) chart.getPlot();
+        PiePlot<String> plot = (PiePlot<String>) chart.getPlot();
         plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
         plot.setLabelFont(new Font("Arial", Font.PLAIN, 10));
         plot.setNoDataMessage("No data available");
@@ -221,10 +222,10 @@ public class ChartGenerationService {
             new Color(255, 159, 64)
         };
 
-        DefaultPieDataset dataset = (DefaultPieDataset) plot.getDataset();
+        DefaultPieDataset<String> dataset = (DefaultPieDataset<String>) plot.getDataset();
         int colorIndex = 0;
         for (Object key : dataset.getKeys()) {
-            plot.setSectionPaint((Comparable) key, colors[colorIndex % colors.length]);
+            plot.setSectionPaint((Comparable<String>) key, colors[colorIndex % colors.length]);
             colorIndex++;
         }
     }
@@ -287,7 +288,7 @@ public class ChartGenerationService {
     }
 
     private byte[] generateCustomPieChart(String title, String[] categories, double[] values) {
-        DefaultPieDataset dataset = new DefaultPieDataset();
+        DefaultPieDataset<String> dataset = new DefaultPieDataset<>();
         for (int i = 0; i < categories.length && i < values.length; i++) {
             dataset.setValue(categories[i], values[i]);
         }
@@ -306,8 +307,9 @@ public class ChartGenerationService {
     /**
      * Generate colorful donut chart for appointment types
      */
+    @SuppressWarnings("unchecked")
     public byte[] generateAppointmentTypesDonutChart(List<AppointmentTypeChartDataDTO> data, String title) {
-        DefaultPieDataset dataset = new DefaultPieDataset();
+        DefaultPieDataset<String> dataset = new DefaultPieDataset<>();
 
         for (AppointmentTypeChartDataDTO item : data) {
             dataset.setValue(item.getAppointmentType(), item.getCount());
@@ -316,7 +318,7 @@ public class ChartGenerationService {
         JFreeChart chart = ChartFactory.createPieChart(title, dataset, true, true, false);
 
         // Customize for donut effect and colors
-        PiePlot plot = (PiePlot) chart.getPlot();
+        PiePlot<String> plot = (PiePlot<String>) chart.getPlot();
         plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
 
         // Set custom colors
@@ -340,8 +342,9 @@ public class ChartGenerationService {
     /**
      * Generate colorful pie chart for appointment types
      */
+    @SuppressWarnings("unchecked")
     public byte[] generateAppointmentTypesPieChart(List<AppointmentTypeChartDataDTO> data, String title) {
-        DefaultPieDataset dataset = new DefaultPieDataset();
+        DefaultPieDataset<String> dataset = new DefaultPieDataset<>();
 
         for (AppointmentTypeChartDataDTO item : data) {
             dataset.setValue(item.getAppointmentType(), item.getCount());
@@ -349,7 +352,7 @@ public class ChartGenerationService {
 
         JFreeChart chart = ChartFactory.createPieChart(title, dataset, true, true, false);
 
-        PiePlot plot = (PiePlot) chart.getPlot();
+        PiePlot<String> plot = (PiePlot<String>) chart.getPlot();
         plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
 
         // Vibrant colors for appointment types
@@ -369,8 +372,9 @@ public class ChartGenerationService {
     /**
      * Generate appointment status pie chart with status-specific colors
      */
+    @SuppressWarnings("unchecked")
     public byte[] generateAppointmentStatusPieChart(List<AppointmentStatusChartDataDTO> data, String title) {
-        DefaultPieDataset dataset = new DefaultPieDataset();
+        DefaultPieDataset<String> dataset = new DefaultPieDataset<>();
 
         for (AppointmentStatusChartDataDTO item : data) {
             dataset.setValue(item.getStatus(), item.getCount());
@@ -378,7 +382,7 @@ public class ChartGenerationService {
 
         JFreeChart chart = ChartFactory.createPieChart(title, dataset, true, true, false);
 
-        PiePlot plot = (PiePlot) chart.getPlot();
+        PiePlot<String> plot = (PiePlot<String>) chart.getPlot();
         plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
 
         // Status-specific colors: COMPLETED=Green, CANCELLED=Red, SCHEDULED=Blue

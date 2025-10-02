@@ -20,7 +20,8 @@ export default function PrescriptionProcessing({
   onProcessPrescription, 
   onUpdateStatus,
   onCheckInteractions,
-  drugDatabase,
+  onDispenseMedication,
+  onCancelPrescription,
   stats 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,6 +29,29 @@ export default function PrescriptionProcessing({
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [interactionResults, setInteractionResults] = useState(null);
+
+  // Utility function to safely format dates
+  const formatDate = (dateString, fallback = 'Date not available') => {
+    if (!dateString) return fallback;
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return fallback;
+      return date.toLocaleDateString();
+    } catch {
+      return fallback;
+    }
+  };
+
+  const formatDateTime = (dateString, fallback = 'Date not available') => {
+    if (!dateString) return fallback;
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return fallback;
+      return date.toLocaleString();
+    } catch {
+      return fallback;
+    }
+  };
 
   // Filter prescriptions based on search and status
   const filteredPrescriptions = useMemo(() => {
@@ -47,14 +71,16 @@ export default function PrescriptionProcessing({
     switch (status) {
       case 'received':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'in-progress':
+      case 'processing':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'ready':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'dispensed':
         return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'rejected':
+      case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'expired':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -64,25 +90,25 @@ export default function PrescriptionProcessing({
     switch (status) {
       case 'received':
         return <ClipboardList className="w-4 h-4" />;
-      case 'in-progress':
+      case 'processing':
         return <Clock className="w-4 h-4" />;
       case 'ready':
         return <CheckCircle className="w-4 h-4" />;
       case 'dispensed':
         return <Shield className="w-4 h-4" />;
-      case 'rejected':
+      case 'cancelled':
+        return <AlertTriangle className="w-4 h-4" />;
+      case 'expired':
         return <AlertTriangle className="w-4 h-4" />;
       default:
         return <FileText className="w-4 h-4" />;
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
+  const getPriorityColor = (urgency) => {
+    switch (urgency) {
       case 'urgent':
         return 'text-red-600 bg-red-50 border-red-200';
-      case 'high':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
       case 'normal':
         return 'text-blue-600 bg-blue-50 border-blue-200';
       default:
@@ -96,7 +122,7 @@ export default function PrescriptionProcessing({
     
     // Check for drug interactions
     try {
-      const interactions = await onCheckInteractions(prescription.medications);
+      const interactions = await onCheckInteractions(prescription.prescriptionId);
       setInteractionResults(interactions);
     } catch (error) {
       console.error('Failed to check interactions:', error);
@@ -111,11 +137,30 @@ export default function PrescriptionProcessing({
     }
   };
 
+  const handleCancelPrescription = async (prescriptionId, reason = '') => {
+    try {
+      await onCancelPrescription(prescriptionId, reason);
+    } catch (error) {
+      console.error('Failed to cancel prescription:', error);
+    }
+  };
+
   const handleProcessPrescription = async (prescription) => {
     try {
       await onProcessPrescription(prescription.prescriptionId);
     } catch (error) {
       console.error('Failed to process prescription:', error);
+    }
+  };
+
+  const handleDispenseMedication = async (prescription) => {
+    try {
+      await onDispenseMedication(prescription.prescriptionId, {
+        pharmacistName: 'Current Pharmacist', // This would come from user context
+        dispensedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Failed to dispense medication:', error);
     }
   };
 
@@ -137,8 +182,8 @@ export default function PrescriptionProcessing({
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Today</p>
-              <p className="text-3xl font-bold text-blue-600">{stats.todayPrescriptions}</p>
+              <p className="text-sm font-medium text-gray-600">Total</p>
+              <p className="text-3xl font-bold text-blue-600">{stats?.totalPrescriptions || 0}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
               <ClipboardList className="w-6 h-6 text-blue-600" />
@@ -149,8 +194,8 @@ export default function PrescriptionProcessing({
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-3xl font-bold text-yellow-600">{stats.pendingPrescriptions}</p>
+              <p className="text-sm font-medium text-gray-600">Received</p>
+              <p className="text-3xl font-bold text-yellow-600">{stats?.receivedPrescriptions || 0}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
               <Clock className="w-6 h-6 text-yellow-600" />
@@ -162,7 +207,7 @@ export default function PrescriptionProcessing({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Ready</p>
-              <p className="text-3xl font-bold text-green-600">{stats.readyPrescriptions}</p>
+              <p className="text-3xl font-bold text-green-600">{stats?.readyPrescriptions || 0}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -173,8 +218,8 @@ export default function PrescriptionProcessing({
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Dispensed</p>
-              <p className="text-3xl font-bold text-purple-600">{stats.dispensedToday}</p>
+              <p className="text-sm font-medium text-gray-600">Dispensed Today</p>
+              <p className="text-3xl font-bold text-purple-600">{stats?.dispensedToday || 0}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
               <Shield className="w-6 h-6 text-purple-600" />
@@ -251,9 +296,9 @@ export default function PrescriptionProcessing({
                             {getStatusIcon(prescription.status)}
                             <span className="capitalize">{prescription.status.replace('-', ' ')}</span>
                           </span>
-                          {prescription.priority !== 'normal' && (
-                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(prescription.priority)}`}>
-                              {prescription.priority.toUpperCase()}
+                          {prescription.urgency !== 'normal' && (
+                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(prescription.urgency)}`}>
+                              {prescription.urgency.toUpperCase()}
                             </span>
                           )}
                         </div>
@@ -269,7 +314,7 @@ export default function PrescriptionProcessing({
                           </div>
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4" />
-                            <span>Received: {new Date(prescription.receivedDate).toLocaleDateString()}</span>
+                            <span>Received: {formatDate(prescription.receivedAt || prescription.prescribedDate)}</span>
                           </div>
                         </div>
 
@@ -323,7 +368,7 @@ export default function PrescriptionProcessing({
                       </button>
                     )}
 
-                    {prescription.status === 'in-progress' && (
+                    {prescription.status === 'processing' && (
                       <button
                         onClick={() => handleStatusUpdate(prescription.prescriptionId, 'ready')}
                         className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
@@ -333,13 +378,23 @@ export default function PrescriptionProcessing({
                       </button>
                     )}
 
-                    {(prescription.status === 'received' || prescription.status === 'in-progress') && (
+                    {(prescription.status === 'ready' || prescription.status === 'processing') && (
                       <button
-                        onClick={() => handleStatusUpdate(prescription.prescriptionId, 'rejected')}
+                        onClick={() => handleDispenseMedication(prescription)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                      >
+                        <Pill className="w-4 h-4" />
+                        <span>Dispense</span>
+                      </button>
+                    )}
+
+                    {(prescription.status === 'received' || prescription.status === 'processing') && (
+                      <button
+                        onClick={() => handleCancelPrescription(prescription.prescriptionId, 'Cancelled by pharmacist')}
                         className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
                       >
                         <AlertTriangle className="w-4 h-4" />
-                        <span>Reject</span>
+                        <span>Cancel</span>
                       </button>
                     )}
                   </div>
@@ -395,8 +450,8 @@ export default function PrescriptionProcessing({
                   <h3 className="font-semibold text-gray-900 mb-3">Prescription Details</h3>
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium">Doctor:</span> {selectedPrescription.doctorName}</p>
-                    <p><span className="font-medium">Date:</span> {new Date(selectedPrescription.prescribedDate).toLocaleString()}</p>
-                    <p><span className="font-medium">Priority:</span> <span className="capitalize">{selectedPrescription.priority}</span></p>
+                    <p><span className="font-medium">Date:</span> {formatDateTime(selectedPrescription.prescribedDate)}</p>
+                    <p><span className="font-medium">Priority:</span> <span className="capitalize">{selectedPrescription.urgency}</span></p>
                     <p><span className="font-medium">Status:</span> <span className="capitalize">{selectedPrescription.status}</span></p>
                   </div>
                 </div>

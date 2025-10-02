@@ -772,9 +772,7 @@ public class PDFReportGeneratorService {
 
         // If we have peak/low data, use that for realistic distribution
         if (peakValue > 0 && lowValue > 0) {
-            // Calculate the variation range
-            long range = peakValue - lowValue;
-
+            // Calculate the variation range based on peak and low values
             for (int i = 0; i < 12; i++) {
                 // Create realistic variation around the average
                 double factor = 0.7 + (Math.random() * 0.6); // 70% to 130% of average

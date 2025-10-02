@@ -20,27 +20,36 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     // Find by prescription ID
     Optional<Prescription> findByPrescriptionId(String prescriptionId);
 
-    // Find prescriptions by patient national ID
-    List<Prescription> findByPatientNationalIdOrderByPrescribedDateDesc(String patientNationalId);
-    Page<Prescription> findByPatientNationalIdOrderByPrescribedDateDesc(String patientNationalId, Pageable pageable);
+    // Find prescriptions by patient
+    @Query("SELECT p FROM Prescription p WHERE p.patient.nationalId = :nationalId ORDER BY p.prescribedDate DESC")
+    List<Prescription> findByPatientNationalIdOrderByPrescribedDateDesc(@Param("nationalId") String patientNationalId);
 
-    // Find prescriptions by admission ID
-    List<Prescription> findByAdmissionIdOrderByPrescribedDateDesc(Long admissionId);
-    Page<Prescription> findByAdmissionIdOrderByPrescribedDateDesc(Long admissionId, Pageable pageable);
+    @Query("SELECT p FROM Prescription p WHERE p.patient.nationalId = :nationalId ORDER BY p.prescribedDate DESC")
+    Page<Prescription> findByPatientNationalIdOrderByPrescribedDateDesc(@Param("nationalId") String patientNationalId, Pageable pageable);
+
+    @Query("SELECT p FROM Prescription p WHERE p.patient.nationalId = :nationalId ORDER BY p.prescribedDate DESC")
+    List<Prescription> findByPatient(@Param("nationalId") String nationalId);
+
+    // Find prescriptions by admission
+    @Query("SELECT p FROM Prescription p WHERE p.admission.admissionId = :admissionId ORDER BY p.prescribedDate DESC")
+    List<Prescription> findByAdmission(@Param("admissionId") Long admissionId);
+
+    Page<Prescription> findByAdmissionAdmissionIdOrderByPrescribedDateDesc(Long admissionId, Pageable pageable);
 
     // Find prescriptions by status
     List<Prescription> findByStatusOrderByPrescribedDateDesc(PrescriptionStatus status);
     Page<Prescription> findByStatusOrderByPrescribedDateDesc(PrescriptionStatus status, Pageable pageable);
 
     // Find active prescriptions for a patient
-    List<Prescription> findByPatientNationalIdAndStatusOrderByPrescribedDateDesc(String patientNationalId, PrescriptionStatus status);
+    @Query("SELECT p FROM Prescription p WHERE p.patient.nationalId = :patientNationalId AND p.status = :status ORDER BY p.prescribedDate DESC")
+    List<Prescription> findByPatientNationalIdAndStatusOrderByPrescribedDateDesc(@Param("patientNationalId") String patientNationalId, @Param("status") PrescriptionStatus status);
+
+    @Query("SELECT p FROM Prescription p WHERE p.patient.nationalId = :nationalId AND p.status = :status ORDER BY p.prescribedDate DESC")
+    List<Prescription> findActiveByPatient(@Param("nationalId") String nationalId, @Param("status") PrescriptionStatus status);
 
     // Find active prescriptions for an admission
-    List<Prescription> findByAdmissionIdAndStatusOrderByPrescribedDateDesc(Long admissionId, PrescriptionStatus status);
-
-    // Find prescriptions prescribed by a specific doctor
-    List<Prescription> findByPrescribedByOrderByPrescribedDateDesc(String prescribedBy);
-    Page<Prescription> findByPrescribedByOrderByPrescribedDateDesc(String prescribedBy, Pageable pageable);
+    @Query("SELECT p FROM Prescription p WHERE p.admission.admissionId = :admissionId AND p.status = :status ORDER BY p.prescribedDate DESC")
+    List<Prescription> findActiveByAdmission(@Param("admissionId") Long admissionId, @Param("status") PrescriptionStatus status);
 
     // Find prescriptions by date range
     List<Prescription> findByPrescribedDateBetweenOrderByPrescribedDateDesc(LocalDateTime startDate, LocalDateTime endDate);
@@ -54,19 +63,24 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     long countByStatus(PrescriptionStatus status);
 
     // Count prescriptions for a patient
-    long countByPatientNationalId(String patientNationalId);
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.patient.nationalId = :nationalId")
+    long countByPatientNationalId(@Param("nationalId") String patientNationalId);
+
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.patient.nationalId = :nationalId")
+    long countByPatient(@Param("nationalId") String nationalId);
 
     // Count prescriptions for an admission
-    long countByAdmissionId(Long admissionId);
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.admission.admissionId = :admissionId")
+    long countByAdmission(@Param("admissionId") Long admissionId);
 
-    // Count prescriptions with urgent items (will be handled via PrescriptionItemRepository)
-    // Removed drug-related queries as they now belong to PrescriptionItemRepository
-
-    // Search prescriptions (by patient name or prescription ID)
-    @Query("SELECT DISTINCT p FROM Prescription p LEFT JOIN p.prescriptionItems pi WHERE " +
-           "(LOWER(p.patientName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+    // Search prescriptions (by patient name, prescription ID, or medication)
+    @Query("SELECT DISTINCT p FROM Prescription p " +
+           "LEFT JOIN p.prescriptionItems pi " +
+           "LEFT JOIN pi.medication m " +
+           "WHERE (LOWER(p.patient.firstName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(p.patient.lastName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(p.prescriptionId) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(pi.drugName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
+           "LOWER(m.drugName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
            "ORDER BY p.prescribedDate DESC")
     Page<Prescription> searchPrescriptions(@Param("searchTerm") String searchTerm, Pageable pageable);
 
@@ -93,4 +107,12 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     long countPrescriptionsByDateRangeAndStatus(@Param("startDate") LocalDateTime startDate,
                                               @Param("endDate") LocalDateTime endDate,
                                               @Param("status") PrescriptionStatus status);
+
+    // Get all prescription count by date range (regardless of status) for ID generation
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.prescribedDate BETWEEN :startDate AND :endDate")
+    long countPrescriptionsByDateRange(@Param("startDate") LocalDateTime startDate,
+                                      @Param("endDate") LocalDateTime endDate);
+
+    // Check if prescription ID already exists
+    boolean existsByPrescriptionId(String prescriptionId);
 }

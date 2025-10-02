@@ -11,7 +11,6 @@ import com.HMS.HMS.Exception_Handler.DuplicateBatchNumberException;
 import com.HMS.HMS.model.Medication.Medication;
 import com.HMS.HMS.repository.MedicationRepository;
 import com.HMS.HMS.util.Sanitizer;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

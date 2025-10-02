@@ -19,6 +19,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -40,6 +41,12 @@ public class PrescriptionController {
     public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> createPrescription(
             @RequestBody PrescriptionRequestDTO requestDTO) {
         try {
+            // Log the incoming request for debugging
+            System.out.println("Creating prescription for patient: " + requestDTO.getPatientNationalId());
+            System.out.println("Admission ID: " + requestDTO.getAdmissionId());
+            System.out.println("Number of medications: " + 
+                (requestDTO.getPrescriptionItems() != null ? requestDTO.getPrescriptionItems().size() : 0));
+
             // Validate that prescription contains medications
             if (requestDTO.getPrescriptionItems() == null || requestDTO.getPrescriptionItems().isEmpty()) {
                 return ResponseEntity.badRequest()
@@ -60,12 +67,16 @@ public class PrescriptionController {
             return ResponseEntity.created(location).body(response);
 
         } catch (IllegalStateException e) {
+            System.err.println("Prescription creation failed - IllegalStateException: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(ApiResponse.error("Duplicate prescription: " + e.getMessage()));
         } catch (IllegalArgumentException e) {
+            System.err.println("Prescription creation failed - IllegalArgumentException: " + e.getMessage());
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Invalid request: " + e.getMessage()));
         } catch (Exception e) {
+            System.err.println("Prescription creation failed - Exception: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to create prescription: " + e.getMessage()));
         }
@@ -475,6 +486,286 @@ public class PrescriptionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to remove prescription item: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all prescriptions without pagination for pharmacy management
+     */
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<List<PrescriptionResponseDTO>>> getAllPrescriptionsWithoutPagination() {
+        try {
+            List<PrescriptionResponseDTO> prescriptions = prescriptionService.getAllPrescriptionsWithoutPagination();
+            return ResponseEntity.ok(ApiResponse.success("All prescriptions retrieved successfully", prescriptions));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve prescriptions: " + e.getMessage()));
+        }
+    }
+
+    // ==================== PHARMACY-SPECIFIC ENDPOINTS ====================
+
+    /**
+     * Start processing a prescription (pharmacy workflow) - using prescription ID
+     */
+    @PutMapping("/prescription-id/{prescriptionId}/process")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> startProcessingPrescriptionByPrescriptionId(
+            @PathVariable String prescriptionId,
+            @RequestBody(required = false) Map<String, Object> processingData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.startProcessingPrescriptionByPrescriptionId(prescriptionId, processingData);
+            return ResponseEntity.ok(ApiResponse.success("Prescription processing started successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to start processing prescription: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Start processing a prescription (pharmacy workflow) - using database ID
+     */
+    @PutMapping("/{id}/process")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> startProcessingPrescription(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> processingData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.startProcessingPrescription(id, processingData);
+            return ResponseEntity.ok(ApiResponse.success("Prescription processing started successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to start processing prescription: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Mark prescription as ready for dispensing - using prescription ID
+     */
+    @PutMapping("/prescription-id/{prescriptionId}/ready")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> markPrescriptionReadyByPrescriptionId(
+            @PathVariable String prescriptionId,
+            @RequestBody(required = false) Map<String, Object> readyData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.markPrescriptionReadyByPrescriptionId(prescriptionId, readyData);
+            return ResponseEntity.ok(ApiResponse.success("Prescription marked as ready successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to mark prescription as ready: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Mark prescription as ready for dispensing
+     */
+    @PutMapping("/{id}/ready")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> markPrescriptionReady(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> readyData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.markPrescriptionReady(id, readyData);
+            return ResponseEntity.ok(ApiResponse.success("Prescription marked as ready successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to mark prescription as ready: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Dispense medication for a prescription - using database ID
+     */
+    @PostMapping("/{id}/dispense")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> dispenseMedication(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> dispensingData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.dispenseMedication(id, dispensingData);
+            return ResponseEntity.ok(ApiResponse.success("Medication dispensed successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Cannot dispense medication: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to dispense medication: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Dispense medication for a prescription - using prescription ID
+     */
+    @PostMapping("/prescription-id/{prescriptionId}/dispense")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> dispenseMedicationByPrescriptionId(
+            @PathVariable String prescriptionId,
+            @RequestBody Map<String, Object> dispensingData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.dispenseMedicationByPrescriptionId(prescriptionId, dispensingData);
+            return ResponseEntity.ok(ApiResponse.success("Medication dispensed successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Cannot dispense medication: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to dispense medication: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Cancel prescription with reason (pharmacy workflow) - using database ID
+     */
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> cancelPrescription(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> cancellationData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.cancelPrescription(id, cancellationData);
+            return ResponseEntity.ok(ApiResponse.success("Prescription cancelled successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to cancel prescription: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Cancel prescription with reason (pharmacy workflow) - using prescription ID
+     */
+    @PutMapping("/prescription-id/{prescriptionId}/cancel")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> cancelPrescriptionByPrescriptionId(
+            @PathVariable String prescriptionId,
+            @RequestBody(required = false) Map<String, Object> cancellationData) {
+        try {
+            PrescriptionResponseDTO prescription = prescriptionService.cancelPrescriptionByPrescriptionId(prescriptionId, cancellationData);
+            return ResponseEntity.ok(ApiResponse.success("Prescription cancelled successfully", prescription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to cancel prescription: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get prescription details with pharmacy-specific information - using database ID
+     */
+    @GetMapping("/{id}/pharmacy-details")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> getPrescriptionPharmacyDetails(@PathVariable Long id) {
+        try {
+            Optional<PrescriptionResponseDTO> prescription = prescriptionService.getPrescriptionWithPharmacyDetails(id);
+
+            if (prescription.isPresent()) {
+                return ResponseEntity.ok(ApiResponse.success("Prescription details retrieved successfully", prescription.get()));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve prescription details: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get prescription details with pharmacy-specific information - using prescription ID
+     */
+    @GetMapping("/prescription-id/{prescriptionId}/pharmacy-details")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> getPrescriptionPharmacyDetailsByPrescriptionId(@PathVariable String prescriptionId) {
+        try {
+            Optional<PrescriptionResponseDTO> prescription = prescriptionService.getPrescriptionWithPharmacyDetailsByPrescriptionId(prescriptionId);
+
+            if (prescription.isPresent()) {
+                return ResponseEntity.ok(ApiResponse.success("Prescription details retrieved successfully", prescription.get()));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve prescription details: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Check drug interactions for prescription medications - using database ID
+     */
+    @PostMapping("/{id}/check-interactions")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> checkDrugInteractions(@PathVariable Long id) {
+        try {
+            List<Map<String, Object>> interactions = prescriptionService.checkDrugInteractions(id);
+            return ResponseEntity.ok(ApiResponse.success("Drug interactions checked successfully", interactions));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to check drug interactions: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Check drug interactions for prescription medications - using prescription ID
+     */
+    @PostMapping("/prescription-id/{prescriptionId}/check-interactions")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> checkDrugInteractionsByPrescriptionId(@PathVariable String prescriptionId) {
+        try {
+            List<Map<String, Object>> interactions = prescriptionService.checkDrugInteractionsByPrescriptionId(prescriptionId);
+            return ResponseEntity.ok(ApiResponse.success("Drug interactions checked successfully", interactions));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to check drug interactions: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get prescriptions by status for pharmacy dashboard (non-paginated)
+     */
+    @GetMapping("/pharmacy/status/{status}")
+    public ResponseEntity<ApiResponse<List<PrescriptionResponseDTO>>> getPharmacyPrescriptionsByStatus(
+            @PathVariable String status) {
+        try {
+            PrescriptionStatus prescriptionStatus;
+            try {
+                prescriptionStatus = PrescriptionStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Invalid prescription status: " + status));
+            }
+
+            Pageable pageable = PageRequest.of(0, 1000); // Large page size to get all results
+            Page<PrescriptionResponseDTO> prescriptionsPage = 
+                    prescriptionService.getPrescriptionsByStatus(prescriptionStatus, pageable);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Prescriptions with status " + status + " retrieved successfully", 
+                    prescriptionsPage.getContent()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve prescriptions by status: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get pharmacy statistics
+     */
+    @GetMapping("/pharmacy/statistics")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPharmacyStatistics() {
+        try {
+            Map<String, Object> statistics = prescriptionService.getPharmacyStatistics();
+            return ResponseEntity.ok(ApiResponse.success("Pharmacy statistics retrieved successfully", statistics));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve pharmacy statistics: " + e.getMessage()));
         }
     }
 }

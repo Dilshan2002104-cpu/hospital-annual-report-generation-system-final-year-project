@@ -1,12 +1,16 @@
 package com.HMS.HMS.model.Admission;
 
 import com.HMS.HMS.model.Patient.Patient;
+import com.HMS.HMS.model.Prescription.Prescription;
 import com.HMS.HMS.model.ward.Ward;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 public class Admission {
@@ -36,6 +40,10 @@ public class Admission {
 
     @Enumerated(EnumType.STRING)
     private AdmissionStatus status = AdmissionStatus.ACTIVE;
+
+    @OneToMany(mappedBy = "admission", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("admission-prescriptions")
+    private List<Prescription> prescriptions = new ArrayList<>();
 
     public Admission(){}
 
@@ -110,5 +118,23 @@ public class Admission {
 
     public void setStatus(AdmissionStatus status) {
         this.status = status;
+    }
+
+    public List<Prescription> getPrescriptions() {
+        return prescriptions;
+    }
+
+    public void setPrescriptions(List<Prescription> prescriptions) {
+        this.prescriptions = prescriptions;
+    }
+
+    public void addPrescription(Prescription prescription) {
+        prescriptions.add(prescription);
+        prescription.setAdmission(this);
+    }
+
+    public void removePrescription(Prescription prescription) {
+        prescriptions.remove(prescription);
+        prescription.setAdmission(null);
     }
 }

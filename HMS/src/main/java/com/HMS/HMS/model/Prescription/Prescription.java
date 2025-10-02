@@ -1,5 +1,8 @@
 package com.HMS.HMS.model.Prescription;
 
+import com.HMS.HMS.model.Admission.Admission;
+import com.HMS.HMS.model.Patient.Patient;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -25,23 +28,27 @@ public class Prescription {
     @Column(name = "prescription_id", nullable = false, unique = true, length = 20)
     private String prescriptionId;
 
-    @Column(name = "patient_national_id", nullable = false, length = 20)
-    private String patientNationalId;
+    // Proper relationship with Patient entity
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_national_id", nullable = false)
+    @JsonBackReference("patient-prescriptions")
+    private Patient patient;
 
-    @Column(name = "patient_name", nullable = false, length = 255)
-    private String patientName;
+    // Proper relationship with Admission entity
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admission_id", nullable = false)
+    @JsonBackReference("admission-prescriptions")
+    private Admission admission;
 
-    @Column(name = "admission_id", nullable = false)
-    private Long admissionId;
+    // Doctor information stored as simple field instead of relationship
+    @Column(name = "prescribed_by", length = 100)
+    private String prescribedBy;
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
     @Column(name = "end_date")
     private LocalDate endDate;
-
-    @Column(name = "prescribed_by", nullable = false, length = 255)
-    private String prescribedBy;
 
     @Column(name = "prescribed_date", nullable = false)
     private LocalDateTime prescribedDate;
@@ -78,15 +85,13 @@ public class Prescription {
     public Prescription() {}
 
     // Constructor with required fields
-    public Prescription(String prescriptionId, String patientNationalId, String patientName,
-                       Long admissionId, LocalDate startDate, String prescribedBy,
-                       LocalDateTime prescribedDate) {
+    public Prescription(String prescriptionId, Patient patient, Admission admission,
+                       String prescribedBy, LocalDate startDate, LocalDateTime prescribedDate) {
         this.prescriptionId = prescriptionId;
-        this.patientNationalId = patientNationalId;
-        this.patientName = patientName;
-        this.admissionId = admissionId;
-        this.startDate = startDate;
+        this.patient = patient;
+        this.admission = admission;
         this.prescribedBy = prescribedBy;
+        this.startDate = startDate;
         this.prescribedDate = prescribedDate;
         this.status = PrescriptionStatus.ACTIVE;
         this.totalMedications = 0;
@@ -110,30 +115,29 @@ public class Prescription {
         this.prescriptionId = prescriptionId;
     }
 
-    public String getPatientNationalId() {
-        return patientNationalId;
+    public Patient getPatient() {
+        return patient;
     }
 
-    public void setPatientNationalId(String patientNationalId) {
-        this.patientNationalId = patientNationalId;
+    public void setPatient(Patient patient) {
+        this.patient = patient;
     }
 
-    public String getPatientName() {
-        return patientName;
+    public Admission getAdmission() {
+        return admission;
     }
 
-    public void setPatientName(String patientName) {
-        this.patientName = patientName;
+    public void setAdmission(Admission admission) {
+        this.admission = admission;
     }
 
-    public Long getAdmissionId() {
-        return admissionId;
+    public String getPrescribedBy() {
+        return prescribedBy;
     }
 
-    public void setAdmissionId(Long admissionId) {
-        this.admissionId = admissionId;
+    public void setPrescribedBy(String prescribedBy) {
+        this.prescribedBy = prescribedBy;
     }
-
 
     public LocalDate getStartDate() {
         return startDate;
@@ -149,14 +153,6 @@ public class Prescription {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
-    }
-
-    public String getPrescribedBy() {
-        return prescribedBy;
-    }
-
-    public void setPrescribedBy(String prescribedBy) {
-        this.prescribedBy = prescribedBy;
     }
 
     public LocalDateTime getPrescribedDate() {
@@ -255,12 +251,32 @@ public class Prescription {
                 .anyMatch(item -> Boolean.TRUE.equals(item.getIsUrgent()));
     }
 
+    // Helper method to get patient name
+    public String getPatientName() {
+        return patient != null ? patient.getFullName() : null;
+    }
+
+    // Helper method to get patient national ID
+    public String getPatientNationalId() {
+        return patient != null ? patient.getNationalId() : null;
+    }
+
+    // Helper method to get admission ID
+    public Long getAdmissionId() {
+        return admission != null ? admission.getAdmissionId() : null;
+    }
+
+    // Helper method to get doctor name
+    public String getPrescribedByName() {
+        return prescribedBy;
+    }
+
     @Override
     public String toString() {
         return "Prescription{" +
                 "id=" + id +
                 ", prescriptionId='" + prescriptionId + '\'' +
-                ", patientName='" + patientName + '\'' +
+                ", patientName='" + getPatientName() + '\'' +
                 ", totalMedications=" + totalMedications +
                 ", status=" + status +
                 ", wardName='" + wardName + '\'' +

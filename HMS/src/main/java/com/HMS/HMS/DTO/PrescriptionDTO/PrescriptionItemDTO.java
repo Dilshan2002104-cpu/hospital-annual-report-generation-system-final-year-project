@@ -5,7 +5,8 @@ import com.HMS.HMS.model.Prescription.PrescriptionStatus;
 public class PrescriptionItemDTO {
 
     private Long id;
-    private String drugName;
+    private Long medicationId;        // Medication ID to fetch Medication entity
+    private String drugName;          // Will be fetched from Medication entity
     private String dose;
     private String frequency;
     private Integer quantity;
@@ -14,9 +15,9 @@ public class PrescriptionItemDTO {
     private String route;
     private Boolean isUrgent;
     private PrescriptionStatus itemStatus;
-    private String dosageForm;
-    private String genericName;
-    private String manufacturer;
+    private String dosageForm;        // Will be fetched from Medication entity
+    private String genericName;       // Will be fetched from Medication entity
+    private String manufacturer;      // Will be fetched from Medication entity
     private String notes;
 
     // Default constructor
@@ -146,6 +147,14 @@ public class PrescriptionItemDTO {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public Long getMedicationId() {
+        return medicationId;
+    }
+
+    public void setMedicationId(Long medicationId) {
+        this.medicationId = medicationId;
     }
 
     @Override

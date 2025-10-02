@@ -19,7 +19,6 @@ export default function DispensingControl({
   inventory,
   loading, 
   onDispenseMedication,
-  onVerifyPatient,
   stats 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +26,28 @@ export default function DispensingControl({
   const [showDispenseModal, setShowDispenseModal] = useState(false);
   const [patientVerified, setPatientVerified] = useState(false);
   const [dispensingData, setDispensingData] = useState({});
+
+  // Utility function to safely handle dates
+  const formatDate = (dateString, fallback = 'Date not available') => {
+    if (!dateString) return fallback;
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return fallback;
+      return date.toLocaleDateString();
+    } catch {
+      return fallback;
+    }
+  };
+
+  const isValidDate = (dateString) => {
+    if (!dateString) return false;
+    try {
+      const date = new Date(dateString);
+      return !isNaN(date.getTime());
+    } catch {
+      return false;
+    }
+  };
 
   // Filter ready prescriptions
   const readyPrescriptions = useMemo(() => {
@@ -48,7 +69,7 @@ export default function DispensingControl({
         item.genericName.toLowerCase() === med.drugName.toLowerCase()
       );
       
-      const isExpired = inventoryItem && new Date(inventoryItem.expiryDate) < new Date();
+      const isExpired = inventoryItem && isValidDate(inventoryItem.expiryDate) && new Date(inventoryItem.expiryDate) < new Date();
       const isAvailable = inventoryItem && inventoryItem.currentStock >= (med.quantity || 1);
       
       return {
@@ -101,11 +122,6 @@ export default function DispensingControl({
     } catch (error) {
       console.error('Failed to dispense medication:', error);
     }
-  };
-
-  const canDispense = (prescription) => {
-    const medicationsWithAvailability = checkMedicationAvailability(prescription.medications);
-    return medicationsWithAvailability.every(med => med.available);
   };
 
   if (loading) {
@@ -243,7 +259,7 @@ export default function DispensingControl({
                             </div>
                             <div className="flex items-center space-x-2">
                               <Calendar className="w-4 h-4" />
-                              <span>Ready: {new Date(prescription.readyDate).toLocaleDateString()}</span>
+                              <span>Ready: {formatDate(prescription.readyDate)}</span>
                             </div>
                           </div>
 
@@ -411,7 +427,7 @@ export default function DispensingControl({
                           <p className="text-gray-600">Stock: <span className="font-medium">{medication.currentStock}</span></p>
                         </div>
                         <div>
-                          <p className="text-gray-600">Expiry: <span className="font-medium">{new Date(medication.expiryDate).toLocaleDateString()}</span></p>
+                          <p className="text-gray-600">Expiry: <span className="font-medium">{formatDate(medication.expiryDate)}</span></p>
                           <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                             medication.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>

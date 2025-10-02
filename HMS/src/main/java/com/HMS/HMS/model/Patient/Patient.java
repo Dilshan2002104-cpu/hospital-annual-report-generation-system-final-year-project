@@ -2,6 +2,7 @@ package com.HMS.HMS.model.Patient;
 
 import com.HMS.HMS.model.Admission.Admission;
 import com.HMS.HMS.model.Appointment.Appointment;
+import com.HMS.HMS.model.Prescription.Prescription;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -37,6 +38,10 @@ public class Patient {
     @OneToMany(mappedBy = "patient",cascade = CascadeType.ALL,fetch = FetchType.LAZY)
     @JsonManagedReference("patient-admissions")
     private List<Admission> admissions  = new ArrayList<>();
+
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("patient-prescriptions")
+    private List<Prescription> prescriptions = new ArrayList<>();
 
     public Patient() {
     }
@@ -177,5 +182,23 @@ public class Patient {
 
     public void setAdmissions(List<Admission> admissions) {
         this.admissions = admissions;
+    }
+
+    public List<Prescription> getPrescriptions() {
+        return prescriptions;
+    }
+
+    public void setPrescriptions(List<Prescription> prescriptions) {
+        this.prescriptions = prescriptions;
+    }
+
+    public void addPrescription(Prescription prescription) {
+        prescriptions.add(prescription);
+        prescription.setPatient(this);
+    }
+
+    public void removePrescription(Prescription prescription) {
+        prescriptions.remove(prescription);
+        prescription.setPatient(null);
     }
 }

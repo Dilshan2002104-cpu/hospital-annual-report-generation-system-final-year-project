@@ -23,14 +23,12 @@ public class AppointmentAnalyticsController {
 
     private final AppointmentAnalyticsService appointmentAnalyticsService;
     private final ChartGenerationService chartGenerationService;
-    private final PDFReportGeneratorService pdfReportGenerator;
 
     public AppointmentAnalyticsController(AppointmentAnalyticsService appointmentAnalyticsService,
                                         ChartGenerationService chartGenerationService,
                                         PDFReportGeneratorService pdfReportGenerator) {
         this.appointmentAnalyticsService = appointmentAnalyticsService;
         this.chartGenerationService = chartGenerationService;
-        this.pdfReportGenerator = pdfReportGenerator;
     }
 
     /**
@@ -52,7 +50,7 @@ public class AppointmentAnalyticsController {
     @GetMapping("/full-report/{year}/pdf")
     public ResponseEntity<byte[]> downloadAppointmentAnalyticsReportPDF(@PathVariable int year) {
         try {
-            AppointmentAnalyticsReportDTO reportData = appointmentAnalyticsService.generateAppointmentAnalyticsReport(year);
+            appointmentAnalyticsService.generateAppointmentAnalyticsReport(year);
 
             // Note: You'll need to implement generateAppointmentAnalyticsPDF in PDFReportGeneratorService
             // For now, we'll create a placeholder response

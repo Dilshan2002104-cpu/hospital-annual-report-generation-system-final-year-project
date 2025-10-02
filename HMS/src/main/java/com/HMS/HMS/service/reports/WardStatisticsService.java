@@ -41,11 +41,9 @@ import java.util.stream.Collectors;
 public class WardStatisticsService {
 
     private final AdmissionRepository admissionRepository;
-    private final PatientRepository patientRepository;
 
     public WardStatisticsService(AdmissionRepository admissionRepository, PatientRepository patientRepository) {
         this.admissionRepository = admissionRepository;
-        this.patientRepository = patientRepository;
     }
 
     public WardStatisticsReportDTO generateWardStatistics(String wardName, int year) {
@@ -903,15 +901,6 @@ public class WardStatisticsService {
 
         insightTable.addCell(insightCell);
         document.add(insightTable);
-    }
-
-    private void addTableRow(Table table, String label, String value) {
-        table.addCell(new Cell().add(new Paragraph(label).setBold()));
-        table.addCell(new Cell().add(new Paragraph(value)));
-    }
-
-    private void addTableHeader(Table table, String header) {
-        table.addHeaderCell(new Cell().add(new Paragraph(header).setBold()));
     }
 
     // New methods for hospital-wide statistics

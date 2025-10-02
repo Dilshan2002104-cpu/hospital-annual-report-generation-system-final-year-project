@@ -4,6 +4,7 @@ import axios from 'axios';
 const usePrescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [activePatients, setActivePatients] = useState([]);
+  const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -15,6 +16,67 @@ const usePrescriptions = () => {
       'Content-Type': 'application/json'
     };
   };
+
+  // Fetch available medications
+  const fetchMedications = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const jwtToken = localStorage.getItem('jwtToken');
+      if (!jwtToken) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await axios.get('http://localhost:8080/api/pharmacy/medications/getAll', {
+        headers: getAuthHeaders()
+      });
+
+      // Transform medication data for prescription use
+      const transformedMedications = response.data.map(med => ({
+        id: med.id,
+        medicationId: med.id, // For API compatibility
+        drugName: med.drugName,
+        genericName: med.genericName,
+        category: med.category,
+        strength: med.strength,
+        dosageForm: med.dosageForm,
+        manufacturer: med.manufacturer,
+        batchNumber: med.batchNumber,
+        currentStock: med.currentStock,
+        minimumStock: med.minimumStock,
+        maximumStock: med.maximumStock,
+        unitCost: med.unitCost,
+        expiryDate: med.expiryDate,
+        isActive: med.isActive
+      }));
+
+      setMedications(transformedMedications);
+      setError(null);
+      return transformedMedications;
+
+    } catch (err) {
+      console.error('Error fetching medications:', err);
+
+      let errorMessage = 'Failed to fetch medications. ';
+      if (err.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to view medications.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error occurred. Please try again later.';
+      } else if (!err.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Fetch active patients/admissions
   const fetchActivePatients = useCallback(async () => {
@@ -266,48 +328,84 @@ const usePrescriptions = () => {
       // Validate patient eligibility before creating prescription
       validatePatientEligibility(prescriptionData.patientNationalId);
 
+      // Comprehensive validation before API call
+      console.log('🔍 Validating prescription data:', prescriptionData);
+      
+      // Validate required fields
+      if (!prescriptionData.patientNationalId) {
+        throw new Error('Patient National ID is required');
+      }
+      
+      if (!prescriptionData.admissionId) {
+        throw new Error('Admission ID is required');
+      }
+      
+      // Ensure admissionId is a valid number
+      const admissionId = parseInt(prescriptionData.admissionId);
+      if (isNaN(admissionId) || admissionId <= 0) {
+        throw new Error(`Invalid admission ID: ${prescriptionData.admissionId}`);
+      }
+
       // Transform frontend data to grouped prescription API format
       const apiData = {
         patientNationalId: prescriptionData.patientNationalId,
-        patientName: prescriptionData.patientName,
-        admissionId: prescriptionData.admissionId,
+        admissionId: admissionId, // Ensure it's a number
+        prescribedBy: prescriptionData.prescribedBy || 'Ward Doctor', // Use string instead of doctor ID
         startDate: prescriptionData.startDate,
         endDate: prescriptionData.endDate,
-        prescribedBy: prescriptionData.prescribedBy,
-        wardName: prescriptionData.wardName,
-        bedNumber: prescriptionData.bedNumber,
         prescriptionNotes: prescriptionData.prescriptionNotes || '',
-        prescriptionItems: prescriptionData.medications?.map(med => ({
-          drugName: med.drugName,
-          dose: med.dose,
-          frequency: med.frequency,
-          quantity: parseInt(med.quantity),
-          quantityUnit: med.quantityUnit,
-          instructions: med.instructions,
-          route: med.route,
-          isUrgent: med.isUrgent || false,
-          dosageForm: med.dosageForm,
-          genericName: med.genericName,
-          manufacturer: med.manufacturer,
-          notes: med.notes
-        })) || [
-          // Fallback for single medication format (backwards compatibility)
-          {
-            drugName: prescriptionData.drugName,
-            dose: prescriptionData.dose,
-            frequency: prescriptionData.frequency,
-            quantity: parseInt(prescriptionData.quantity),
-            quantityUnit: prescriptionData.quantityUnit,
-            instructions: prescriptionData.instructions,
-            route: prescriptionData.route,
-            isUrgent: prescriptionData.isUrgent || false,
-            dosageForm: prescriptionData.dosageForm,
-            genericName: prescriptionData.genericName,
-            manufacturer: prescriptionData.manufacturer,
-            notes: prescriptionData.notes
+        prescriptionItems: prescriptionData.medications?.map(med => {
+          // Validate each medication
+          const medicationId = parseInt(med.medicationId);
+          if (isNaN(medicationId) || medicationId <= 0) {
+            throw new Error(`Invalid medication ID: ${med.medicationId} for medication: ${med.name || 'Unknown'}`);
           }
+          
+          const quantity = parseInt(med.quantity);
+          if (isNaN(quantity) || quantity <= 0) {
+            throw new Error(`Invalid quantity: ${med.quantity} for medication: ${med.name || 'Unknown'}`);
+          }
+          
+          return {
+            medicationId: medicationId, // Ensure it's a number
+            dose: med.dose,
+            frequency: med.frequency,
+            quantity: quantity, // Ensure it's a number
+            quantityUnit: med.quantityUnit,
+            instructions: med.instructions,
+            route: med.route,
+            isUrgent: med.isUrgent || false,
+            notes: med.notes
+          };
+        }) || [
+          // Fallback for single medication format (backwards compatibility)
+          (() => {
+            const medicationId = parseInt(prescriptionData.medicationId);
+            if (isNaN(medicationId) || medicationId <= 0) {
+              throw new Error(`Invalid medication ID: ${prescriptionData.medicationId}`);
+            }
+            
+            const quantity = parseInt(prescriptionData.quantity);
+            if (isNaN(quantity) || quantity <= 0) {
+              throw new Error(`Invalid quantity: ${prescriptionData.quantity}`);
+            }
+            
+            return {
+              medicationId: medicationId, // Ensure it's a number
+              dose: prescriptionData.dose,
+              frequency: prescriptionData.frequency,
+              quantity: quantity, // Ensure it's a number
+              quantityUnit: prescriptionData.quantityUnit,
+              instructions: prescriptionData.instructions,
+              route: prescriptionData.route,
+              isUrgent: prescriptionData.isUrgent || false,
+              notes: prescriptionData.notes
+            };
+          })()
         ]
       };
+
+      console.log('📤 Sending validated API data:', JSON.stringify(apiData, null, 2));
 
       const response = await axios.post('http://localhost:8080/api/prescriptions', apiData, {
         headers: getAuthHeaders()
@@ -373,6 +471,8 @@ const usePrescriptions = () => {
 
     } catch (err) {
       console.error('Error adding prescription:', err);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
 
       let errorMessage = 'Failed to add prescription. ';
       if (err.response?.status === 401) {
@@ -384,7 +484,15 @@ const usePrescriptions = () => {
       } else if (err.response?.status === 400) {
         errorMessage = err.response.data?.message || 'Invalid prescription data. Please check your inputs.';
       } else if (err.response?.status === 500) {
-        errorMessage = 'Server error occurred. Please try again later.';
+        // Enhanced 500 error reporting
+        const backendError = err.response.data?.message || err.response.data?.error;
+        if (backendError) {
+          errorMessage = `Server error: ${backendError}`;
+          console.error('🚨 Backend 500 error details:', backendError);
+        } else {
+          errorMessage = 'Server error occurred. Please try again later.';
+        }
+        console.error('🚨 Full 500 error response:', err.response.data);
       } else if (!err.response) {
         errorMessage = 'Network error. Please check your connection.';
       } else if (err.message) {
@@ -410,7 +518,7 @@ const usePrescriptions = () => {
 
       // Transform medication data to API format
       const itemData = {
-        drugName: medicationData.drugName,
+        medicationId: medicationData.medicationId, // Required: Medication entity relationship
         dose: medicationData.dose,
         frequency: medicationData.frequency,
         quantity: parseInt(medicationData.quantity),
@@ -418,9 +526,6 @@ const usePrescriptions = () => {
         instructions: medicationData.instructions,
         route: medicationData.route,
         isUrgent: medicationData.isUrgent || false,
-        dosageForm: medicationData.dosageForm,
-        genericName: medicationData.genericName,
-        manufacturer: medicationData.manufacturer,
         notes: medicationData.notes
       };
 
@@ -728,12 +833,14 @@ const usePrescriptions = () => {
     // Data
     prescriptions,
     activePatients,
+    medications,
     loading,
     error,
 
     // Functions
     fetchActivePatients,
     fetchPrescriptions,
+    fetchMedications,
     addPrescription,
     updatePrescription,
     deletePrescription,

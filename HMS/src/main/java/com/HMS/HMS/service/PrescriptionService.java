@@ -4,9 +4,15 @@ import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionRequestDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionResponseDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionItemDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionUpdateDTO;
+import com.HMS.HMS.model.Admission.Admission;
+import com.HMS.HMS.model.Medication.Medication;
+import com.HMS.HMS.model.Patient.Patient;
 import com.HMS.HMS.model.Prescription.Prescription;
 import com.HMS.HMS.model.Prescription.PrescriptionItem;
 import com.HMS.HMS.model.Prescription.PrescriptionStatus;
+import com.HMS.HMS.repository.AdmissionRepository;
+import com.HMS.HMS.repository.MedicationRepository;
+import com.HMS.HMS.repository.PatientRepository;
 import com.HMS.HMS.repository.PrescriptionRepository;
 import com.HMS.HMS.repository.PrescriptionItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -28,79 +35,105 @@ public class PrescriptionService {
 
     private final PrescriptionRepository prescriptionRepository;
     private final PrescriptionItemRepository prescriptionItemRepository;
+    private final PatientRepository patientRepository;
+    private final AdmissionRepository admissionRepository;
+    private final MedicationRepository medicationRepository;
 
     @Autowired
     public PrescriptionService(PrescriptionRepository prescriptionRepository,
-                             PrescriptionItemRepository prescriptionItemRepository) {
+                             PrescriptionItemRepository prescriptionItemRepository,
+                             PatientRepository patientRepository,
+                             AdmissionRepository admissionRepository,
+                             MedicationRepository medicationRepository) {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
+        this.patientRepository = patientRepository;
+        this.admissionRepository = admissionRepository;
+        this.medicationRepository = medicationRepository;
     }
 
     /**
      * Create a new prescription with multiple medications
      */
     public PrescriptionResponseDTO createPrescription(PrescriptionRequestDTO requestDTO) {
-        // Generate unique prescription ID
-        String prescriptionId = generatePrescriptionId();
+        try {
+            // Generate unique prescription ID
+            String prescriptionId = generatePrescriptionId();
 
-        // Validate prescription items
-        if (requestDTO.getPrescriptionItems() == null || requestDTO.getPrescriptionItems().isEmpty()) {
-            throw new IllegalArgumentException("Prescription must contain at least one medication");
-        }
-
-        // Check for duplicate active prescriptions for same drugs
-        for (PrescriptionItemDTO itemDTO : requestDTO.getPrescriptionItems()) {
-            if (prescriptionItemRepository.hasActiveItemForDrug(
-                    requestDTO.getPatientNationalId(),
-                    itemDTO.getDrugName(),
-                    PrescriptionStatus.ACTIVE)) {
-                throw new IllegalStateException(
-                    "Patient already has an active prescription for " + itemDTO.getDrugName());
+            // Validate prescription items
+            if (requestDTO.getPrescriptionItems() == null || requestDTO.getPrescriptionItems().isEmpty()) {
+                throw new IllegalArgumentException("Prescription must contain at least one medication");
             }
+
+            // Fetch required entities with better error messages
+            Patient patient = patientRepository.findByNationalId(requestDTO.getPatientNationalId());
+            if (patient == null) {
+                throw new IllegalArgumentException("Patient not found with National ID: " + requestDTO.getPatientNationalId());
+            }
+
+            Admission admission = admissionRepository.findById(requestDTO.getAdmissionId())
+                    .orElseThrow(() -> new IllegalArgumentException("Admission not found with ID: " + requestDTO.getAdmissionId()));
+
+            // Ensure ward relationship is loaded
+            admission.getWard(); // This will trigger lazy loading if not already loaded
+
+            // Create prescription container entity with relationships
+            Prescription prescription = new Prescription();
+            prescription.setPrescriptionId(prescriptionId);
+            prescription.setPatient(patient);
+            prescription.setAdmission(admission);
+            prescription.setPrescribedBy(requestDTO.getPrescribedBy()); // Use string directly
+            prescription.setStartDate(requestDTO.getStartDate());
+            prescription.setEndDate(requestDTO.getEndDate());
+            prescription.setPrescribedDate(LocalDateTime.now());
+
+            // Set ward name safely - handle potential null ward relationship
+            try {
+                String wardName = admission.getWard() != null ? admission.getWard().getWardName() : "Unknown Ward";
+                prescription.setWardName(wardName);
+            } catch (Exception e) {
+                prescription.setWardName("Unknown Ward");
+            }
+
+            prescription.setBedNumber(admission.getBedNumber());
+            prescription.setPrescriptionNotes(requestDTO.getPrescriptionNotes());
+            prescription.setStatus(PrescriptionStatus.ACTIVE);
+            prescription.setTotalMedications(requestDTO.getPrescriptionItems().size());
+
+            // Save prescription container first
+            Prescription savedPrescription = prescriptionRepository.save(prescription);
+
+            // Create and save prescription items with medication relationships
+            for (PrescriptionItemDTO itemDTO : requestDTO.getPrescriptionItems()) {
+                Medication medication = medicationRepository.findById(itemDTO.getMedicationId())
+                        .orElseThrow(() -> new IllegalArgumentException("Medication not found with ID: " + itemDTO.getMedicationId()));
+
+                PrescriptionItem item = new PrescriptionItem();
+                item.setPrescription(savedPrescription);
+                item.setMedication(medication);
+                item.setDose(itemDTO.getDose());
+                item.setFrequency(itemDTO.getFrequency());
+                item.setQuantity(itemDTO.getQuantity());
+                item.setQuantityUnit(itemDTO.getQuantityUnit());
+                item.setInstructions(itemDTO.getInstructions());
+                item.setRoute(itemDTO.getRoute());
+                item.setIsUrgent(itemDTO.getIsUrgent() != null ? itemDTO.getIsUrgent() : false);
+                item.setItemStatus(PrescriptionStatus.ACTIVE);
+                item.setNotes(itemDTO.getNotes());
+
+                prescriptionItemRepository.save(item);
+                savedPrescription.addPrescriptionItem(item);
+            }
+
+            return convertToResponseDTO(savedPrescription);
+            
+        } catch (IllegalArgumentException e) {
+            // Re-throw validation errors
+            throw e;
+        } catch (Exception e) {
+            // Log and wrap unexpected errors
+            throw new RuntimeException("Failed to create prescription: " + e.getMessage(), e);
         }
-
-        // Create prescription container entity
-        Prescription prescription = new Prescription();
-        prescription.setPrescriptionId(prescriptionId);
-        prescription.setPatientNationalId(requestDTO.getPatientNationalId());
-        prescription.setPatientName(requestDTO.getPatientName());
-        prescription.setAdmissionId(requestDTO.getAdmissionId());
-        prescription.setStartDate(requestDTO.getStartDate());
-        prescription.setEndDate(requestDTO.getEndDate());
-        prescription.setPrescribedBy(requestDTO.getPrescribedBy());
-        prescription.setPrescribedDate(LocalDateTime.now());
-        prescription.setWardName(requestDTO.getWardName());
-        prescription.setBedNumber(requestDTO.getBedNumber());
-        prescription.setPrescriptionNotes(requestDTO.getPrescriptionNotes());
-        prescription.setStatus(PrescriptionStatus.ACTIVE);
-        prescription.setTotalMedications(requestDTO.getPrescriptionItems().size());
-
-        // Save prescription container first
-        Prescription savedPrescription = prescriptionRepository.save(prescription);
-
-        // Create and save prescription items
-        for (PrescriptionItemDTO itemDTO : requestDTO.getPrescriptionItems()) {
-            PrescriptionItem item = new PrescriptionItem();
-            item.setPrescription(savedPrescription);
-            item.setDrugName(itemDTO.getDrugName());
-            item.setDose(itemDTO.getDose());
-            item.setFrequency(itemDTO.getFrequency());
-            item.setQuantity(itemDTO.getQuantity());
-            item.setQuantityUnit(itemDTO.getQuantityUnit());
-            item.setInstructions(itemDTO.getInstructions());
-            item.setRoute(itemDTO.getRoute());
-            item.setIsUrgent(itemDTO.getIsUrgent() != null ? itemDTO.getIsUrgent() : false);
-            item.setItemStatus(PrescriptionStatus.ACTIVE);
-            item.setDosageForm(itemDTO.getDosageForm());
-            item.setGenericName(itemDTO.getGenericName());
-            item.setManufacturer(itemDTO.getManufacturer());
-            item.setNotes(itemDTO.getNotes());
-
-            prescriptionItemRepository.save(item);
-            savedPrescription.addPrescriptionItem(item);
-        }
-
-        return convertToResponseDTO(savedPrescription);
     }
 
     /**
@@ -131,6 +164,17 @@ public class PrescriptionService {
     }
 
     /**
+     * Get all prescriptions without pagination for pharmacy management
+     */
+    @Transactional(readOnly = true)
+    public List<PrescriptionResponseDTO> getAllPrescriptionsWithoutPagination() {
+        return prescriptionRepository.findAll()
+                .stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Get prescriptions by patient national ID
      */
     @Transactional(readOnly = true)
@@ -155,7 +199,7 @@ public class PrescriptionService {
      */
     @Transactional(readOnly = true)
     public List<PrescriptionResponseDTO> getPrescriptionsByAdmission(Long admissionId) {
-        return prescriptionRepository.findByAdmissionIdOrderByPrescribedDateDesc(admissionId)
+        return prescriptionRepository.findByAdmission(admissionId)
                 .stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
@@ -244,19 +288,14 @@ public class PrescriptionService {
         Prescription prescription = prescriptionRepository.findById(prescriptionId)
                 .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
 
-        // Check for duplicate drug
-        if (prescriptionItemRepository.hasActiveItemForDrug(
-                prescription.getPatientNationalId(),
-                itemDTO.getDrugName(),
-                PrescriptionStatus.ACTIVE)) {
-            throw new IllegalStateException(
-                "Patient already has an active prescription for " + itemDTO.getDrugName());
-        }
+        // Fetch Medication entity
+        Medication medication = medicationRepository.findById(itemDTO.getMedicationId())
+                .orElseThrow(() -> new IllegalArgumentException("Medication not found with ID: " + itemDTO.getMedicationId()));
 
-        // Create new prescription item
+        // Create new prescription item with medication relationship
         PrescriptionItem item = new PrescriptionItem();
         item.setPrescription(prescription);
-        item.setDrugName(itemDTO.getDrugName());
+        item.setMedication(medication);
         item.setDose(itemDTO.getDose());
         item.setFrequency(itemDTO.getFrequency());
         item.setQuantity(itemDTO.getQuantity());
@@ -265,9 +304,6 @@ public class PrescriptionService {
         item.setRoute(itemDTO.getRoute());
         item.setIsUrgent(itemDTO.getIsUrgent() != null ? itemDTO.getIsUrgent() : false);
         item.setItemStatus(PrescriptionStatus.ACTIVE);
-        item.setDosageForm(itemDTO.getDosageForm());
-        item.setGenericName(itemDTO.getGenericName());
-        item.setManufacturer(itemDTO.getManufacturer());
         item.setNotes(itemDTO.getNotes());
 
         prescriptionItemRepository.save(item);
@@ -359,7 +395,10 @@ public class PrescriptionService {
             Long count = (Long) stat[1];
 
             switch (status) {
-                case ACTIVE -> stats.setActiveCount(count.intValue());
+                case PENDING -> { /* Count as active for now */ stats.setActiveCount(stats.getActiveCount() + count.intValue()); }
+                case ACTIVE -> stats.setActiveCount(stats.getActiveCount() + count.intValue());
+                case IN_PROGRESS -> { /* Count as active for now */ stats.setActiveCount(stats.getActiveCount() + count.intValue()); }
+                case READY -> { /* Count as active for now */ stats.setActiveCount(stats.getActiveCount() + count.intValue()); }
                 case COMPLETED -> stats.setCompletedCount(count.intValue());
                 case DISCONTINUED -> stats.setDiscontinuedCount(count.intValue());
                 case EXPIRED -> stats.setExpiredCount(count.intValue());
@@ -397,13 +436,24 @@ public class PrescriptionService {
         String prefix = "RX";
         String datePart = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
-        // Get today's prescription count to generate sequence
-        long todayCount = prescriptionRepository.countPrescriptionsByDateRangeAndStatus(
+        // Get today's prescription count (all statuses) to generate sequence
+        long todayCount = prescriptionRepository.countPrescriptionsByDateRange(
                 LocalDateTime.now().withHour(0).withMinute(0).withSecond(0),
-                LocalDateTime.now().withHour(23).withMinute(59).withSecond(59),
-                PrescriptionStatus.ACTIVE) + 1;
+                LocalDateTime.now().withHour(23).withMinute(59).withSecond(59)) + 1;
 
-        return String.format("%s%s%03d", prefix, datePart, todayCount);
+        // Generate ID and ensure it's unique (in case of race conditions)
+        String prescriptionId;
+        int attempts = 0;
+        do {
+            prescriptionId = String.format("%s%s%03d", prefix, datePart, todayCount + attempts);
+            attempts++;
+        } while (prescriptionRepository.existsByPrescriptionId(prescriptionId) && attempts < 100);
+
+        if (attempts >= 100) {
+            throw new RuntimeException("Unable to generate unique prescription ID after 100 attempts");
+        }
+
+        return prescriptionId;
     }
 
     /**
@@ -423,7 +473,7 @@ public class PrescriptionService {
                 prescription.getAdmissionId(),
                 prescription.getStartDate(),
                 prescription.getEndDate(),
-                prescription.getPrescribedBy(),
+                prescription.getPrescribedBy(), // Use string directly
                 prescription.getPrescribedDate(),
                 prescription.getLastModified(),
                 prescription.getStatus(),
@@ -491,5 +541,371 @@ public class PrescriptionService {
 
         public int getUrgentCount() { return urgentCount; }
         public void setUrgentCount(int urgentCount) { this.urgentCount = urgentCount; }
+    }
+
+    // ==================== PHARMACY-SPECIFIC METHODS ====================
+
+    /**
+     * Start processing a prescription (pharmacy workflow)
+     */
+    public PrescriptionResponseDTO startProcessingPrescription(Long id, Map<String, Object> processingData) {
+        return updatePrescriptionStatus(id, PrescriptionStatus.ACTIVE);
+    }
+
+    /**
+     * Mark prescription as ready for dispensing
+     */
+    public PrescriptionResponseDTO markPrescriptionReady(Long id, Map<String, Object> readyData) {
+        return updatePrescriptionStatus(id, PrescriptionStatus.ACTIVE);
+    }
+
+    /**
+     * Dispense medication for a prescription
+     */
+    public PrescriptionResponseDTO dispenseMedication(Long id, Map<String, Object> dispensingData) {
+        Prescription prescription = prescriptionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with id: " + id));
+
+        // Validate prescription can be dispensed
+        if (prescription.getStatus() != PrescriptionStatus.ACTIVE) {
+            throw new IllegalStateException("Prescription must be in ACTIVE status to be dispensed");
+        }
+
+        // Update prescription status to completed (dispensed)
+        prescription.setStatus(PrescriptionStatus.COMPLETED);
+        prescription.setLastModified(LocalDateTime.now());
+
+        // Save pharmacist information if provided (can be enhanced later)
+        if (dispensingData != null) {
+            // Pharmacist information is available in dispensingData
+            // Can be stored in prescription notes or separate tracking entity
+        }
+
+        prescription = prescriptionRepository.save(prescription);
+        return convertToResponseDTO(prescription);
+    }
+
+    /**
+     * Cancel prescription with reason (pharmacy workflow)
+     */
+    public PrescriptionResponseDTO cancelPrescription(Long id, Map<String, Object> cancellationData) {
+        return updatePrescriptionStatus(id, PrescriptionStatus.DISCONTINUED);
+    }
+
+    /**
+     * Get prescription details with pharmacy-specific information
+     */
+    public Optional<PrescriptionResponseDTO> getPrescriptionWithPharmacyDetails(Long id) {
+        return getPrescriptionById(id); // Using existing method for now
+    }
+
+    /**
+     * Check drug interactions for prescription medications
+     */
+    public List<Map<String, Object>> checkDrugInteractions(Long id) {
+        Prescription prescription = prescriptionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with id: " + id));
+
+        List<Map<String, Object>> interactions = new java.util.ArrayList<>();
+        
+        // Simple interaction checking logic (can be enhanced)
+        List<PrescriptionItem> items = prescription.getPrescriptionItems();
+        for (int i = 0; i < items.size(); i++) {
+            for (int j = i + 1; j < items.size(); j++) {
+                PrescriptionItem item1 = items.get(i);
+                PrescriptionItem item2 = items.get(j);
+                
+                // Example interaction check (replace with actual drug interaction database)
+                String drug1 = item1.getDrugName().toLowerCase();
+                String drug2 = item2.getDrugName().toLowerCase();
+                
+                if ((drug1.contains("warfarin") && drug2.contains("aspirin")) ||
+                    (drug1.contains("aspirin") && drug2.contains("warfarin"))) {
+                    
+                    Map<String, Object> interaction = new java.util.HashMap<>();
+                    interaction.put("severity", "high");
+                    interaction.put("drugs", List.of(item1.getDrugName(), item2.getDrugName()));
+                    interaction.put("description", "Increased risk of bleeding when warfarin and aspirin are taken together");
+                    interactions.add(interaction);
+                }
+            }
+        }
+        
+        return interactions;
+    }
+
+    /**
+     * Get prescriptions by status (non-paginated version for frontend)
+     */
+    public List<PrescriptionResponseDTO> getPrescriptionsByStatus(PrescriptionStatus status) {
+        List<Prescription> prescriptions = prescriptionRepository.findByStatusOrderByPrescribedDateDesc(status);
+        return prescriptions.stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get pharmacy statistics
+     */
+    public Map<String, Object> getPharmacyStatistics() {
+        PrescriptionStatistics stats = getPrescriptionStatistics();
+        
+        Map<String, Object> pharmacyStats = new java.util.HashMap<>();
+        pharmacyStats.put("totalPrescriptions", stats.getTotalCount());
+        pharmacyStats.put("activePrescriptions", stats.getActiveCount());
+        pharmacyStats.put("completedPrescriptions", stats.getCompletedCount());
+        pharmacyStats.put("discontinuedPrescriptions", stats.getDiscontinuedCount());
+        pharmacyStats.put("expiredPrescriptions", stats.getExpiredCount());
+        pharmacyStats.put("todayPrescriptions", stats.getTodayCount());
+        pharmacyStats.put("urgentPrescriptions", stats.getUrgentCount());
+        
+        // Additional pharmacy-specific calculations
+        pharmacyStats.put("pendingDispensing", stats.getActiveCount());
+        pharmacyStats.put("dispensedToday", stats.getCompletedCount()); // Simplified - could be enhanced
+        pharmacyStats.put("processingRate", 
+            stats.getTotalCount() > 0 ? 
+                Math.round(((double) stats.getCompletedCount() / stats.getTotalCount()) * 100) : 0);
+        
+        return pharmacyStats;
+    }
+
+    // ==================== PRESCRIPTION ID-BASED METHODS ====================
+
+    /**
+     * Start processing a prescription by prescription ID
+     */
+    public PrescriptionResponseDTO startProcessingPrescriptionByPrescriptionId(String prescriptionId, Map<String, Object> processingData) {
+        Prescription prescription = prescriptionRepository.findByPrescriptionId(prescriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
+        return startProcessingPrescriptionInternal(prescription, processingData);
+    }
+
+    /**
+     * Mark prescription as ready by prescription ID
+     */
+    public PrescriptionResponseDTO markPrescriptionReadyByPrescriptionId(String prescriptionId, Map<String, Object> readyData) {
+        Prescription prescription = prescriptionRepository.findByPrescriptionId(prescriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
+        return markPrescriptionReadyInternal(prescription, readyData);
+    }
+
+    /**
+     * Dispense medication by prescription ID
+     */
+    public PrescriptionResponseDTO dispenseMedicationByPrescriptionId(String prescriptionId, Map<String, Object> dispensingData) {
+        Prescription prescription = prescriptionRepository.findByPrescriptionId(prescriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
+        return dispenseMedicationInternal(prescription, dispensingData);
+    }
+
+    /**
+     * Cancel prescription by prescription ID
+     */
+    public PrescriptionResponseDTO cancelPrescriptionByPrescriptionId(String prescriptionId, Map<String, Object> cancellationData) {
+        Prescription prescription = prescriptionRepository.findByPrescriptionId(prescriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
+        return cancelPrescriptionInternal(prescription, cancellationData);
+    }
+
+    /**
+     * Get prescription with pharmacy details by prescription ID
+     */
+    public Optional<PrescriptionResponseDTO> getPrescriptionWithPharmacyDetailsByPrescriptionId(String prescriptionId) {
+        Optional<Prescription> prescription = prescriptionRepository.findByPrescriptionId(prescriptionId);
+        return prescription.map(this::convertToResponseDTO);
+    }
+
+    /**
+     * Check drug interactions by prescription ID
+     */
+    public List<Map<String, Object>> checkDrugInteractionsByPrescriptionId(String prescriptionId) {
+        Prescription prescription = prescriptionRepository.findByPrescriptionId(prescriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
+        return checkDrugInteractionsInternal(prescription);
+    }
+
+    // ==================== INTERNAL HELPER METHODS ====================
+
+    /**
+     * Internal method to handle prescription processing logic
+     */
+    private PrescriptionResponseDTO startProcessingPrescriptionInternal(Prescription prescription, Map<String, Object> processingData) {
+        // Validate that prescription can be processed
+        if (prescription.getStatus() != PrescriptionStatus.PENDING && 
+            prescription.getStatus() != PrescriptionStatus.ACTIVE) {
+            throw new IllegalStateException("Prescription cannot be processed in current status: " + prescription.getStatus());
+        }
+
+        // Update prescription status
+        prescription.setStatus(PrescriptionStatus.IN_PROGRESS);
+        prescription.setLastModified(LocalDateTime.now());
+
+        // Add processing notes if provided
+        if (processingData != null && processingData.containsKey("notes")) {
+            String existingNotes = prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() : "";
+            String newNotes = "Processing started: " + processingData.get("notes");
+            prescription.setPrescriptionNotes(existingNotes.isEmpty() ? newNotes : existingNotes + "\\n" + newNotes);
+        }
+
+        Prescription savedPrescription = prescriptionRepository.save(prescription);
+        return convertToResponseDTO(savedPrescription);
+    }
+
+    /**
+     * Internal method to handle marking prescription as ready
+     */
+    private PrescriptionResponseDTO markPrescriptionReadyInternal(Prescription prescription, Map<String, Object> readyData) {
+        // Validate that prescription can be marked ready
+        if (prescription.getStatus() != PrescriptionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Prescription must be in progress to mark as ready: " + prescription.getStatus());
+        }
+
+        prescription.setStatus(PrescriptionStatus.READY);
+        prescription.setLastModified(LocalDateTime.now());
+
+        // Add ready notes if provided
+        if (readyData != null && readyData.containsKey("notes")) {
+            String existingNotes = prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() : "";
+            String newNotes = "Ready for dispensing: " + readyData.get("notes");
+            prescription.setPrescriptionNotes(existingNotes.isEmpty() ? newNotes : existingNotes + "\\n" + newNotes);
+        }
+
+        Prescription savedPrescription = prescriptionRepository.save(prescription);
+        return convertToResponseDTO(savedPrescription);
+    }
+
+    /**
+     * Internal method to handle medication dispensing
+     */
+    private PrescriptionResponseDTO dispenseMedicationInternal(Prescription prescription, Map<String, Object> dispensingData) {
+        // Validate that prescription can be dispensed
+        if (prescription.getStatus() != PrescriptionStatus.READY && 
+            prescription.getStatus() != PrescriptionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Prescription cannot be dispensed in current status: " + prescription.getStatus());
+        }
+
+        // Mark prescription as dispensed
+        prescription.setStatus(PrescriptionStatus.COMPLETED);
+        prescription.setLastModified(LocalDateTime.now());
+        // Note: dispensedDate and dispensedBy fields don't exist in the model, storing in notes instead
+
+        // Add dispensing information
+        if (dispensingData != null) {
+            String existingNotes = prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() : "";
+            String dispensingNote = "Dispensed on: " + LocalDateTime.now();
+            
+            if (dispensingData.containsKey("dispensedBy")) {
+                dispensingNote += " by " + dispensingData.get("dispensedBy").toString();
+            }
+            if (dispensingData.containsKey("notes")) {
+                dispensingNote += " - " + dispensingData.get("notes");
+            }
+            
+            prescription.setPrescriptionNotes(existingNotes.isEmpty() ? dispensingNote : existingNotes + "\\n" + dispensingNote);
+        }
+
+        Prescription savedPrescription = prescriptionRepository.save(prescription);
+        return convertToResponseDTO(savedPrescription);
+    }
+
+    /**
+     * Internal method to handle prescription cancellation
+     */
+    private PrescriptionResponseDTO cancelPrescriptionInternal(Prescription prescription, Map<String, Object> cancellationData) {
+        // Validate that prescription can be cancelled
+        if (prescription.getStatus() == PrescriptionStatus.COMPLETED || 
+            prescription.getStatus() == PrescriptionStatus.DISCONTINUED) {
+            throw new IllegalStateException("Cannot cancel prescription in current status: " + prescription.getStatus());
+        }
+
+        prescription.setStatus(PrescriptionStatus.DISCONTINUED);
+        prescription.setLastModified(LocalDateTime.now());
+
+        // Add cancellation reason if provided
+        if (cancellationData != null && cancellationData.containsKey("reason")) {
+            String existingNotes = prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() : "";
+            String cancellationNote = "Cancelled: " + cancellationData.get("reason");
+            prescription.setPrescriptionNotes(existingNotes.isEmpty() ? cancellationNote : existingNotes + "\\n" + cancellationNote);
+        }
+
+        // Add cancelled by if provided
+        if (cancellationData != null && cancellationData.containsKey("cancelledBy")) {
+            String existingNotes = prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() : "";
+            String cancelledByNote = "Cancelled by: " + cancellationData.get("cancelledBy");
+            prescription.setPrescriptionNotes(existingNotes + "\\n" + cancelledByNote);
+        }
+
+        Prescription savedPrescription = prescriptionRepository.save(prescription);
+        return convertToResponseDTO(savedPrescription);
+    }
+
+    /**
+     * Internal method to check drug interactions
+     */
+    private List<Map<String, Object>> checkDrugInteractionsInternal(Prescription prescription) {
+        List<Map<String, Object>> interactions = new java.util.ArrayList<>();
+
+        // Get all medications in this prescription
+        List<PrescriptionItem> items = prescription.getPrescriptionItems();
+
+        // Simple interaction checking (this would be enhanced with a real drug interaction database)
+        for (int i = 0; i < items.size(); i++) {
+            for (int j = i + 1; j < items.size(); j++) {
+                PrescriptionItem item1 = items.get(i);
+                PrescriptionItem item2 = items.get(j);
+
+                // Simulate drug interaction checking
+                Map<String, Object> interaction = checkDrugPairInteraction(
+                    item1.getMedication(), item2.getMedication());
+                
+                if (interaction != null) {
+                    interactions.add(interaction);
+                }
+            }
+        }
+
+        return interactions;
+    }
+
+    /**
+     * Check interaction between two medications (simplified implementation)
+     */
+    private Map<String, Object> checkDrugPairInteraction(Medication med1, Medication med2) {
+        // This is a simplified example. In a real system, you would:
+        // 1. Query a drug interaction database
+        // 2. Check contraindications
+        // 3. Consider dosages and patient conditions
+        
+        // Example interactions (simplified)
+        String med1Name = med1.getDrugName().toLowerCase();
+        String med2Name = med2.getDrugName().toLowerCase();
+
+        // Some basic interaction checks
+        if ((med1Name.contains("warfarin") && med2Name.contains("aspirin")) ||
+            (med1Name.contains("aspirin") && med2Name.contains("warfarin"))) {
+            
+            Map<String, Object> interaction = new java.util.HashMap<>();
+            interaction.put("medication1", med1.getDrugName());
+            interaction.put("medication2", med2.getDrugName());
+            interaction.put("severity", "HIGH");
+            interaction.put("description", "Increased risk of bleeding when warfarin and aspirin are used together");
+            interaction.put("recommendation", "Monitor bleeding parameters closely. Consider alternative therapy.");
+            return interaction;
+        }
+
+        if ((med1Name.contains("lisinopril") && med2Name.contains("potassium")) ||
+            (med1Name.contains("potassium") && med2Name.contains("lisinopril"))) {
+            
+            Map<String, Object> interaction = new java.util.HashMap<>();
+            interaction.put("medication1", med1.getDrugName());
+            interaction.put("medication2", med2.getDrugName());
+            interaction.put("severity", "MODERATE");
+            interaction.put("description", "ACE inhibitors can increase potassium levels");
+            interaction.put("recommendation", "Monitor serum potassium levels regularly");
+            return interaction;
+        }
+
+        // No interaction found
+        return null;
     }
 }

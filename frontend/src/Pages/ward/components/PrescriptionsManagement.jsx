@@ -18,7 +18,9 @@ import {
   RefreshCw,
   Users,
   Activity,
-  X
+  X,
+  Package,
+  Send
 } from 'lucide-react';
 import PrescriptionModal from './PrescriptionModal';
 import usePrescriptions from '../hooks/usePrescriptions';
@@ -58,26 +60,32 @@ const PrescriptionsManagement = () => {
       const matchesStatus = filterStatus === 'all' || prescription.status === filterStatus;
 
       let matchesDate = true;
-      if (filterDate !== 'all') {
-        const prescDate = new Date(prescription.prescribedDate);
-        const today = new Date();
-        
-        switch (filterDate) {
-          case 'today':
-            matchesDate = prescDate.toDateString() === today.toDateString();
-            break;
-          case 'week': {
-            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            matchesDate = prescDate >= weekAgo;
-            break;
+      if (filterDate !== 'all' && prescription.prescribedDate) {
+        try {
+          const prescDate = new Date(prescription.prescribedDate);
+          if (!isNaN(prescDate.getTime())) {
+            const today = new Date();
+            
+            switch (filterDate) {
+              case 'today':
+                matchesDate = prescDate.toDateString() === today.toDateString();
+                break;
+              case 'week': {
+                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchesDate = prescDate >= weekAgo;
+                break;
+              }
+              case 'month': {
+                const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchesDate = prescDate >= monthAgo;
+                break;
+              }
+              default:
+                matchesDate = true;
+            }
           }
-          case 'month': {
-            const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            matchesDate = prescDate >= monthAgo;
-            break;
-          }
-          default:
-            matchesDate = true;
+        } catch {
+          matchesDate = filterDate === 'all';
         }
       }
 
@@ -99,9 +107,15 @@ const PrescriptionsManagement = () => {
       expired: prescriptions.filter(p => p.status === 'expired').length,
       discontinued: prescriptions.filter(p => p.status === 'discontinued').length,
       todaysPrescriptions: prescriptions.filter(p => {
-        const prescDate = new Date(p.prescribedDate);
-        const today = new Date();
-        return prescDate.toDateString() === today.toDateString();
+        if (!p.prescribedDate) return false;
+        try {
+          const prescDate = new Date(p.prescribedDate);
+          if (isNaN(prescDate.getTime())) return false;
+          const today = new Date();
+          return prescDate.toDateString() === today.toDateString();
+        } catch {
+          return false;
+        }
       }).length,
       urgentPrescriptions: prescriptions.filter(p => p.isUrgent).length,
       activePatients: activePatients.length
@@ -175,18 +189,32 @@ const PrescriptionsManagement = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    if (!dateString) return 'Date not available';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Invalid date';
+    }
   };
 
   const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!dateString) return 'Time not available';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid time';
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid time';
+    }
   };
 
   return (

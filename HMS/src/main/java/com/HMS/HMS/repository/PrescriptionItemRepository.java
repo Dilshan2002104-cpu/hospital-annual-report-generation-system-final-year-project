@@ -22,9 +22,12 @@ public interface PrescriptionItemRepository extends JpaRepository<PrescriptionIt
     // Find items by prescription and status
     List<PrescriptionItem> findByPrescriptionIdAndItemStatusOrderByCreatedAtAsc(Long prescriptionId, PrescriptionStatus status);
 
-    // Find items by drug name
-    List<PrescriptionItem> findByDrugNameContainingIgnoreCaseOrderByCreatedAtDesc(String drugName);
-    Page<PrescriptionItem> findByDrugNameContainingIgnoreCaseOrderByCreatedAtDesc(String drugName, Pageable pageable);
+    // Find items by drug name (now through medication relationship)
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE LOWER(pi.medication.drugName) LIKE LOWER(CONCAT('%', :drugName, '%')) ORDER BY pi.createdAt DESC")
+    List<PrescriptionItem> findByDrugNameContainingIgnoreCaseOrderByCreatedAtDesc(@Param("drugName") String drugName);
+
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE LOWER(pi.medication.drugName) LIKE LOWER(CONCAT('%', :drugName, '%')) ORDER BY pi.createdAt DESC")
+    Page<PrescriptionItem> findByDrugNameContainingIgnoreCaseOrderByCreatedAtDesc(@Param("drugName") String drugName, Pageable pageable);
 
     // Find urgent items
     List<PrescriptionItem> findByIsUrgentTrueAndItemStatusOrderByCreatedAtDesc(PrescriptionStatus status);
@@ -34,7 +37,8 @@ public interface PrescriptionItemRepository extends JpaRepository<PrescriptionIt
     Page<PrescriptionItem> findByItemStatusOrderByCreatedAtDesc(PrescriptionStatus status, Pageable pageable);
 
     // Find items by prescription and drug name (to check for duplicates)
-    List<PrescriptionItem> findByPrescriptionIdAndDrugNameIgnoreCase(Long prescriptionId, String drugName);
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.id = :prescriptionId AND LOWER(pi.medication.drugName) = LOWER(:drugName)")
+    List<PrescriptionItem> findByPrescriptionIdAndDrugNameIgnoreCase(@Param("prescriptionId") Long prescriptionId, @Param("drugName") String drugName);
 
     // Count items by status
     long countByItemStatus(PrescriptionStatus status);
@@ -50,26 +54,26 @@ public interface PrescriptionItemRepository extends JpaRepository<PrescriptionIt
     Page<PrescriptionItem> findByCreatedAtBetweenOrderByCreatedAtDesc(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
 
     // Find items by prescription patient national ID (through prescription relationship)
-    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.patientNationalId = :patientNationalId ORDER BY pi.createdAt DESC")
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.patient.nationalId = :patientNationalId ORDER BY pi.createdAt DESC")
     List<PrescriptionItem> findByPatientNationalId(@Param("patientNationalId") String patientNationalId);
 
-    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.patientNationalId = :patientNationalId ORDER BY pi.createdAt DESC")
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.patient.nationalId = :patientNationalId ORDER BY pi.createdAt DESC")
     Page<PrescriptionItem> findByPatientNationalId(@Param("patientNationalId") String patientNationalId, Pageable pageable);
 
     // Find active items by patient
-    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.patientNationalId = :patientNationalId AND pi.itemStatus = :status ORDER BY pi.createdAt DESC")
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.prescription.patient.nationalId = :patientNationalId AND pi.itemStatus = :status ORDER BY pi.createdAt DESC")
     List<PrescriptionItem> findActiveByPatientNationalId(@Param("patientNationalId") String patientNationalId, @Param("status") PrescriptionStatus status);
 
     // Search items by drug name, generic name, or notes
     @Query("SELECT pi FROM PrescriptionItem pi WHERE " +
-           "(LOWER(pi.drugName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(pi.genericName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "(LOWER(pi.medication.drugName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(pi.medication.genericName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(pi.notes) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
            "ORDER BY pi.createdAt DESC")
     Page<PrescriptionItem> searchPrescriptionItems(@Param("searchTerm") String searchTerm, Pageable pageable);
 
     // Get medication usage statistics
-    @Query("SELECT pi.drugName, COUNT(pi) FROM PrescriptionItem pi WHERE pi.createdAt >= :fromDate GROUP BY pi.drugName ORDER BY COUNT(pi) DESC")
+    @Query("SELECT pi.medication.drugName, COUNT(pi) FROM PrescriptionItem pi WHERE pi.createdAt >= :fromDate GROUP BY pi.medication.drugName ORDER BY COUNT(pi) DESC")
     List<Object[]> getMedicationUsageStatistics(@Param("fromDate") LocalDateTime fromDate);
 
     // Get items by prescription status and item status
@@ -88,17 +92,19 @@ public interface PrescriptionItemRepository extends JpaRepository<PrescriptionIt
     List<PrescriptionItem> findItemsNeedingReview(@Param("status") PrescriptionStatus status, @Param("reviewDate") LocalDateTime reviewDate);
 
     // Check if patient has active item for same drug
-    @Query("SELECT COUNT(pi) > 0 FROM PrescriptionItem pi WHERE pi.prescription.patientNationalId = :patientNationalId " +
-           "AND LOWER(pi.drugName) = LOWER(:drugName) AND pi.itemStatus = :status")
+    @Query("SELECT COUNT(pi) > 0 FROM PrescriptionItem pi WHERE pi.prescription.patient.nationalId = :patientNationalId " +
+           "AND LOWER(pi.medication.drugName) = LOWER(:drugName) AND pi.itemStatus = :status")
     boolean hasActiveItemForDrug(@Param("patientNationalId") String patientNationalId,
                                 @Param("drugName") String drugName,
                                 @Param("status") PrescriptionStatus status);
 
     // Get items with specific dosage form
-    List<PrescriptionItem> findByDosageFormIgnoreCase(String dosageForm);
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE LOWER(pi.medication.dosageForm) = LOWER(:dosageForm)")
+    List<PrescriptionItem> findByDosageFormIgnoreCase(@Param("dosageForm") String dosageForm);
 
     // Get items by manufacturer
-    List<PrescriptionItem> findByManufacturerContainingIgnoreCase(String manufacturer);
+    @Query("SELECT pi FROM PrescriptionItem pi WHERE LOWER(pi.medication.manufacturer) LIKE LOWER(CONCAT('%', :manufacturer, '%'))")
+    List<PrescriptionItem> findByManufacturerContainingIgnoreCase(@Param("manufacturer") String manufacturer);
 
     // Delete items by prescription ID (for cascade operations)
     void deleteByPrescriptionId(Long prescriptionId);

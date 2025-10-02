@@ -401,7 +401,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
       if (response.data && Array.isArray(response.data)) {
         // Direct array response
         const transformedMedications = response.data.map(med => ({
-          id: med.medicationId || med.id,
+          id: med.id, // Use the actual database ID
           name: med.drugName || med.name || med.medicationName,
           genericName: med.genericName,
           category: med.category || med.drugCategory,
@@ -432,7 +432,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
       } else if (response.data && response.data.content && Array.isArray(response.data.content)) {
         // Paginated response
         const transformedMedications = response.data.content.map(med => ({
-          id: med.medicationId || med.id,
+          id: med.id, // Use the actual database ID
           name: med.drugName || med.name || med.medicationName,
           genericName: med.genericName,
           category: med.category || med.drugCategory,
@@ -614,8 +614,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
   // Add medication to prescription
   const addMedication = (medication) => {
     const newMedication = {
-      id: Date.now(),
-      medicationId: medication.id,
+      id: medication.id, // Use the actual medication database ID
       name: medication.name,
       genericName: medication.genericName,
       category: medication.category,
@@ -872,7 +871,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
           if (response.data && Array.isArray(response.data)) {
             // Direct array response
             const transformedMedications = response.data.map(med => ({
-              id: med.medicationId || med.id,
+              id: med.id, // Use the actual database ID
               name: med.drugName || med.name || med.medicationName,
               genericName: med.genericName,
               category: med.category || med.drugCategory,
@@ -903,7 +902,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
           } else if (response.data && response.data.content && Array.isArray(response.data.content)) {
             // Paginated response
             const transformedMedications = response.data.content.map(med => ({
-              id: med.medicationId || med.id,
+              id: med.id, // Use the actual database ID
               name: med.drugName || med.name || med.medicationName,
               genericName: med.genericName,
               category: med.category || med.drugCategory,
@@ -997,22 +996,19 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
     setIsSubmitting(true);
 
     try {
-      // Create single grouped prescription with multiple medications (NEW API format)
+      // Create single grouped prescription with multiple medications (API format)
       const groupedPrescription = {
         // Patient and prescription metadata
         patientNationalId: selectedPatient.patientNationalId,
-        patientName: selectedPatient.patientName,
         admissionId: selectedPatient.admissionId,
+        prescribedBy: "Ward Doctor", // Use string instead of doctor entity
         startDate: prescriptionData.startDate,
         endDate: null, // Optional - can be set later
-        prescribedBy: 'Current Doctor', // TODO: Get from auth context
-        wardName: selectedPatient.wardName,
-        bedNumber: selectedPatient.bedNumber,
-        prescriptionNotes: `Prescription for ${selectedMedications.length} medication(s)`,
+        prescriptionNotes: `Ward prescription for ${selectedMedications.length} medication(s) - Patient: ${selectedPatient.patientName}`,
 
         // Convert selected medications to prescriptionItems format
         medications: selectedMedications.map(medication => ({
-          drugName: medication.name,
+          medicationId: medication.id, // Use medication entity ID (required relationship field)
           dose: medication.dosage,
           frequency: medication.frequency,
           quantity: parseInt(medication.quantity) || 1,
@@ -1020,9 +1016,6 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
           instructions: medication.instructions || '',
           route: medication.route || 'Oral',
           isUrgent: medication.isUrgent || false,
-          dosageForm: medication.dosageForm || 'tablet',
-          genericName: medication.genericName || '',
-          manufacturer: medication.manufacturer || '',
           notes: medication.notes || ''
         }))
       };
@@ -1336,7 +1329,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
                           type="button"
                           onClick={() => addMedication(medication)}
                           className="p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-white transition-all duration-200 text-left min-h-[140px] flex flex-col justify-between bg-white shadow-sm"
-                          disabled={selectedMedications.some(med => med.medicationId === medication.id)}
+                          disabled={selectedMedications.some(med => med.id === medication.id)}
                         >
                           <div className="space-y-2 flex-1">
                             <div className="flex items-start justify-between">
@@ -1357,7 +1350,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
                               <div>{medication.manufacturer}</div>
                             </div>
                           </div>
-                          {selectedMedications.some(med => med.medicationId === medication.id) && (
+                          {selectedMedications.some(med => med.id === medication.id) && (
                             <div className="text-xs text-green-600 font-medium mt-2 flex items-center">
                               <span className="bg-green-100 px-2 py-1 rounded-full">✓ Added</span>
                             </div>
@@ -1412,7 +1405,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
                           type="button"
                           onClick={() => addMedication(medication)}
                           className="p-4 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-white transition-all duration-200 text-left min-h-[140px] flex flex-col justify-between bg-white shadow-sm"
-                          disabled={selectedMedications.some(med => med.medicationId === medication.id)}
+                          disabled={selectedMedications.some(med => med.id === medication.id)}
                         >
                           <div className="space-y-2 flex-1">
                             <div className="flex items-start justify-between">
@@ -1433,7 +1426,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
                               <div>{medication.manufacturer}</div>
                             </div>
                           </div>
-                          {selectedMedications.some(med => med.medicationId === medication.id) && (
+                          {selectedMedications.some(med => med.id === medication.id) && (
                             <div className="text-xs text-green-600 font-medium mt-2 flex items-center">
                               <span className="bg-green-100 px-2 py-1 rounded-full">✓ Added</span>
                             </div>

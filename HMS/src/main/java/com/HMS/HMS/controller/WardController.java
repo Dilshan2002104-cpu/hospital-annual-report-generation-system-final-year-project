@@ -1,8 +1,6 @@
 package com.HMS.HMS.controller;
 
 import com.HMS.HMS.DTO.WardDTO.BasicWardDTO;
-import com.HMS.HMS.model.ward.Ward;
-import com.HMS.HMS.repository.WardRepository;
 import com.HMS.HMS.service.WardService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +23,4 @@ public class WardController {
     public ResponseEntity<List<BasicWardDTO>> getAllWards(){
         return ResponseEntity.ok(wardService.getAllWards());
     }
-
-
 }

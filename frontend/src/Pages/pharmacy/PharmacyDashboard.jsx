@@ -22,7 +22,7 @@ import PharmacyAnalytics from './components/PharmacyAnalytics';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 
 // Import custom hooks
-import usePrescriptions from './hooks/usePrescriptions';
+import { usePrescriptions } from './hooks/usePrescriptions';
 import useInventory from './hooks/useInventory';
 import useDrugDatabase from './hooks/useDrugDatabase';
 
@@ -31,11 +31,6 @@ export default function PharmacyDashboard() {
   const [toasts, setToasts] = useState([]);
 
   // Toast functions (defined before hooks that might need them)
-  function addToast(type, title, message) {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, type, title, message }]);
-  }
-
   function removeToast(id) {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }
@@ -46,26 +41,19 @@ export default function PharmacyDashboard() {
     loading: prescriptionsLoading,
     processPrescription,
     dispenseMedication,
+    cancelPrescription,
     verifyInteractions,
-    addPrescription,
-    getPrescriptionsByStatus,
     getStats: getPrescriptionStats
   } = usePrescriptions();
 
   const {
     inventory,
     loading: inventoryLoading,
-    error: inventoryError,
     updateStock,
     addInventoryItem,
     refreshInventory,
-    getLowStockItems,
-    getOutOfStockItems,
-    getExpiringItems,
-    searchInventory,
     getStats: getInventoryStats,
-    getReorderSuggestions,
-    updateMultipleStock
+    getReorderSuggestions
   } = useInventory();
 
   const {
@@ -181,7 +169,8 @@ export default function PharmacyDashboard() {
             onProcessPrescription={processPrescription}
             onUpdateStatus={processPrescription} // Using processPrescription for status updates
             onCheckInteractions={verifyInteractions}
-            drugDatabase={searchResults || drugDatabase}
+            onDispenseMedication={dispenseMedication}
+            onCancelPrescription={cancelPrescription}
             stats={pharmacyStats}
           />
         );

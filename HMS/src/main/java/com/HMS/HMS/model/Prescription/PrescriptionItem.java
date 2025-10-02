@@ -1,5 +1,7 @@
 package com.HMS.HMS.model.Prescription;
 
+import com.HMS.HMS.model.Medication.Medication;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -9,7 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "prescription_items", indexes = {
     @Index(name = "idx_prescription_item_prescription", columnList = "prescription_id"),
-    @Index(name = "idx_prescription_item_drug", columnList = "drug_name")
+    @Index(name = "idx_prescription_item_medication", columnList = "medication_id")
 })
 public class PrescriptionItem {
 
@@ -21,8 +23,11 @@ public class PrescriptionItem {
     @JoinColumn(name = "prescription_id", nullable = false)
     private Prescription prescription;
 
-    @Column(name = "drug_name", nullable = false, length = 255)
-    private String drugName;
+    // Proper relationship with Medication entity
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "medication_id", nullable = true)  // Nullable to support existing data migration
+    @JsonBackReference("medication-prescription-items")
+    private Medication medication;
 
     @Column(name = "dose", nullable = false, length = 50)
     private String dose;
@@ -57,16 +62,6 @@ public class PrescriptionItem {
     @Column(name = "last_modified")
     private LocalDateTime lastModified;
 
-    // Additional medication details
-    @Column(name = "dosage_form", length = 50)
-    private String dosageForm;
-
-    @Column(name = "generic_name", length = 255)
-    private String genericName;
-
-    @Column(name = "manufacturer", length = 255)
-    private String manufacturer;
-
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
@@ -74,13 +69,14 @@ public class PrescriptionItem {
     public PrescriptionItem() {}
 
     // Constructor with required fields
-    public PrescriptionItem(Prescription prescription, String drugName, String dose,
-                           String frequency, Integer quantity) {
+    public PrescriptionItem(Prescription prescription, Medication medication, String dose,
+                           String frequency, Integer quantity, String route) {
         this.prescription = prescription;
-        this.drugName = drugName;
+        this.medication = medication;
         this.dose = dose;
         this.frequency = frequency;
         this.quantity = quantity;
+        this.route = route;
         this.isUrgent = false;
         this.itemStatus = PrescriptionStatus.ACTIVE;
     }
@@ -102,12 +98,12 @@ public class PrescriptionItem {
         this.prescription = prescription;
     }
 
-    public String getDrugName() {
-        return drugName;
+    public Medication getMedication() {
+        return medication;
     }
 
-    public void setDrugName(String drugName) {
-        this.drugName = drugName;
+    public void setMedication(Medication medication) {
+        this.medication = medication;
     }
 
     public String getDose() {
@@ -190,30 +186,6 @@ public class PrescriptionItem {
         this.lastModified = lastModified;
     }
 
-    public String getDosageForm() {
-        return dosageForm;
-    }
-
-    public void setDosageForm(String dosageForm) {
-        this.dosageForm = dosageForm;
-    }
-
-    public String getGenericName() {
-        return genericName;
-    }
-
-    public void setGenericName(String genericName) {
-        this.genericName = genericName;
-    }
-
-    public String getManufacturer() {
-        return manufacturer;
-    }
-
-    public void setManufacturer(String manufacturer) {
-        this.manufacturer = manufacturer;
-    }
-
     public String getNotes() {
         return notes;
     }
@@ -222,11 +194,28 @@ public class PrescriptionItem {
         this.notes = notes;
     }
 
+    // Helper methods to get medication details
+    public String getDrugName() {
+        return medication != null ? medication.getDrugName() : null;
+    }
+
+    public String getGenericName() {
+        return medication != null ? medication.getGenericName() : null;
+    }
+
+    public String getDosageForm() {
+        return medication != null ? medication.getDosageForm() : null;
+    }
+
+    public String getManufacturer() {
+        return medication != null ? medication.getManufacturer() : null;
+    }
+
     @Override
     public String toString() {
         return "PrescriptionItem{" +
                 "id=" + id +
-                ", drugName='" + drugName + '\'' +
+                ", drugName='" + getDrugName() + '\'' +
                 ", dose='" + dose + '\'' +
                 ", frequency='" + frequency + '\'' +
                 ", quantity=" + quantity +

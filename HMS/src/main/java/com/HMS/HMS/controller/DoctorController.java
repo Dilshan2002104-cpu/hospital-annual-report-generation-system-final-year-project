@@ -2,9 +2,7 @@ package com.HMS.HMS.controller;
 
 import com.HMS.HMS.model.doctor.Doctor;
 import com.HMS.HMS.service.DoctorService;
-import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

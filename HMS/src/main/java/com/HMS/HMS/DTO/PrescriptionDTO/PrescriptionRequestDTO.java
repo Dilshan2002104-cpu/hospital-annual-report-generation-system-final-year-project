@@ -7,13 +7,13 @@ import java.util.ArrayList;
 public class PrescriptionRequestDTO {
 
     private String patientNationalId;
-    private String patientName;
+    private String patientName;           // Optional - will be fetched from Patient entity
     private Long admissionId;
     private LocalDate startDate;
     private LocalDate endDate;
-    private String prescribedBy;
-    private String wardName;
-    private String bedNumber;
+    private String prescribedBy;          // Doctor name as string
+    private String wardName;              // Optional - will be fetched from Admission entity
+    private String bedNumber;             // Optional - will be fetched from Admission entity
     private String prescriptionNotes;
     private List<PrescriptionItemDTO> prescriptionItems;
 

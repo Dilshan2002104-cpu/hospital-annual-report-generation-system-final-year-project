@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -74,10 +73,9 @@ public class ReportDashboardController {
     public ResponseEntity<Map<String, Object>> getKPIs(@PathVariable int year) {
         try {
             ClinicStatisticsReportDTO reportData = clinicReportService.generateClinicStatisticsReport(year);
-            ClinicStatisticsReportDTO previousYearData = null;
 
             try {
-                previousYearData = clinicReportService.generateClinicStatisticsReport(year - 1);
+                clinicReportService.generateClinicStatisticsReport(year - 1);
             } catch (Exception e) {
                 // Previous year data might not be available
             }

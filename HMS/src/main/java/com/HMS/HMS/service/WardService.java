@@ -1,7 +1,6 @@
 package com.HMS.HMS.service;
 
 import com.HMS.HMS.DTO.WardDTO.BasicWardDTO;
-import com.HMS.HMS.model.ward.Ward;
 import com.HMS.HMS.repository.WardRepository;
 import org.springframework.stereotype.Service;
 
