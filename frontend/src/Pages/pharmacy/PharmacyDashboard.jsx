@@ -43,7 +43,14 @@ export default function PharmacyDashboard() {
     dispenseMedication,
     cancelPrescription,
     verifyInteractions,
-    getStats: getPrescriptionStats
+    getStats: getPrescriptionStats,
+    // WebSocket properties
+    wsConnected,
+    wsError,
+    wsNotifications,
+    wsUnreadCount,
+    markNotificationAsRead,
+    clearNotifications
   } = usePrescriptions();
 
   const {
@@ -240,6 +247,26 @@ export default function PharmacyDashboard() {
       {/* Navigation Tabs */}
       <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* WebSocket Connection Status */}
+          <div className="flex items-center justify-end pt-2 pb-1">
+            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${
+              wsConnected
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+              }`}></div>
+              <span>
+                {wsConnected ? 'Real-time updates active' : 'Connecting...'}
+              </span>
+              {wsUnreadCount > 0 && (
+                <span className="bg-blue-500 text-white px-2 py-0.5 rounded-full text-xs">
+                  {wsUnreadCount} new
+                </span>
+              )}
+            </div>
+          </div>
           <nav className="flex space-x-1 py-4 overflow-x-auto">
             {tabs.map((tab) => (
               <button

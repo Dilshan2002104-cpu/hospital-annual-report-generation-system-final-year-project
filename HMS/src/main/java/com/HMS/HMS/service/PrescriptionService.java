@@ -38,18 +38,21 @@ public class PrescriptionService {
     private final PatientRepository patientRepository;
     private final AdmissionRepository admissionRepository;
     private final MedicationRepository medicationRepository;
+    private final com.HMS.HMS.websocket.PrescriptionNotificationService notificationService;
 
     @Autowired
     public PrescriptionService(PrescriptionRepository prescriptionRepository,
                              PrescriptionItemRepository prescriptionItemRepository,
                              PatientRepository patientRepository,
                              AdmissionRepository admissionRepository,
-                             MedicationRepository medicationRepository) {
+                             MedicationRepository medicationRepository,
+                             com.HMS.HMS.websocket.PrescriptionNotificationService notificationService) {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
         this.patientRepository = patientRepository;
         this.admissionRepository = admissionRepository;
         this.medicationRepository = medicationRepository;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -125,7 +128,26 @@ public class PrescriptionService {
                 savedPrescription.addPrescriptionItem(item);
             }
 
-            return convertToResponseDTO(savedPrescription);
+            // Convert to DTO for response
+            PrescriptionResponseDTO responseDTO = convertToResponseDTO(savedPrescription);
+
+            // Send WebSocket notification to pharmacy
+            try {
+                // Check if any medication is urgent
+                boolean hasUrgentMeds = requestDTO.getPrescriptionItems().stream()
+                        .anyMatch(item -> item.getIsUrgent() != null && item.getIsUrgent());
+
+                if (hasUrgentMeds) {
+                    notificationService.notifyUrgentPrescription(responseDTO);
+                } else {
+                    notificationService.notifyPrescriptionCreated(responseDTO);
+                }
+            } catch (Exception e) {
+                // Log but don't fail prescription creation if WebSocket fails
+                System.err.println("Failed to send WebSocket notification: " + e.getMessage());
+            }
+
+            return responseDTO;
             
         } catch (IllegalArgumentException e) {
             // Re-throw validation errors

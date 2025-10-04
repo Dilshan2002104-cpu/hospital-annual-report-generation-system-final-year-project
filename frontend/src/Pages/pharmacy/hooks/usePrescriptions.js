@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import usePrescriptionWebSocket from './usePrescriptionWebSocket';
 
 export const usePrescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -117,6 +118,76 @@ export const usePrescriptions = () => {
       setLoading(false);
     }
   }, [fetchPrescriptionsFromAPI]);
+
+  // WebSocket handler for real-time prescription updates
+  const handlePrescriptionWebSocketUpdate = useCallback((data) => {
+    console.log('🔄 Processing WebSocket update:', data);
+
+    if (data.type === 'PRESCRIPTION_CREATED' || data.type === 'PRESCRIPTION_URGENT') {
+      // Transform the prescription data
+      const transformedPrescription = {
+        id: data.prescription.prescriptionId || data.prescription.id,
+        prescriptionId: data.prescription.prescriptionId,
+        patientName: data.prescription.patientName,
+        patientId: data.prescription.patientId,
+        patientNationalId: data.prescription.patientNationalId,
+        doctorName: data.prescription.doctorName || data.prescription.prescribedBy,
+        admissionId: data.prescription.admissionId,
+        wardName: data.prescription.wardName,
+        bedNumber: data.prescription.bedNumber,
+        medications: data.prescription.prescriptionItems || data.prescription.medications || [],
+        prescriptionItems: data.prescription.prescriptionItems || [],
+        totalMedications: data.prescription.totalMedications,
+        status: data.prescription.status || 'ACTIVE',
+        prescribedDate: data.prescription.prescribedDate,
+        startDate: data.prescription.startDate,
+        endDate: data.prescription.endDate,
+        instructions: data.prescription.instructions,
+        notes: data.prescription.prescriptionNotes || data.prescription.notes,
+        prescriptionNotes: data.prescription.prescriptionNotes,
+        urgency: data.priority === 'HIGH' ? 'urgent' : determinePrescriptionUrgency(data.prescription),
+        needsReview: (data.prescription.prescriptionItems || []).some(med => med.isHighRisk) || false,
+        interactions: [],
+        receivedAt: data.prescription.prescribedDate || new Date().toISOString(),
+        processedAt: null,
+        dispensedAt: null,
+        processedBy: null,
+        createdAt: data.prescription.createdAt,
+        lastModified: data.prescription.lastModified
+      };
+
+      // Add to prescription list (prepend to show newest first)
+      setPrescriptions(prev => {
+        // Check if prescription already exists
+        const exists = prev.some(p => p.prescriptionId === transformedPrescription.prescriptionId);
+        if (exists) {
+          return prev; // Don't add duplicates
+        }
+        return [transformedPrescription, ...prev];
+      });
+
+      console.log('✅ New prescription added to pharmacy list:', transformedPrescription.prescriptionId);
+    } else if (data.type === 'PRESCRIPTION_UPDATED') {
+      // Update existing prescription
+      setPrescriptions(prev => prev.map(p =>
+        p.prescriptionId === data.prescription.prescriptionId
+          ? { ...p, ...data.prescription }
+          : p
+      ));
+      console.log('✅ Prescription updated:', data.prescription.prescriptionId);
+    } else if (data.type === 'PRESCRIPTION_CANCELLED') {
+      // Update status to cancelled
+      setPrescriptions(prev => prev.map(p =>
+        p.prescriptionId === data.prescriptionId
+          ? { ...p, status: 'cancelled' }
+          : p
+      ));
+      console.log('✅ Prescription cancelled:', data.prescriptionId);
+    }
+  }, [determinePrescriptionUrgency]);
+
+  // Initialize WebSocket for real-time updates
+  const webSocket = usePrescriptionWebSocket(handlePrescriptionWebSocketUpdate);
 
   useEffect(() => {
     initializePrescriptions();
@@ -249,6 +320,14 @@ export const usePrescriptions = () => {
     verifyInteractions,
     getPrescriptionsByStatus,
     getStats,
-    refreshPrescriptions
+    refreshPrescriptions,
+    // WebSocket properties
+    wsConnected: webSocket.isConnected,
+    wsError: webSocket.error,
+    wsNotifications: webSocket.notifications,
+    wsUnreadCount: webSocket.unreadCount,
+    markNotificationAsRead: webSocket.markAsRead,
+    markAllNotificationsAsRead: webSocket.markAllAsRead,
+    clearNotifications: webSocket.clearNotifications
   };
 };
