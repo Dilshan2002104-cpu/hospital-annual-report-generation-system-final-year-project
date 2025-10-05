@@ -1,8 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   FileText,
   Download,
-  Calendar,
   TrendingUp,
   Activity,
   BarChart3,
@@ -13,27 +12,31 @@ import {
 import axios from 'axios';
 
 export default function PharmacyReports() {
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
-  });
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch report data when date range changes
+  // Generate years for dropdown (current year and previous 5 years)
+  const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
+
+  // Fetch report data when year changes
   useEffect(() => {
     fetchReportData();
-  }, [dateRange]);
+  }, [selectedYear, fetchReportData]);
 
-  const fetchReportData = async () => {
+  const fetchReportData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Calculate start and end dates for the selected year
+      const startDate = `${selectedYear}-01-01`;
+      const endDate = `${selectedYear}-12-31`;
+
       const response = await axios.get('http://localhost:8080/api/reports/pharmacy/prescription/dispensing', {
         params: {
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate
+          startDate: startDate,
+          endDate: endDate
         }
       });
       setReportData(response.data);
@@ -43,14 +46,49 @@ export default function PharmacyReports() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear]);
 
   const handleDownloadPDF = async () => {
-    // Future implementation: Call backend PDF generation endpoint
-    console.log('Download PDF for date range:', dateRange);
+    try {
+      if (!reportData) {
+        console.error('No report data available for PDF generation');
+        return;
+      }
+
+      const startDate = `${selectedYear}-01-01`;
+      const endDate = `${selectedYear}-12-31`;
+      
+      console.log(`Downloading PDF for year: ${selectedYear}`);
+      
+      const response = await fetch(`/api/reports/pharmacy/prescription/dispensing/pdf?startDate=${startDate}&endDate=${endDate}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `prescription-dispensing-report-${selectedYear}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('PDF download completed successfully');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      // You could add a toast notification here to inform the user of the error
+    }
   };
 
-  const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
+  const StatCard = ({ title, value, subtitle,color }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-start justify-between">
         <div>
@@ -91,42 +129,38 @@ export default function PharmacyReports() {
       {/* Report Configuration */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-blue-600" />
-            Prescription Dispensing Report
-          </h3>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-blue-600" />
+              Prescription Dispensing Report
+            </h3>
+            <p className="text-gray-600 text-sm mt-1">Annual prescription dispensing statistics and performance metrics</p>
+          </div>
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={loading}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4 mr-2" />
             Download PDF
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={dateRange.startDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={dateRange.endDate}
-              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="max-w-xs">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Report Year
+          </label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={loading}
+          >
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+          <p className="text-sm text-gray-500 mt-1">Select the year for statistical analysis</p>
         </div>
       </div>
 

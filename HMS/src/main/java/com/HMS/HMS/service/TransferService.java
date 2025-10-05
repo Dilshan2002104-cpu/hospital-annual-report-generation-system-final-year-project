@@ -1,5 +1,6 @@
 package com.HMS.HMS.service;
 
+import com.HMS.HMS.DTO.AdmissionDTO.AdmissionResponseDTO;
 import com.HMS.HMS.DTO.transferDTO.TransferRequestDTO;
 import com.HMS.HMS.DTO.transferDTO.TransferResponseDTO;
 import com.HMS.HMS.model.Admission.Admission;
@@ -9,6 +10,7 @@ import com.HMS.HMS.model.ward.Ward;
 import com.HMS.HMS.repository.AdmissionRepository;
 import com.HMS.HMS.repository.TransferRepository;
 import com.HMS.HMS.repository.WardRepository;
+import com.HMS.HMS.websocket.AdmissionNotificationService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -23,12 +25,17 @@ public class TransferService {
     private final TransferRepository transferRepository;
     private final AdmissionRepository admissionRepository;
     private final WardRepository wardRepository;
+    private final AdmissionNotificationService notificationService;
 
 
-    public TransferService(TransferRepository transferRepository, AdmissionRepository admissionRepository, WardRepository wardRepository) {
+    public TransferService(TransferRepository transferRepository, 
+                          AdmissionRepository admissionRepository, 
+                          WardRepository wardRepository,
+                          AdmissionNotificationService notificationService) {
         this.transferRepository = transferRepository;
         this.admissionRepository = admissionRepository;
         this.wardRepository = wardRepository;
+        this.notificationService = notificationService;
     }
 
     public TransferResponseDTO transferPatientInstantly(TransferRequestDTO request){
@@ -84,7 +91,22 @@ public class TransferService {
         currentAdmission.getPatient().addAdmission(savedNewAdmission);
         newWard.addAdmission(savedNewAdmission);
 
-        return convertToResponseDTO(savedTransfer);
+        TransferResponseDTO transferResponse = convertToResponseDTO(savedTransfer);
+        
+        // Create admission response for WebSocket notification
+        AdmissionResponseDTO newAdmissionResponse = convertAdmissionToResponseDTO(savedNewAdmission);
+        
+        // Send real-time WebSocket notification
+        try {
+            notificationService.notifyPatientTransferred(transferResponse, newAdmissionResponse);
+            System.out.println("✅ Real-time transfer notification sent for patient: " + 
+                             currentAdmission.getPatient().getFullName());
+        } catch (Exception e) {
+            System.err.println("❌ Failed to send transfer notification: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return transferResponse;
     }
 
     public List<TransferResponseDTO> getTransferHistory(String patientNationalId){
@@ -145,6 +167,20 @@ public class TransferService {
                 transfer.getOldAdmission().getAdmissionId(),
                 transfer.getNewAdmission().getAdmissionId()
                 );
+    }
+
+    private AdmissionResponseDTO convertAdmissionToResponseDTO(Admission admission) {
+        return new AdmissionResponseDTO(
+                admission.getAdmissionId(),
+                admission.getPatient().getNationalId(),
+                admission.getPatient().getFullName(),
+                admission.getWard().getWardId(),
+                admission.getWard().getWardName(),
+                admission.getBedNumber(),
+                admission.getAdmissionDate(),
+                admission.getDischargeDate(),
+                admission.getStatus()
+        );
     }
 
 }

@@ -2,6 +2,8 @@ package com.HMS.HMS.controller.reports;
 
 import com.HMS.HMS.DTO.reports.PrescriptionDispensingReportDTO;
 import com.HMS.HMS.service.reports.PrescriptionReportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -177,6 +179,35 @@ public class PrescriptionReportController {
             quickStats.put("pendingCount", report.getPendingPrescriptions());
 
             return ResponseEntity.ok(quickStats);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Download prescription dispensing report as PDF
+     */
+    @GetMapping("/dispensing/pdf")
+    public ResponseEntity<byte[]> downloadPrescriptionDispensingPDF(
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        try {
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end = LocalDate.parse(endDate);
+
+            byte[] pdfBytes = prescriptionReportService.generatePrescriptionDispensingPDF(start, end);
+            
+            String filename = String.format("prescription-dispensing-report-%s-to-%s.pdf", 
+                    startDate, endDate);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(pdfBytes.length);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
