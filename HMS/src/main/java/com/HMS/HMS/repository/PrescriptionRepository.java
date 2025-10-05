@@ -115,4 +115,12 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
 
     // Check if prescription ID already exists
     boolean existsByPrescriptionId(String prescriptionId);
+
+    // Analytics methods
+    long countByPrescribedDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    long countByStatusAndPrescribedDateBetween(PrescriptionStatus status, LocalDateTime startDate, LocalDateTime endDate);
+
+    // Find all prescriptions by created date range
+    List<Prescription> findAllByCreatedAtBetween(LocalDateTime startDateTime, LocalDateTime endDateTime);
 }

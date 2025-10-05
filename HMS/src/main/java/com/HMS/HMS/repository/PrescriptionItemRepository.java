@@ -122,4 +122,7 @@ public interface PrescriptionItemRepository extends JpaRepository<PrescriptionIt
     long countByDateRangeAndStatus(@Param("startDate") LocalDateTime startDate,
                                   @Param("endDate") LocalDateTime endDate,
                                   @Param("status") PrescriptionStatus status);
+                                  
+    // Analytics methods
+    long countByIsUrgentTrueAndCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 }

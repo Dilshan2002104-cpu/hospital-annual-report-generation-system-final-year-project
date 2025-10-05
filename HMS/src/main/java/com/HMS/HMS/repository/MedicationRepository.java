@@ -54,4 +54,22 @@ public interface MedicationRepository extends JpaRepository<Medication,Long> {
     @Query("SELECT m FROM Medication m WHERE m.isActive = true AND " +
            "(LOWER(m.drugName) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(m.genericName) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Medication> findByActiveTrueAndSearchInNames(@Param("search") String search, Pageable pageable);
+    
+    // Analytics methods
+    long countByIsActiveTrue();
+    
+    @Query("SELECT COUNT(m) FROM Medication m WHERE m.isActive = true AND m.currentStock <= m.minimumStock")
+    long countLowStockMedications();
+    
+    @Query("SELECT COUNT(m) FROM Medication m WHERE m.isActive = true AND m.currentStock <= 0")
+    long countOutOfStockMedications();
+    
+    @Query("SELECT COUNT(m) FROM Medication m WHERE m.isActive = true AND m.expiryDate <= :cutoffDate")
+    long countMedicationsExpiringSoon(@Param("cutoffDate") LocalDate cutoffDate);
+    
+    @Query("SELECT SUM(m.currentStock * m.unitCost) FROM Medication m WHERE m.isActive = true")
+    java.math.BigDecimal calculateTotalInventoryValue();
+    
+    @Query("SELECT m FROM Medication m WHERE m.isActive = true AND m.expiryDate <= :cutoffDate")
+    java.util.List<Medication> findByExpiryDateBeforeAndIsActiveTrue(@Param("cutoffDate") LocalDate cutoffDate);
 }
