@@ -1,17 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  ClipboardList, 
-  Search, 
-  Filter, 
-  Eye, 
-  CheckCircle, 
-  AlertTriangle, 
-  Clock, 
+import {
+  ClipboardList,
+  Search,
+  Filter,
+  Eye,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
   User,
   Pill,
   FileText,
   Shield,
-  Calendar
+  Calendar,
+  Download
 } from 'lucide-react';
 
 export default function PrescriptionProcessing({ 
@@ -588,8 +589,18 @@ export default function PrescriptionProcessing({
                 >
                   Close
                 </button>
-                
+
                 <div className="flex space-x-3">
+                  {/* Download PDF Button */}
+                  <a
+                    href={`http://localhost:8080/api/prescriptions/${selectedPrescription.prescriptionId}/pdf`}
+                    download={`Prescription_${selectedPrescription.prescriptionId}.pdf`}
+                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download PDF</span>
+                  </a>
+
                   {selectedPrescription?.status === 'ACTIVE' && (
                     <button
                       onClick={() => {

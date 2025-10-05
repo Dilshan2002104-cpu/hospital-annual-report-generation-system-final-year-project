@@ -21,7 +21,8 @@ export default function DrugDatabase({
   onFetchAllDrugs,
   onGetDrugInfo,
   onGetCategories,
-  onClearSearch
+  onClearSearch,
+  wsConnected
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -205,6 +206,13 @@ export default function DrugDatabase({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">Medication Search Results</h3>
             <div className="flex items-center space-x-4">
+              {/* Real-time connection status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                <span className="text-xs text-gray-600">
+                  {wsConnected ? 'Real-time updates' : 'Connecting...'}
+                </span>
+              </div>
               {pagination && (
                 <span className="text-sm text-gray-600">
                   Showing {pagination.pageNumber * pagination.pageSize + 1} - {Math.min((pagination.pageNumber + 1) * pagination.pageSize, pagination.totalElements)} of {pagination.totalElements} medications

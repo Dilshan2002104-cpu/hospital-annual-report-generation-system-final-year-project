@@ -21,6 +21,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.colors.DeviceRgb;
+
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -816,6 +827,43 @@ public class PrescriptionService {
             throw new IllegalStateException("Prescription cannot be dispensed in current status: " + prescription.getStatus());
         }
 
+        // Update medication inventory - decrease stock for each prescription item
+        for (PrescriptionItem item : prescription.getPrescriptionItems()) {
+            if (item.getMedication() != null) {
+                Medication medication = item.getMedication();
+                int quantityToDispense = item.getQuantity();
+
+                // Check if sufficient stock is available
+                if (medication.getCurrentStock() < quantityToDispense) {
+                    throw new IllegalStateException(
+                        "Insufficient stock for medication: " + medication.getDrugName() +
+                        ". Available: " + medication.getCurrentStock() +
+                        ", Required: " + quantityToDispense
+                    );
+                }
+
+                // Decrease the stock
+                int newStock = medication.getCurrentStock() - quantityToDispense;
+                medication.setCurrentStock(newStock);
+                medicationRepository.save(medication);
+
+                System.out.println("Inventory updated: " + medication.getDrugName() +
+                                 " - Dispensed: " + quantityToDispense +
+                                 ", Remaining stock: " + newStock);
+
+                // Send real-time WebSocket notification for inventory update
+                try {
+                    notificationService.notifyInventoryUpdated(
+                        medication.getDrugName(),
+                        quantityToDispense,
+                        newStock
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to send inventory WebSocket notification: " + e.getMessage());
+                }
+            }
+        }
+
         // Mark prescription as dispensed
         prescription.setStatus(PrescriptionStatus.COMPLETED);
         prescription.setLastModified(LocalDateTime.now());
@@ -948,5 +996,111 @@ public class PrescriptionService {
 
         // No interaction found
         return null;
+    }
+
+    /**
+     * Generate prescription PDF
+     */
+    public byte[] generatePrescriptionPDF(String prescriptionId) {
+        // Find prescription by prescription ID
+        Prescription prescription = prescriptionRepository.findByPrescriptionId(prescriptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Prescription not found with ID: " + prescriptionId));
+
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document document = new Document(pdfDoc);
+
+            // Hospital Header
+            Paragraph header = new Paragraph("National Institute of Nephrology,\nDialysis and Transplantation")
+                    .setFontSize(16)
+                    .setBold()
+                    .setTextAlignment(TextAlignment.CENTER);
+            document.add(header);
+
+            Paragraph title = new Paragraph("PRESCRIPTION")
+                    .setFontSize(20)
+                    .setBold()
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(20);
+            document.add(title);
+
+            // Prescription Details
+            document.add(new Paragraph("Prescription ID: " + prescription.getPrescriptionId()).setBold());
+            document.add(new Paragraph("Date: " + prescription.getPrescribedDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+            document.add(new Paragraph(""));
+
+            // Patient Information
+            document.add(new Paragraph("PATIENT INFORMATION").setBold().setFontSize(14));
+            document.add(new Paragraph("Name: " + prescription.getPatient().getFirstName() + " " + prescription.getPatient().getLastName()));
+            document.add(new Paragraph("National ID: " + prescription.getPatient().getNationalId()));
+            if (prescription.getWardName() != null) {
+                document.add(new Paragraph("Ward: " + prescription.getWardName() + " - Bed: " + prescription.getBedNumber()));
+            }
+            document.add(new Paragraph(""));
+
+            // Prescription Details
+            document.add(new Paragraph("PRESCRIPTION DETAILS").setBold().setFontSize(14));
+            document.add(new Paragraph("Prescribed by: " + prescription.getPrescribedBy()));
+            document.add(new Paragraph("Start Date: " + prescription.getStartDate()));
+            if (prescription.getEndDate() != null) {
+                document.add(new Paragraph("End Date: " + prescription.getEndDate()));
+            }
+            document.add(new Paragraph(""));
+
+            // Medications Table
+            document.add(new Paragraph("MEDICATIONS (" + prescription.getTotalMedications() + ")").setBold().setFontSize(14));
+
+            float[] columnWidths = {4, 3, 3, 2, 4};
+            Table table = new Table(columnWidths);
+            table.setWidth(pdfDoc.getDefaultPageSize().getWidth() - 80);
+
+            // Table Headers
+            DeviceRgb headerColor = new DeviceRgb(59, 130, 246);
+            table.addHeaderCell(new Cell().add(new Paragraph("Drug Name").setBold().setFontColor(ColorConstants.WHITE))
+                    .setBackgroundColor(headerColor));
+            table.addHeaderCell(new Cell().add(new Paragraph("Dosage").setBold().setFontColor(ColorConstants.WHITE))
+                    .setBackgroundColor(headerColor));
+            table.addHeaderCell(new Cell().add(new Paragraph("Frequency").setBold().setFontColor(ColorConstants.WHITE))
+                    .setBackgroundColor(headerColor));
+            table.addHeaderCell(new Cell().add(new Paragraph("Quantity").setBold().setFontColor(ColorConstants.WHITE))
+                    .setBackgroundColor(headerColor));
+            table.addHeaderCell(new Cell().add(new Paragraph("Instructions").setBold().setFontColor(ColorConstants.WHITE))
+                    .setBackgroundColor(headerColor));
+
+            // Table Rows
+            for (PrescriptionItem item : prescription.getPrescriptionItems()) {
+                table.addCell(new Cell().add(new Paragraph(item.getDrugName())));
+                table.addCell(new Cell().add(new Paragraph(item.getDose())));
+                table.addCell(new Cell().add(new Paragraph(item.getFrequency())));
+                table.addCell(new Cell().add(new Paragraph(item.getQuantity() + " " + (item.getQuantityUnit() != null ? item.getQuantityUnit() : ""))));
+                table.addCell(new Cell().add(new Paragraph(item.getInstructions() != null ? item.getInstructions() : "")));
+            }
+
+            document.add(table);
+            document.add(new Paragraph(""));
+
+            // Notes
+            if (prescription.getPrescriptionNotes() != null && !prescription.getPrescriptionNotes().isEmpty()) {
+                document.add(new Paragraph("NOTES").setBold().setFontSize(14));
+                document.add(new Paragraph(prescription.getPrescriptionNotes()));
+                document.add(new Paragraph(""));
+            }
+
+            // Footer
+            document.add(new Paragraph("").setMarginTop(30));
+            document.add(new Paragraph("_________________________")
+                    .setTextAlignment(TextAlignment.RIGHT));
+            document.add(new Paragraph("Pharmacist Signature")
+                    .setTextAlignment(TextAlignment.RIGHT)
+                    .setFontSize(10));
+
+            document.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating PDF: " + e.getMessage(), e);
+        }
     }
 }

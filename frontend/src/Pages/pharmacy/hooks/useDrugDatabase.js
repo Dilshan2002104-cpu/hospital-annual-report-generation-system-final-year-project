@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import useWebSocket from '../../../hooks/useWebSocket';
 
 export default function useDrugDatabase() {
   const [drugDatabase, setDrugDatabase] = useState([]);
@@ -264,6 +265,32 @@ export default function useDrugDatabase() {
     ];
   }, []);
 
+  // Handle real-time inventory WebSocket updates for drug database
+  const handleDrugDatabaseWebSocketUpdate = useCallback((data) => {
+    if (data.type === 'INVENTORY_UPDATED') {
+      console.log('Real-time drug database update received:', data);
+
+      // Update search results if the drug is in the current view
+      setSearchResults(prev => prev.map(drug => {
+        if (drug.drugName === data.drugName) {
+          return {
+            ...drug,
+            currentStock: data.remainingStock,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return drug;
+      }));
+    }
+  }, []);
+
+  // WebSocket connection for real-time drug database updates
+  const { isConnected: wsConnected } = useWebSocket(
+    'http://localhost:8080/ws',
+    { '/topic/inventory': handleDrugDatabaseWebSocketUpdate },
+    { debug: true, reconnectDelay: 5000 }
+  );
+
   // Clear search results
   const clearSearch = useCallback(() => {
     setSearchResults([]);
@@ -292,6 +319,9 @@ export default function useDrugDatabase() {
     getDrugInfo,
     checkInteractions,
     getCategories,
-    clearSearch
+    clearSearch,
+
+    // WebSocket
+    wsConnected
   };
 }

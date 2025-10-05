@@ -105,4 +105,23 @@ public class PrescriptionNotificationService {
 
         System.out.println("WebSocket notification sent for prescription dispensing: " + prescription.getPrescriptionId());
     }
+
+    /**
+     * Notify about inventory update (when medications are dispensed)
+     */
+    public void notifyInventoryUpdated(String drugName, int quantityDispensed, int remainingStock) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "INVENTORY_UPDATED");
+        notification.put("action", "STOCK_DECREASED");
+        notification.put("drugName", drugName);
+        notification.put("quantityDispensed", quantityDispensed);
+        notification.put("remainingStock", remainingStock);
+        notification.put("timestamp", System.currentTimeMillis());
+        notification.put("message", drugName + " stock updated. Dispensed: " + quantityDispensed + ", Remaining: " + remainingStock);
+
+        // Send to inventory topic for real-time inventory updates
+        messagingTemplate.convertAndSend("/topic/inventory", notification);
+
+        System.out.println("WebSocket notification sent for inventory update: " + drugName);
+    }
 }

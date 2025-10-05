@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import useWebSocket from '../../../hooks/useWebSocket';
 
 export default function useInventory() {
   const [inventory, setInventory] = useState([]);
@@ -41,6 +42,32 @@ export default function useInventory() {
       setLoading(false);
     }
   }, []);
+
+  // Handle real-time inventory WebSocket updates
+  const handleInventoryWebSocketUpdate = useCallback((data) => {
+    if (data.type === 'INVENTORY_UPDATED') {
+      console.log('Real-time inventory update received:', data);
+
+      setInventory(prev => prev.map(item => {
+        // Match by drug name
+        if (item.drugName === data.drugName) {
+          return {
+            ...item,
+            currentStock: data.remainingStock,
+            lastUpdated: new Date().toISOString()
+          };
+        }
+        return item;
+      }));
+    }
+  }, []);
+
+  // WebSocket connection for real-time inventory updates
+  const { isConnected: wsConnected } = useWebSocket(
+    'http://localhost:8080/ws',
+    { '/topic/inventory': handleInventoryWebSocketUpdate },
+    { debug: true, reconnectDelay: 5000 }
+  );
 
   // Initialize inventory
   useEffect(() => {
@@ -252,6 +279,7 @@ export default function useInventory() {
     searchInventory,
     getStats,
     getReorderSuggestions,
-    updateMultipleStock
+    updateMultipleStock,
+    wsConnected
   };
 }

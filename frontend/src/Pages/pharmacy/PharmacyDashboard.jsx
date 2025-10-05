@@ -60,7 +60,8 @@ export default function PharmacyDashboard() {
     addInventoryItem,
     refreshInventory,
     getStats: getInventoryStats,
-    getReorderSuggestions
+    getReorderSuggestions,
+    wsConnected: inventoryWsConnected
   } = useInventory();
 
   const {
@@ -73,7 +74,8 @@ export default function PharmacyDashboard() {
     fetchAllDrugs,
     getDrugInfo,
     getCategories,
-    clearSearch
+    clearSearch,
+    wsConnected: drugDatabaseWsConnected
   } = useDrugDatabase();
 
   // Calculate pharmacy statistics
@@ -189,6 +191,7 @@ export default function PharmacyDashboard() {
             onAddMedication={addInventoryItem}
             onGenerateAlerts={getReorderSuggestions}
             stats={pharmacyStats}
+            wsConnected={inventoryWsConnected}
           />
         );
       case 'dispensing':
@@ -215,6 +218,7 @@ export default function PharmacyDashboard() {
             onGetDrugInfo={getDrugInfo}
             onGetCategories={getCategories}
             onClearSearch={clearSearch}
+            wsConnected={drugDatabaseWsConnected}
           />
         );
       case 'analytics':
