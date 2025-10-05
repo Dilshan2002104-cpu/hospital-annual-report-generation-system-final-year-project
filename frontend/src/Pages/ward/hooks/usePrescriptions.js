@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import useWebSocket from '../../../hooks/useWebSocket';
 
 const usePrescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -824,6 +825,64 @@ const usePrescriptions = () => {
     };
   }, [prescriptions, activePatients]);
 
+  // WebSocket handler for real-time prescription status updates from Pharmacy
+  const handlePrescriptionWebSocketUpdate = useCallback((data) => {
+    console.log('🔔 Ward received WebSocket update:', data);
+
+    if (data.type === 'PRESCRIPTION_DISPENSED') {
+      // Update prescription status to COMPLETED when pharmacy dispenses
+      setPrescriptions(prev => prev.map(prescription =>
+        prescription.prescriptionId === data.prescription.prescriptionId
+          ? {
+              ...prescription,
+              status: data.prescription.status?.toLowerCase() || 'completed',
+              lastModified: data.prescription.lastModified || new Date().toISOString()
+            }
+          : prescription
+      ));
+      console.log('✅ Prescription status updated to COMPLETED:', data.prescription.prescriptionId);
+    } else if (data.type === 'PRESCRIPTION_UPDATED') {
+      // Handle other prescription updates
+      setPrescriptions(prev => prev.map(prescription =>
+        prescription.prescriptionId === data.prescription.prescriptionId
+          ? {
+              ...prescription,
+              ...data.prescription,
+              status: data.prescription.status?.toLowerCase(),
+              lastModified: data.prescription.lastModified || new Date().toISOString()
+            }
+          : prescription
+      ));
+      console.log('✅ Prescription updated:', data.prescription.prescriptionId);
+    }
+  }, []);
+
+  // WebSocket subscription configuration
+  const subscriptions = {
+    '/topic/prescriptions': handlePrescriptionWebSocketUpdate
+  };
+
+  const wsOptions = {
+    debug: process.env.NODE_ENV === 'development',
+    reconnectDelay: 5000,
+    onConnect: () => {
+      console.log('✅ Ward connected to Prescription WebSocket');
+    },
+    onDisconnect: () => {
+      console.log('🔌 Ward disconnected from Prescription WebSocket');
+    },
+    onError: (error) => {
+      console.error('❌ Ward WebSocket error:', error);
+    }
+  };
+
+  // Initialize WebSocket connection
+  const { isConnected: wsConnected, error: wsError } = useWebSocket(
+    'http://localhost:8080/ws',
+    subscriptions,
+    wsOptions
+  );
+
   // Auto-fetch on mount
   useEffect(() => {
     fetchAllData();
@@ -836,6 +895,10 @@ const usePrescriptions = () => {
     medications,
     loading,
     error,
+
+    // WebSocket status
+    wsConnected,
+    wsError,
 
     // Functions
     fetchActivePatients,

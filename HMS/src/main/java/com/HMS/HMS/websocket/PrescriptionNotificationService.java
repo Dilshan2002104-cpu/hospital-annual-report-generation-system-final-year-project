@@ -87,4 +87,22 @@ public class PrescriptionNotificationService {
 
         System.out.println("WebSocket URGENT notification sent for prescription: " + prescription.getPrescriptionId());
     }
+
+    /**
+     * Notify about prescription dispensing (Pharmacy to Ward)
+     */
+    public void notifyPrescriptionDispensed(PrescriptionResponseDTO prescription) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "PRESCRIPTION_DISPENSED");
+        notification.put("action", "MEDICATION_DISPENSED");
+        notification.put("prescription", prescription);
+        notification.put("timestamp", System.currentTimeMillis());
+        notification.put("message", "Prescription " + prescription.getPrescriptionId() + " has been dispensed for " + prescription.getPatientName());
+        notification.put("status", "COMPLETED");
+
+        // Send to general prescriptions topic (Ward will listen to this)
+        messagingTemplate.convertAndSend("/topic/prescriptions", notification);
+
+        System.out.println("WebSocket notification sent for prescription dispensing: " + prescription.getPrescriptionId());
+    }
 }

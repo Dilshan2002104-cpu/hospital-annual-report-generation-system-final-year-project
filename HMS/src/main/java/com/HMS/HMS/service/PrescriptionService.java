@@ -495,7 +495,7 @@ public class PrescriptionService {
                 prescription.getAdmissionId(),
                 prescription.getStartDate(),
                 prescription.getEndDate(),
-                prescription.getPrescribedBy(), // Use string directly
+                prescription.getPrescribedBy(), 
                 prescription.getPrescribedDate(),
                 prescription.getLastModified(),
                 prescription.getStatus(),
@@ -604,7 +604,16 @@ public class PrescriptionService {
         }
 
         prescription = prescriptionRepository.save(prescription);
-        return convertToResponseDTO(prescription);
+        PrescriptionResponseDTO responseDTO = convertToResponseDTO(prescription);
+
+        // Send WebSocket notification to Ward Management
+        try {
+            notificationService.notifyPrescriptionDispensed(responseDTO);
+        } catch (Exception e) {
+            System.err.println("Failed to send WebSocket notification for dispensing: " + e.getMessage());
+        }
+
+        return responseDTO;
     }
 
     /**
@@ -801,8 +810,8 @@ public class PrescriptionService {
      */
     private PrescriptionResponseDTO dispenseMedicationInternal(Prescription prescription, Map<String, Object> dispensingData) {
         // Validate that prescription can be dispensed
-        if (prescription.getStatus() != PrescriptionStatus.ACTIVE && 
-            prescription.getStatus() != PrescriptionStatus.READY && 
+        if (prescription.getStatus() != PrescriptionStatus.ACTIVE &&
+            prescription.getStatus() != PrescriptionStatus.READY &&
             prescription.getStatus() != PrescriptionStatus.IN_PROGRESS) {
             throw new IllegalStateException("Prescription cannot be dispensed in current status: " + prescription.getStatus());
         }
@@ -816,19 +825,28 @@ public class PrescriptionService {
         if (dispensingData != null) {
             String existingNotes = prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() : "";
             String dispensingNote = "Dispensed on: " + LocalDateTime.now();
-            
+
             if (dispensingData.containsKey("dispensedBy")) {
                 dispensingNote += " by " + dispensingData.get("dispensedBy").toString();
             }
             if (dispensingData.containsKey("notes")) {
                 dispensingNote += " - " + dispensingData.get("notes");
             }
-            
+
             prescription.setPrescriptionNotes(existingNotes.isEmpty() ? dispensingNote : existingNotes + "\\n" + dispensingNote);
         }
 
         Prescription savedPrescription = prescriptionRepository.save(prescription);
-        return convertToResponseDTO(savedPrescription);
+        PrescriptionResponseDTO responseDTO = convertToResponseDTO(savedPrescription);
+
+        // Send WebSocket notification to Ward Management
+        try {
+            notificationService.notifyPrescriptionDispensed(responseDTO);
+        } catch (Exception e) {
+            System.err.println("Failed to send WebSocket notification for dispensing: " + e.getMessage());
+        }
+
+        return responseDTO;
     }
 
     /**

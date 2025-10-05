@@ -34,7 +34,8 @@ const PrescriptionsManagement = () => {
     error: apiError,
     fetchPrescriptions,
     addPrescription,
-    getStats
+    getStats,
+    wsConnected
   } = usePrescriptions();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -224,9 +225,17 @@ const PrescriptionsManagement = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Prescriptions Management</h2>
-            <p className="text-gray-600">Manage electronic prescriptions for all ward patients</p>
+            <div className="flex items-center space-x-3">
+              <p className="text-gray-600">Manage electronic prescriptions for all ward patients</p>
+              {wsConnected && (
+                <span className="flex items-center text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                  Real-time updates active
+                </span>
+              )}
+            </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setViewMode(viewMode === 'list' ? 'card' : 'list')}

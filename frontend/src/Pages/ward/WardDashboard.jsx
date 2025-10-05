@@ -174,6 +174,18 @@ const WardDashboard = () => {
     const occupiedBeds = displayActiveAdmissions.length;
     const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
+    // Calculate today's admissions and discharges
+    const today = new Date().toDateString();
+    const todayAdmissions = displayAllAdmissions.filter(admission => {
+      const admissionDate = new Date(admission.admissionDate).toDateString();
+      return admissionDate === today && admission.status?.toUpperCase() === 'ACTIVE';
+    }).length;
+
+    const todayDischarges = displayAllAdmissions.filter(admission => {
+      const dischargeDate = admission.dischargeDate ? new Date(admission.dischargeDate).toDateString() : null;
+      return dischargeDate === today;
+    }).length;
+
     return {
       totalBeds,
       occupiedBeds,
@@ -182,9 +194,13 @@ const WardDashboard = () => {
       totalPatients: displayActiveAdmissions.length,
       criticalPatients: 0, // Will be updated when we have patient status data
       stablePatients: 0,
-      improvingPatients: 0
+      improvingPatients: 0,
+      todayAdmissions,
+      todayDischarges,
+      activePrescriptions: 0, // Can be populated from prescription data if available
+      pendingTransfers: 0
     };
-  }, [wards, displayActiveAdmissions]);
+  }, [wards, displayActiveAdmissions, displayAllAdmissions]);
 
 
   const tabs = [
@@ -435,10 +451,10 @@ const WardDashboard = () => {
       {/* Sidebar */}
       <div className={`bg-white shadow-lg border-r border-gray-200 transition-all duration-300 ease-in-out ${
         sidebarCollapsed ? 'w-16' : 'w-56'
-      } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed h-screen z-50 lg:relative lg:translate-x-0 flex-shrink-0`}>
+      } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed h-screen z-50 lg:fixed lg:translate-x-0 flex-shrink-0 flex flex-col`}>
 
         {/* Sidebar Header */}
-        <div className="p-3 border-b border-gray-200">
+        <div className="p-3 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             {!sidebarCollapsed && (
               <div className="flex items-center space-x-2">
@@ -497,22 +513,22 @@ const WardDashboard = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className={`flex-1 flex flex-col min-h-screen ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'} transition-all duration-300`}>
         {/* Top Header */}
-        <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-30">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+        <div className="bg-white/80 backdrop-blur-md border-b-2 border-gray-100 sticky top-0 z-30 shadow-lg">
+          <div className="px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-start">
               {/* Mobile menu button */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors mr-2 mt-1"
               >
                 <Menu className="h-6 w-6 text-gray-600" />
               </button>
 
               {/* Ward Header Content */}
-              <div className="flex-1 lg:ml-0 ml-2">
-                <WardHeader />
+              <div className="flex-1">
+                <WardHeader stats={wardStats} />
               </div>
             </div>
           </div>
