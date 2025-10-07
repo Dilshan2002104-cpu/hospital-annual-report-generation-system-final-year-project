@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import useDialysisWebSocket from './useDialysisWebSocket';
 
@@ -10,11 +10,19 @@ const useDialysisSessions = (showToast) => {
   const [patientsLoading, setPatientsLoading] = useState(false);
 
   // Memoize showToast to prevent infinite loops
-  const stableShowToast = useCallback((type, title, message) => {
-    if (showToast && typeof showToast === 'function') {
-      showToast(type, title, message);
-    }
+  const toastRef = useRef(showToast);
+  
+  // Update ref when showToast changes
+  useEffect(() => {
+    toastRef.current = showToast;
   }, [showToast]);
+
+  // Helper function for showing toasts
+  const showToastSafe = useCallback((type, title, message) => {
+    if (toastRef.current && typeof toastRef.current === 'function') {
+      toastRef.current(type, title, message);
+    }
+  }, []);
 
   // Real-time WebSocket integration
   const handleDialysisUpdate = useCallback((data) => {
@@ -36,13 +44,13 @@ const useDialysisSessions = (showToast) => {
         // They must be manually scheduled using the SessionScheduler interface
 
         // Show toast notification for transferred patient
-        if (stableShowToast) {
-          stableShowToast('info', 'New Patient Transfer', 
+        if (toastRef.current && typeof toastRef.current === 'function') {
+          toastRef.current('info', 'New Patient Transfer', 
             `${data.newAdmission.patientName} has been transferred to Dialysis ward and is awaiting schedule`);
         }
       }
     }
-  }, [stableShowToast]);
+  }, []); // Stable callback with no dependencies
 
   const {
     isConnected: wsConnected,
@@ -72,20 +80,20 @@ const useDialysisSessions = (showToast) => {
       });
       setSessions(response.data);
       
-      if (stableShowToast && !silent) {
-        stableShowToast('success', 'Sessions Loaded', 'Dialysis sessions loaded successfully');
+      if (showToastSafe && !silent) {
+        showToastSafe('success', 'Sessions Loaded', 'Dialysis sessions loaded successfully');
       }
     } catch (error) {
       console.error('Error fetching dialysis sessions:', error);
       setError(error.message);
       
-      if (stableShowToast && !silent) {
-        stableShowToast('error', 'Load Failed', 'Failed to load dialysis sessions');
+      if (showToastSafe && !silent) {
+        showToastSafe('error', 'Load Failed', 'Failed to load dialysis sessions');
       }
     } finally {
       setLoading(false);
     }
-  }, [stableShowToast]);  const updateSession = useCallback(async (sessionId, updateData) => {
+  }, [showToastSafe]);  const updateSession = useCallback(async (sessionId, updateData) => {
     try {
       setLoading(true);
       setError(null);
@@ -109,21 +117,21 @@ const useDialysisSessions = (showToast) => {
           : session
       ));
       
-      if (stableShowToast) {
-        stableShowToast('success', 'Session Updated', 'Session details updated successfully');
+      if (showToastSafe) {
+        showToastSafe('success', 'Session Updated', 'Session details updated successfully');
       }
     } catch (error) {
       console.error('Error updating dialysis session:', error);
       setError(error.message);
       
-      if (stableShowToast) {
-        stableShowToast('error', 'Update Failed', 'Failed to update session');
+      if (showToastSafe) {
+        showToastSafe('error', 'Update Failed', 'Failed to update session');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [stableShowToast]);
+  }, [showToastSafe]);
 
   const markAttendance = useCallback(async (sessionId, attendanceStatus) => {
     try {
@@ -149,21 +157,21 @@ const useDialysisSessions = (showToast) => {
           : session
       ));
       
-      if (stableShowToast) {
-        stableShowToast('success', 'Attendance Updated', `Patient marked as ${attendanceStatus}`);
+      if (showToastSafe) {
+        showToastSafe('success', 'Attendance Updated', `Patient marked as ${attendanceStatus}`);
       }
     } catch (error) {
       console.error('Error updating attendance:', error);
       setError(error.message);
 
-      if (stableShowToast) {
-        stableShowToast('error', 'Update Failed', 'Failed to update attendance');
+      if (showToastSafe) {
+        showToastSafe('error', 'Update Failed', 'Failed to update attendance');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [stableShowToast]);
+  }, [showToastSafe]);
 
   const addSessionDetails = useCallback(async (sessionId, detailsData) => {
     try {
@@ -193,21 +201,21 @@ const useDialysisSessions = (showToast) => {
           : session
       ));
       
-      if (stableShowToast) {
-        stableShowToast('success', 'Details Saved', 'Session details saved successfully');
+      if (showToastSafe) {
+        showToastSafe('success', 'Details Saved', 'Session details saved successfully');
       }
     } catch (error) {
       console.error('Error adding session details:', error);
       setError(error.message);
 
-      if (stableShowToast) {
-        stableShowToast('error', 'Save Failed', 'Failed to save session details');
+      if (showToastSafe) {
+        showToastSafe('error', 'Save Failed', 'Failed to save session details');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [stableShowToast]);
+  }, [showToastSafe]);
 
   const deleteSession = useCallback(async (sessionId) => {
     try {
@@ -228,21 +236,21 @@ const useDialysisSessions = (showToast) => {
       // Update local state
       setSessions(prev => prev.filter(session => session.sessionId !== sessionId));
 
-      if (stableShowToast) {
-        stableShowToast('success', 'Session Deleted', 'Session deleted successfully');
+      if (showToastSafe) {
+        showToastSafe('success', 'Session Deleted', 'Session deleted successfully');
       }
     } catch (error) {
       console.error('Error deleting dialysis session:', error);
       setError(error.message);
 
-      if (stableShowToast) {
-        stableShowToast('error', 'Delete Failed', 'Failed to delete session');
+      if (showToastSafe) {
+        showToastSafe('error', 'Delete Failed', 'Failed to delete session');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [stableShowToast]);
+  }, [showToastSafe]);
 
   // Fetch current dialysis patients from Ward 4 (Dialysis Ward)
   const fetchDialysisPatients = useCallback(async () => {
@@ -278,8 +286,8 @@ const useDialysisSessions = (showToast) => {
 
       setDialysisPatients(transformedPatients);
       
-      if (stableShowToast && transformedPatients.length > 0) {
-        stableShowToast('success', 'Patients Loaded', `Found ${transformedPatients.length} patients in Dialysis Ward`);
+      if (showToastSafe && transformedPatients.length > 0) {
+        showToastSafe('success', 'Patients Loaded', `Found ${transformedPatients.length} patients in Dialysis Ward`);
       }
 
       return transformedPatients;
@@ -300,15 +308,15 @@ const useDialysisSessions = (showToast) => {
 
       setError(errorMessage);
 
-      if (stableShowToast) {
-        stableShowToast('error', 'Load Failed', errorMessage);
+      if (showToastSafe) {
+        showToastSafe('error', 'Load Failed', errorMessage);
       }
 
       throw error;
     } finally {
       setPatientsLoading(false);
     }
-  }, [stableShowToast]);
+  }, [showToastSafe]);
 
   // Create a new dialysis session
   // Check machine availability for specific date and time
@@ -376,8 +384,8 @@ const useDialysisSessions = (showToast) => {
       // Add new session to local state
       setSessions(prev => [response.data, ...prev]);
       
-      if (stableShowToast) {
-        stableShowToast('success', 'Session Created', 'Dialysis session scheduled successfully');
+      if (showToastSafe) {
+        showToastSafe('success', 'Session Created', 'Dialysis session scheduled successfully');
       }
 
       return response.data;
@@ -385,14 +393,14 @@ const useDialysisSessions = (showToast) => {
       console.error('Error creating dialysis session:', error);
       setError(error.message);
 
-      if (stableShowToast) {
-        stableShowToast('error', 'Create Failed', 'Failed to create session');
+      if (showToastSafe) {
+        showToastSafe('error', 'Create Failed', 'Failed to create session');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [stableShowToast]);
+  }, [showToastSafe]);
 
   // Load dialysis patients on component mount
   useEffect(() => {

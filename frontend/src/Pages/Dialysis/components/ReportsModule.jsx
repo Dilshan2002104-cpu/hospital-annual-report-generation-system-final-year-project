@@ -24,10 +24,16 @@ export default function ReportsModule({ sessions }) {
 
   // Get unique patients from sessions
   const uniquePatients = useMemo(() => {
-    const patients = [...new Set(sessions.map(s => ({ id: s.patientId, name: s.patientName })))];
-    return patients.filter((p, index, self) => 
-      index === self.findIndex(patient => patient.id === p.id)
-    );
+    const patientMap = new Map();
+    sessions.forEach(session => {
+      if (session.patientId && session.patientName && !patientMap.has(session.patientId)) {
+        patientMap.set(session.patientId, {
+          id: session.patientId,
+          name: session.patientName
+        });
+      }
+    });
+    return Array.from(patientMap.values());
   }, [sessions]);
 
   // Filter sessions based on criteria
@@ -269,7 +275,7 @@ export default function ReportsModule({ sessions }) {
                 onChange={(e) => setSelectedPatient(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="all">All Patients</option>
+                <option key="all" value="all">All Patients</option>
                 {uniquePatients.map((patient) => (
                   <option key={patient.id} value={patient.id}>
                     {patient.name}

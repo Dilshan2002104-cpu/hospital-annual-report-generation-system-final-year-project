@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Users,
   Activity,
@@ -10,7 +10,11 @@ import {
   Download,
   Search,
   Filter,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 
 // Import components
@@ -34,6 +38,18 @@ export default function DialysisDashboard() {
   const [detailsFilter, setDetailsFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    sessionId: null,
+    sessionStatus: null,
+    patientName: ''
+  });
 
   // Toast functions - memoized to prevent infinite loop
   const addToast = useCallback((type, title, message) => {
@@ -121,18 +137,33 @@ export default function DialysisDashboard() {
       return;
     }
 
-    // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete the scheduled session for ${patientName}?`)) {
-      return;
-    }
+    // Open delete confirmation modal
+    setDeleteModal({
+      isOpen: true,
+      sessionId,
+      sessionStatus,
+      patientName
+    });
+  };
 
+  // Confirm and execute deletion
+  const confirmDeleteSession = async () => {
     try {
       // Use the hook's deleteSession which already handles toast notifications
-      await deleteSession(sessionId);
+      await deleteSession(deleteModal.sessionId);
+      // Close modal
+      setDeleteModal({ isOpen: false, sessionId: null, sessionStatus: null, patientName: '' });
     } catch (error) {
       console.error('Delete session error:', error);
       // Error toast is already handled by the deleteSession function
+      // Close modal even on error
+      setDeleteModal({ isOpen: false, sessionId: null, sessionStatus: null, patientName: '' });
     }
+  };
+
+  // Cancel deletion
+  const cancelDeleteSession = () => {
+    setDeleteModal({ isOpen: false, sessionId: null, sessionStatus: null, patientName: '' });
   };
 
   // Filter sessions based on all filter criteria
@@ -193,8 +224,51 @@ export default function DialysisDashboard() {
       );
     }
 
+    // Sort sessions: Non-completed sessions first, then completed
+    filtered = filtered.sort((a, b) => {
+      // Define status priority (lower number = higher priority)
+      const getStatusPriority = (status) => {
+        const statusUpper = status?.toUpperCase();
+        switch (statusUpper) {
+          case 'IN_PROGRESS': return 1;
+          case 'SCHEDULED': return 2;
+          case 'NO_SHOW': return 3;
+          case 'CANCELLED': return 4;
+          case 'COMPLETED': return 5;
+          default: return 6;
+        }
+      };
+
+      const aPriority = getStatusPriority(a.status);
+      const bPriority = getStatusPriority(b.status);
+
+      // First sort by status priority
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+
+      // If same status, sort by scheduled date (newest first)
+      const dateA = new Date(a.scheduledDate);
+      const dateB = new Date(b.scheduledDate);
+      return dateB - dateA;
+    });
+
     return filtered;
   }, [sessions, statusFilter, detailsFilter, dateFilter, searchQuery]);
+
+  // Calculate pagination
+  const paginatedSessions = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredSessions.slice(startIndex, endIndex);
+  }, [filteredSessions, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredSessions.length / itemsPerPage);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, detailsFilter, dateFilter, searchQuery]);
 
   // Calculate dashboard statistics
   const dialysisStats = useMemo(() => {
@@ -548,11 +622,20 @@ export default function DialysisDashboard() {
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Session Details Management</h3>
                   <p className="text-sm text-gray-600 mt-1">Add and manage detailed session information</p>
+                  <p className="text-xs text-blue-600 mt-1 flex items-center">
+                    <Activity className="w-3 h-3 mr-1" />
+                    Non-completed sessions appear first
+                  </p>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-600">
                     {filteredSessions.length} of {sessions.length} sessions
                   </span>
+                  {filteredSessions.length > 0 && (
+                    <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -581,10 +664,10 @@ export default function DialysisDashboard() {
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   >
-                    <option value="all">All Status</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
+                    <option key="all" value="all">All Status</option>
+                    <option key="scheduled" value="scheduled">Scheduled</option>
+                    <option key="in_progress" value="in_progress">In Progress</option>
+                    <option key="completed" value="completed">Completed</option>
                   </select>
 
                   {/* Details Filter */}
@@ -593,9 +676,9 @@ export default function DialysisDashboard() {
                     onChange={(e) => setDetailsFilter(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   >
-                    <option value="all">All Details</option>
-                    <option value="has_details">Has Details</option>
-                    <option value="no_details">No Details</option>
+                    <option key="all-details" value="all">All Details</option>
+                    <option key="has_details" value="has_details">Has Details</option>
+                    <option key="no_details" value="no_details">No Details</option>
                   </select>
 
                   {/* Date Filter */}
@@ -604,10 +687,10 @@ export default function DialysisDashboard() {
                     onChange={(e) => setDateFilter(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="this_week">This Week</option>
-                    <option value="this_month">This Month</option>
+                    <option key="all-time" value="all">All Time</option>
+                    <option key="today" value="today">Today</option>
+                    <option key="this_week" value="this_week">This Week</option>
+                    <option key="this_month" value="this_month">This Month</option>
                   </select>
 
                   {/* Clear Filters Button */}
@@ -628,9 +711,10 @@ export default function DialysisDashboard() {
               </div>
 
               {/* Sessions List */}
-              {filteredSessions.length > 0 ? (
-                <div className="divide-y divide-gray-100">
-                  {filteredSessions.map((session) => {
+              {paginatedSessions.length > 0 ? (
+                <>
+                  <div className="divide-y divide-gray-100">
+                    {paginatedSessions.map((session) => {
                     const hasDetails = session.actualStartTime || session.preWeight || session.postWeight;
                     const isCompleted = session.status === 'COMPLETED' || session.status === 'completed';
 
@@ -773,7 +857,135 @@ export default function DialysisDashboard() {
                       </div>
                     );
                   })}
-                </div>
+                  
+                  {/* Pagination Controls */}
+                  {filteredSessions.length > 0 && (
+                    <div className="mt-6 flex items-center justify-between border-t pt-6">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-700">Show</span>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        >
+                          <option key="5" value={5}>5</option>
+                          <option key="10" value={10}>10</option>
+                          <option key="20" value={20}>20</option>
+                          <option key="50" value={50}>50</option>
+                        </select>
+                        <span className="text-sm text-gray-700">
+                          of {filteredSessions.length} sessions
+                        </span>
+                      </div>
+
+                      {totalPages > 1 && (
+                        <div className="flex items-center space-x-2">
+                          {/* Previous Button */}
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span>Previous</span>
+                          </button>
+
+                          {/* Page Numbers */}
+                          <div className="flex items-center space-x-1">
+                            {(() => {
+                              const pages = [];
+                              const maxVisiblePages = 5;
+                              let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                              let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                              
+                              if (endPage - startPage + 1 < maxVisiblePages) {
+                                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                              }
+
+                              // Add first page and ellipsis if needed
+                              if (startPage > 1) {
+                                pages.push(
+                                  <button
+                                    key={1}
+                                    onClick={() => setCurrentPage(1)}
+                                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                  >
+                                    1
+                                  </button>
+                                );
+                                if (startPage > 2) {
+                                  pages.push(
+                                    <span key="ellipsis1" className="px-2 text-gray-500">
+                                      ...
+                                    </span>
+                                  );
+                                }
+                              }
+
+                              // Add visible page numbers
+                              for (let i = startPage; i <= endPage; i++) {
+                                pages.push(
+                                  <button
+                                    key={i}
+                                    onClick={() => setCurrentPage(i)}
+                                    className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                                      currentPage === i
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    {i}
+                                  </button>
+                                );
+                              }
+
+                              // Add last page and ellipsis if needed
+                              if (endPage < totalPages) {
+                                if (endPage < totalPages - 1) {
+                                  pages.push(
+                                    <span key="ellipsis2" className="px-2 text-gray-500">
+                                      ...
+                                    </span>
+                                  );
+                                }
+                                pages.push(
+                                  <button
+                                    key={totalPages}
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                  >
+                                    {totalPages}
+                                  </button>
+                                );
+                              }
+
+                              return pages;
+                            })()}
+                          </div>
+
+                          {/* Next Button */}
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Page Info */}
+                      <div className="text-sm text-gray-700">
+                        Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredSessions.length)} of {filteredSessions.length} sessions
+                      </div>
+                    </div>
+                  )}
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-12">
                   <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -864,6 +1076,74 @@ export default function DialysisDashboard() {
         session={selectedSession}
         onSubmit={handleSessionDetailsSubmit}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
+              </div>
+              <button
+                onClick={cancelDeleteSession}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete the scheduled dialysis session for:
+                </p>
+                <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-red-500">
+                  <p className="font-semibold text-gray-900">{deleteModal.patientName}</p>
+                  <p className="text-sm text-gray-600">Status: {deleteModal.sessionStatus}</p>
+                </div>
+              </div>
+              
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">Warning</p>
+                    <p className="text-sm text-amber-700">
+                      This will permanently remove the session from the system. The patient will need to reschedule if dialysis is still required.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={cancelDeleteSession}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteSession}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors flex items-center space-x-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Session</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />

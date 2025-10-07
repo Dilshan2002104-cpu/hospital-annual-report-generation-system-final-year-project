@@ -39,6 +39,7 @@ public class PrescriptionNotificationService {
      * Notify about prescription status update
      */
     public void notifyPrescriptionUpdated(PrescriptionResponseDTO prescription) {
+
         Map<String, Object> notification = new HashMap<>();
         notification.put("type", "PRESCRIPTION_UPDATED");
         notification.put("action", "UPDATE_PRESCRIPTION");
@@ -55,6 +56,7 @@ public class PrescriptionNotificationService {
      * Notify about prescription cancellation
      */
     public void notifyPrescriptionCancelled(String prescriptionId, String patientName) {
+        
         Map<String, Object> notification = new HashMap<>();
         notification.put("type", "PRESCRIPTION_CANCELLED");
         notification.put("action", "CANCEL_PRESCRIPTION");

@@ -137,7 +137,7 @@ export const useWebSocket = (url, subscriptions = {}, options = {}) => {
       disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only connect once on mount
+  }, [url]); // Only reconnect when URL changes
 
   return {
     isConnected,
