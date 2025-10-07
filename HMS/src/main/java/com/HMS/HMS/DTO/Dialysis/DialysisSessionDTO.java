@@ -22,7 +22,6 @@ public class DialysisSessionDTO {
     private DialysisSession.SessionStatus status;
     private DialysisSession.AttendanceStatus attendance;
     private DialysisSession.SessionType sessionType;
-    private DialysisSession.Priority priority;
     private String preWeight;
     private String postWeight;
     private String fluidRemoval;
@@ -166,14 +165,6 @@ public class DialysisSessionDTO {
     
     public void setSessionType(DialysisSession.SessionType sessionType) {
         this.sessionType = sessionType;
-    }
-    
-    public DialysisSession.Priority getPriority() {
-        return priority;
-    }
-    
-    public void setPriority(DialysisSession.Priority priority) {
-        this.priority = priority;
     }
     
     public String getPreWeight() {

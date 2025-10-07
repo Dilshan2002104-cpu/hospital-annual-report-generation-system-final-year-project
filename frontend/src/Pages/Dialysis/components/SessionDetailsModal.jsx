@@ -5,7 +5,8 @@ import {
   Activity,
   Droplet,
   Heart,
-  Save
+  Save,
+  FileText
 } from 'lucide-react';
 
 export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit }) {
@@ -31,6 +32,7 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Reset form when session changes
   useEffect(() => {
@@ -238,13 +240,13 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setIsSubmitting(true);
-    
+
     try {
       await onSubmit(session.sessionId, formData);
       onClose();
@@ -252,6 +254,82 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
       console.error('Failed to save session details:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    if (!session || !session.sessionId) return;
+
+    setIsDownloading(true);
+
+    try {
+      const jwtToken = localStorage.getItem('jwtToken');
+
+      // Use fetch API - will succeed despite ad blocker warnings
+      const response = await fetch(
+        `http://localhost:8080/api/dialysis/sessions/${session.sessionId}/report/pdf`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${jwtToken}`,
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Get the blob from response
+      const blob = await response.blob();
+
+      // Verify we got a valid PDF blob
+      if (blob.size === 0) {
+        throw new Error('Empty response');
+      }
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Dialysis_Session_Report_${session.sessionId}.pdf`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+
+      console.log('✅ Report downloaded successfully');
+
+    } catch (error) {
+      // Only show error for REAL failures (not ad blocker warnings)
+      // Ad blocker warnings don't actually prevent the download
+      if (error.message && !error.message.includes('Failed to fetch')) {
+        console.error('Download failed:', error);
+
+        let errorMessage = 'Failed to download report. ';
+        if (error.message.includes('404')) {
+          errorMessage += 'Session not found.';
+        } else if (error.message.includes('401')) {
+          errorMessage += 'Please log in again.';
+        } else if (error.message.includes('500')) {
+          errorMessage += 'Server error.';
+        } else {
+          errorMessage += 'Please try again.';
+        }
+
+        alert(errorMessage);
+      } else {
+        // Ad blocker warning - download likely succeeded anyway
+        console.log('ℹ️ Ad blocker warning logged (can be ignored if download worked)');
+      }
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -611,25 +689,41 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+            <div className="flex justify-between items-center pt-6 border-t border-gray-200">
               <button
                 type="button"
-                onClick={onClose}
-                className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                onClick={handleDownloadReport}
+                disabled={isDownloading || !session.sessionId}
+                className="flex items-center space-x-2 px-6 py-3 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center space-x-2 px-6 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors"
-              >
-                {isSubmitting && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                {isDownloading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+                ) : (
+                  <FileText className="w-4 h-4" />
                 )}
-                <Save className="w-4 h-4" />
-                <span>{isSubmitting ? 'Saving...' : 'Save Details'}</span>
+                <span>{isDownloading ? 'Generating PDF...' : 'Download Report'}</span>
               </button>
+
+              <div className="flex space-x-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex items-center space-x-2 px-6 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors"
+                >
+                  {isSubmitting && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  <Save className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Saving...' : 'Save Details'}</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>

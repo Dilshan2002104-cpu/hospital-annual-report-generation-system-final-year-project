@@ -149,21 +149,21 @@ const useDialysisSessions = (showToast) => {
           : session
       ));
       
-      if (showToast) {
-        showToast('success', 'Attendance Updated', `Patient marked as ${attendanceStatus}`);
+      if (stableShowToast) {
+        stableShowToast('success', 'Attendance Updated', `Patient marked as ${attendanceStatus}`);
       }
     } catch (error) {
       console.error('Error updating attendance:', error);
       setError(error.message);
-      
-      if (showToast) {
-        showToast('error', 'Update Failed', 'Failed to update attendance');
+
+      if (stableShowToast) {
+        stableShowToast('error', 'Update Failed', 'Failed to update attendance');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [stableShowToast]);
 
   const addSessionDetails = useCallback(async (sessionId, detailsData) => {
     try {
@@ -193,30 +193,30 @@ const useDialysisSessions = (showToast) => {
           : session
       ));
       
-      if (showToast) {
-        showToast('success', 'Details Saved', 'Session details saved successfully');
+      if (stableShowToast) {
+        stableShowToast('success', 'Details Saved', 'Session details saved successfully');
       }
     } catch (error) {
       console.error('Error adding session details:', error);
       setError(error.message);
-      
-      if (showToast) {
-        showToast('error', 'Save Failed', 'Failed to save session details');
+
+      if (stableShowToast) {
+        stableShowToast('error', 'Save Failed', 'Failed to save session details');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [stableShowToast]);
 
   const deleteSession = useCallback(async (sessionId) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Real API call to delete session
       const jwtToken = localStorage.getItem('jwtToken');
       await axios.delete(`http://localhost:8080/api/dialysis/sessions/${sessionId}`, {
@@ -224,25 +224,25 @@ const useDialysisSessions = (showToast) => {
           'Authorization': `Bearer ${jwtToken}`
         }
       });
-      
+
       // Update local state
       setSessions(prev => prev.filter(session => session.sessionId !== sessionId));
-      
-      if (showToast) {
-        showToast('success', 'Session Deleted', 'Session deleted successfully');
+
+      if (stableShowToast) {
+        stableShowToast('success', 'Session Deleted', 'Session deleted successfully');
       }
     } catch (error) {
       console.error('Error deleting dialysis session:', error);
       setError(error.message);
-      
-      if (showToast) {
-        showToast('error', 'Delete Failed', 'Failed to delete session');
+
+      if (stableShowToast) {
+        stableShowToast('error', 'Delete Failed', 'Failed to delete session');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [stableShowToast]);
 
   // Fetch current dialysis patients from Ward 4 (Dialysis Ward)
   const fetchDialysisPatients = useCallback(async () => {
@@ -278,16 +278,16 @@ const useDialysisSessions = (showToast) => {
 
       setDialysisPatients(transformedPatients);
       
-      if (showToast && transformedPatients.length > 0) {
-        showToast('success', 'Patients Loaded', `Found ${transformedPatients.length} patients in Dialysis Ward`);
+      if (stableShowToast && transformedPatients.length > 0) {
+        stableShowToast('success', 'Patients Loaded', `Found ${transformedPatients.length} patients in Dialysis Ward`);
       }
-      
+
       return transformedPatients;
     } catch (error) {
       console.error('Error fetching dialysis patients:', error);
-      
+
       let errorMessage = 'Failed to load dialysis patients. ';
-      
+
       if (error.response?.status === 401) {
         errorMessage = 'Your session has expired. Please log in again.';
       } else if (error.response?.status === 403) {
@@ -297,18 +297,18 @@ const useDialysisSessions = (showToast) => {
       } else if (!error.response) {
         errorMessage = 'Network error. Please check your connection.';
       }
-      
+
       setError(errorMessage);
-      
-      if (showToast) {
-        showToast('error', 'Load Failed', errorMessage);
+
+      if (stableShowToast) {
+        stableShowToast('error', 'Load Failed', errorMessage);
       }
-      
+
       throw error;
     } finally {
       setPatientsLoading(false);
     }
-  }, [showToast]);
+  }, [stableShowToast]);
 
   // Create a new dialysis session
   // Check machine availability for specific date and time
@@ -376,23 +376,23 @@ const useDialysisSessions = (showToast) => {
       // Add new session to local state
       setSessions(prev => [response.data, ...prev]);
       
-      if (showToast) {
-        showToast('success', 'Session Created', 'Dialysis session scheduled successfully');
+      if (stableShowToast) {
+        stableShowToast('success', 'Session Created', 'Dialysis session scheduled successfully');
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Error creating dialysis session:', error);
       setError(error.message);
-      
-      if (showToast) {
-        showToast('error', 'Create Failed', 'Failed to create session');
+
+      if (stableShowToast) {
+        stableShowToast('error', 'Create Failed', 'Failed to create session');
       }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [stableShowToast]);
 
   // Load dialysis patients on component mount
   useEffect(() => {

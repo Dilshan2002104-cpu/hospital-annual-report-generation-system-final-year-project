@@ -3,9 +3,12 @@ package com.HMS.HMS.controller.Dialysis;
 import com.HMS.HMS.DTO.Dialysis.DialysisSessionDTO;
 import com.HMS.HMS.model.Dialysis.DialysisSession;
 import com.HMS.HMS.service.Dialysis.DialysisSessionService;
+import com.HMS.HMS.service.Dialysis.DialysisSessionReportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,10 +23,13 @@ import java.util.Optional;
 public class DialysisSessionController {
     
     private final DialysisSessionService sessionService;
-    
+    private final DialysisSessionReportService reportService;
+
     @Autowired
-    public DialysisSessionController(DialysisSessionService sessionService) {
+    public DialysisSessionController(DialysisSessionService sessionService,
+                                   DialysisSessionReportService reportService) {
         this.sessionService = sessionService;
+        this.reportService = reportService;
     }
     
     // Get all sessions
@@ -235,6 +241,31 @@ public class DialysisSessionController {
                 "pendingAttendance", sessionService.getSessionCountByAttendance(DialysisSession.AttendanceStatus.PENDING)
             );
             return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Download comprehensive dialysis session report as PDF
+     */
+    @GetMapping("/{sessionId}/report/pdf")
+    public ResponseEntity<byte[]> downloadSessionReport(@PathVariable String sessionId) {
+        try {
+            byte[] pdfBytes = reportService.generateDialysisSessionReport(sessionId);
+
+            String filename = String.format("Dialysis_Session_Report_%s.pdf", sessionId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(pdfBytes.length);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

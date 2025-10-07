@@ -1,12 +1,16 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Users, 
-  Activity, 
+import { useState, useMemo, useCallback } from 'react';
+import {
+  Users,
+  Activity,
   FileText,
   Clock,
   UserPlus,
   RefreshCw,
-  Droplet
+  Droplet,
+  Download,
+  Search,
+  Filter,
+  Trash2
 } from 'lucide-react';
 
 // Import components
@@ -25,6 +29,22 @@ export default function DialysisDashboard() {
   const [showSessionDetails, setShowSessionDetails] = useState(false);
   const [toasts, setToasts] = useState([]);
 
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [detailsFilter, setDetailsFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Toast functions - memoized to prevent infinite loop
+  const addToast = useCallback((type, title, message) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, type, title, message }]);
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
   // Custom hooks for data management
   const {
     sessions,
@@ -39,31 +59,155 @@ export default function DialysisDashboard() {
     createSession,
     getMachinesWithAvailability,
     addSessionDetails,
-    requestDialysisUpdate
+    requestDialysisUpdate,
+    deleteSession
   } = useDialysisSessions(addToast);
 
-  // Toast functions
-  function addToast(type, title, message) {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, type, title, message }]);
-  }
+  // Download report function
+  const handleDownloadReport = async (sessionId) => {
+    try {
+      const jwtToken = localStorage.getItem('jwtToken');
 
-  function removeToast(id) {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }
+      const response = await fetch(
+        `http://localhost:8080/api/dialysis/sessions/${sessionId}/report/pdf`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${jwtToken}`,
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+
+      if (blob.size === 0) {
+        throw new Error('Empty response');
+      }
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Dialysis_Session_Report_${sessionId}.pdf`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+
+      addToast('success', 'Report Downloaded', 'Session report downloaded successfully');
+    } catch (error) {
+      console.error('Download error:', error);
+
+      if (error.message && !error.message.includes('Failed to fetch')) {
+        addToast('error', 'Download Failed', 'Failed to download session report');
+      }
+    }
+  };
+
+  // Delete session function - only for SCHEDULED sessions
+  const handleDeleteSession = async (sessionId, sessionStatus, patientName) => {
+    // Only allow deletion of SCHEDULED sessions
+    if (sessionStatus?.toUpperCase() !== 'SCHEDULED') {
+      addToast('error', 'Cannot Delete', 'Only scheduled sessions can be deleted');
+      return;
+    }
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete the scheduled session for ${patientName}?`)) {
+      return;
+    }
+
+    try {
+      // Use the hook's deleteSession which already handles toast notifications
+      await deleteSession(sessionId);
+    } catch (error) {
+      console.error('Delete session error:', error);
+      // Error toast is already handled by the deleteSession function
+    }
+  };
+
+  // Filter sessions based on all filter criteria
+  const filteredSessions = useMemo(() => {
+    let filtered = [...sessions];
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(s => {
+        const status = s.status?.toLowerCase();
+        if (statusFilter === 'scheduled') return status === 'scheduled';
+        if (statusFilter === 'in_progress') return status === 'in_progress';
+        if (statusFilter === 'completed') return status === 'completed';
+        return true;
+      });
+    }
+
+    // Details filter
+    if (detailsFilter !== 'all') {
+      filtered = filtered.filter(s => {
+        const hasDetails = s.actualStartTime || s.preWeight || s.postWeight;
+        if (detailsFilter === 'has_details') return hasDetails;
+        if (detailsFilter === 'no_details') return !hasDetails;
+        return true;
+      });
+    }
+
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      filtered = filtered.filter(s => {
+        const sessionDate = new Date(s.scheduledDate);
+
+        if (dateFilter === 'today') {
+          return sessionDate >= today && sessionDate < new Date(today.getTime() + 24 * 60 * 60 * 1000);
+        }
+        if (dateFilter === 'this_week') {
+          const weekStart = new Date(today);
+          weekStart.setDate(today.getDate() - today.getDay());
+          return sessionDate >= weekStart;
+        }
+        if (dateFilter === 'this_month') {
+          return sessionDate.getMonth() === now.getMonth() && sessionDate.getFullYear() === now.getFullYear();
+        }
+        return true;
+      });
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(s =>
+        s.patientName?.toLowerCase().includes(query) ||
+        s.patientNationalId?.toLowerCase().includes(query) ||
+        s.sessionId?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [sessions, statusFilter, detailsFilter, dateFilter, searchQuery]);
 
   // Calculate dashboard statistics
   const dialysisStats = useMemo(() => {
     const today = new Date().toDateString();
-    const todaySessions = sessions.filter(s => 
+    const todaySessions = sessions.filter(s =>
       new Date(s.scheduledDate).toDateString() === today
     );
-    
+
     const totalPatients = new Set(sessions.map(s => s.patientId)).size;
     const presentToday = todaySessions.filter(s => s.attendance === 'present').length;
     const absentToday = todaySessions.filter(s => s.attendance === 'absent').length;
     const pendingToday = todaySessions.filter(s => s.attendance === 'pending').length;
-    
+
     const completedSessions = todaySessions.filter(s => s.status === 'completed').length;
     const inProgressSessions = todaySessions.filter(s => s.status === 'in_progress').length;
 
@@ -75,7 +219,7 @@ export default function DialysisDashboard() {
       pendingToday,
       completedSessions,
       inProgressSessions,
-      attendanceRate: todaySessions.length > 0 ? 
+      attendanceRate: todaySessions.length > 0 ?
         Math.round((presentToday / todaySessions.length) * 100) : 0
     };
   }, [sessions]);
@@ -89,34 +233,25 @@ export default function DialysisDashboard() {
   ];
 
   // Handle session actions
-  const handleAddSessionDetails = () => {
-    if (selectedSession) {
-      setShowSessionDetails(true);
-    }
-  };
-
   const handleSessionDetailsSubmit = async (sessionId, details) => {
     try {
+      // addSessionDetails already shows toast notifications
       await addSessionDetails(sessionId, details);
       setShowSessionDetails(false);
       setSelectedSession(null);
-      addToast('success', 'Details Added', 'Session details saved successfully');
     } catch {
-      addToast('error', 'Save Failed', 'Could not save session details');
+      // Error toast is already handled by addSessionDetails
     }
   };
 
   const handleScheduleSession = async (sessionData) => {
     try {
-      // Use the real API to create the session
+      // createSession already shows toast notifications
       const newSession = await createSession(sessionData);
-      
-      addToast('success', 'Session Scheduled', `Dialysis session scheduled for ${sessionData.patientName}`);
-      
       return newSession;
     } catch (error) {
       console.error('Failed to schedule session:', error);
-      addToast('error', 'Scheduling Failed', 'Could not schedule dialysis session');
+      // Error toast is already handled by createSession
       throw error;
     }
   };
@@ -394,19 +529,6 @@ export default function DialysisDashboard() {
                   </div>
                 </div>
               )}
-              
-              <button
-                onClick={handleRefreshPatients}
-                disabled={patientsLoading}
-                className="mt-4 w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
-              >
-                {patientsLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {patientsLoading ? 'Syncing with Ward Management...' : 'Refresh Patient Data'}
-              </button>
             </div>
             
             <SessionScheduler
@@ -428,14 +550,87 @@ export default function DialysisDashboard() {
                   <p className="text-sm text-gray-600 mt-1">Add and manage detailed session information</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">{sessions.length} total sessions</span>
+                  <span className="text-sm text-gray-600">
+                    {filteredSessions.length} of {sessions.length} sessions
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters Section */}
+              <div className="mb-6 space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by patient name, ID, or session ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Filter Row */}
+                <div className="flex items-center space-x-3">
+                  <Filter className="w-5 h-5 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">Filters:</span>
+
+                  {/* Status Filter */}
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+
+                  {/* Details Filter */}
+                  <select
+                    value={detailsFilter}
+                    onChange={(e) => setDetailsFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="all">All Details</option>
+                    <option value="has_details">Has Details</option>
+                    <option value="no_details">No Details</option>
+                  </select>
+
+                  {/* Date Filter */}
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="this_week">This Week</option>
+                    <option value="this_month">This Month</option>
+                  </select>
+
+                  {/* Clear Filters Button */}
+                  {(statusFilter !== 'all' || detailsFilter !== 'all' || dateFilter !== 'all' || searchQuery) && (
+                    <button
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setDetailsFilter('all');
+                        setDateFilter('all');
+                        setSearchQuery('');
+                      }}
+                      className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Sessions List */}
-              {sessions.length > 0 ? (
+              {filteredSessions.length > 0 ? (
                 <div className="divide-y divide-gray-100">
-                  {sessions.map((session) => {
+                  {filteredSessions.map((session) => {
                     const hasDetails = session.actualStartTime || session.preWeight || session.postWeight;
                     const isCompleted = session.status === 'COMPLETED' || session.status === 'completed';
 
@@ -492,17 +687,43 @@ export default function DialysisDashboard() {
                               </span>
                             )}
 
-                            {/* Action Button */}
-                            <button
-                              onClick={() => {
-                                setSelectedSession(session);
-                                setShowSessionDetails(true);
-                              }}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2"
-                            >
-                              <FileText className="w-4 h-4" />
-                              <span>{hasDetails ? 'Edit Details' : 'Add Details'}</span>
-                            </button>
+                            {/* Delete Button - Only for Scheduled Sessions */}
+                            {session.status?.toUpperCase() === 'SCHEDULED' && (
+                              <button
+                                onClick={() => handleDeleteSession(session.sessionId, session.status, session.patientName)}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                                title="Delete Scheduled Session"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                <span>Delete</span>
+                              </button>
+                            )}
+
+                            {/* Download Report Button - Only for Completed Sessions */}
+                            {isCompleted && (
+                              <button
+                                onClick={() => handleDownloadReport(session.sessionId)}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                                title="Download Session Report"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span>Download Report</span>
+                              </button>
+                            )}
+
+                            {/* Action Button - Only for non-completed sessions */}
+                            {!isCompleted && (
+                              <button
+                                onClick={() => {
+                                  setSelectedSession(session);
+                                  setShowSessionDetails(true);
+                                }}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                              >
+                                <FileText className="w-4 h-4" />
+                                <span>{hasDetails ? 'Edit Details' : 'Add Details'}</span>
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -546,12 +767,6 @@ export default function DialysisDashboard() {
                                   <span className="ml-1 font-medium">{session.postBloodPressure}</span>
                                 </div>
                               )}
-                              {session.complications && (
-                                <div className="col-span-2">
-                                  <span className="text-red-600">Complications:</span>
-                                  <span className="ml-1 font-medium text-red-700">{session.complications}</span>
-                                </div>
-                              )}
                             </div>
                           </div>
                         )}
@@ -563,11 +778,27 @@ export default function DialysisDashboard() {
                 <div className="text-center py-12">
                   <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No Sessions Found
+                    {sessions.length === 0 ? 'No Sessions Available' : 'No Sessions Match Filters'}
                   </h3>
                   <p className="text-gray-600">
-                    Schedule sessions from the "Schedule Session" tab
+                    {sessions.length === 0
+                      ? 'Schedule sessions from the "Schedule Session" tab'
+                      : 'Try adjusting your filters or search criteria'
+                    }
                   </p>
+                  {sessions.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setDetailsFilter('all');
+                        setDateFilter('all');
+                        setSearchQuery('');
+                      }}
+                      className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      Clear All Filters
+                    </button>
+                  )}
                 </div>
               )}
             </div>

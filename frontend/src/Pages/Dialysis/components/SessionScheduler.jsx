@@ -168,20 +168,8 @@ export default function SessionScheduler({
       startTime: selectedTime || '08:00',
       duration: selectedDuration || '4',
       dialysisType: 'hemodialysis',
-      machineId: '',
-      priority: 'normal',
-      notes: ''
+      machineId: ''
     });
-
-    // Sync form data with parent state when they change
-    React.useEffect(() => {
-      setFormData(prev => ({
-        ...prev,
-        date: selectedDate,
-        startTime: selectedTime || prev.startTime,
-        duration: selectedDuration || prev.duration
-      }));
-    }, [selectedDate, selectedTime, selectedDuration]);
 
     const handleSubmit = (e) => {
       e.preventDefault();
@@ -208,8 +196,6 @@ export default function SessionScheduler({
         duration: `${formData.duration}h 0m`,
         sessionType: formData.dialysisType.toUpperCase(), // Map dialysisType to sessionType
         machineId: formData.machineId,
-        priority: formData.priority.toUpperCase(), // Ensure uppercase for enum
-        notes: formData.notes,
         status: 'SCHEDULED', // Uppercase enum
         attendance: 'PENDING' // Uppercase enum
       };
@@ -407,37 +393,6 @@ export default function SessionScheduler({
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Priority Level
-                </label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="low">Low</option>
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Session Notes
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Add any special instructions or notes for this session..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
               </div>
             </div>
 

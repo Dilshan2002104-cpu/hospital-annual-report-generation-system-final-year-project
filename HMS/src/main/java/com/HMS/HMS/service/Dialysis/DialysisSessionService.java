@@ -76,9 +76,6 @@ public class DialysisSessionService {
         if (session.getSessionType() == null) {
             session.setSessionType(DialysisSession.SessionType.HEMODIALYSIS);
         }
-        if (session.getPriority() == null) {
-            session.setPriority(DialysisSession.Priority.NORMAL);
-        }
         if (session.getIsTransferred() == null) {
             session.setIsTransferred(false);
         }
@@ -137,9 +134,6 @@ public class DialysisSessionService {
         if (sessionDTO.getAttendance() != null) {
             existingSession.setAttendance(sessionDTO.getAttendance());
         }
-        if (sessionDTO.getPriority() != null) {
-            existingSession.setPriority(sessionDTO.getPriority());
-        }
         if (sessionDTO.getPreWeight() != null) {
             existingSession.setPreWeight(sessionDTO.getPreWeight());
         }
@@ -160,11 +154,16 @@ public class DialysisSessionService {
         return convertToDTO(updatedSession);
     }
     
-    // Delete session
+    // Delete session - only SCHEDULED sessions can be deleted
     public void deleteSession(String sessionId) {
-        if (!sessionRepository.existsById(sessionId)) {
-            throw new IllegalArgumentException("Session not found with ID: " + sessionId);
+        DialysisSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found with ID: " + sessionId));
+
+        // Only allow deletion of SCHEDULED sessions
+        if (session.getStatus() != DialysisSession.SessionStatus.SCHEDULED) {
+            throw new IllegalArgumentException("Only scheduled sessions can be deleted. Current status: " + session.getStatus());
         }
+
         sessionRepository.deleteById(sessionId);
     }
     
@@ -205,12 +204,9 @@ public class DialysisSessionService {
             session.setDuration(detailsDTO.getDuration());
         }
 
-        // Update session type and priority
+        // Update session type
         if (detailsDTO.getSessionType() != null) {
             session.setSessionType(detailsDTO.getSessionType());
-        }
-        if (detailsDTO.getPriority() != null) {
-            session.setPriority(detailsDTO.getPriority());
         }
 
         // Update weight and fluid management

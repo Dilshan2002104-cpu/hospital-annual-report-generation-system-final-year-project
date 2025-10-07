@@ -54,11 +54,7 @@ public class DialysisSession {
     @Enumerated(EnumType.STRING)
     @Column(name = "session_type", nullable = false)
     private SessionType sessionType = SessionType.HEMODIALYSIS;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(name = "priority")
-    private Priority priority = Priority.NORMAL;
-    
+
     @Column(name = "pre_weight")
     private String preWeight;
     
@@ -247,15 +243,7 @@ public class DialysisSession {
     public void setSessionType(SessionType sessionType) {
         this.sessionType = sessionType;
     }
-    
-    public Priority getPriority() {
-        return priority;
-    }
-    
-    public void setPriority(Priority priority) {
-        this.priority = priority;
-    }
-    
+
     public String getPreWeight() {
         return preWeight;
     }
@@ -406,13 +394,6 @@ public class DialysisSession {
         PERITONEAL_DIALYSIS,
         CONTINUOUS_RENAL_REPLACEMENT,
         PLASMAPHERESIS
-    }
-
-    public enum Priority {
-        LOW,
-        NORMAL,
-        HIGH,
-        URGENT
     }
 
     public enum DialysisAccess {
