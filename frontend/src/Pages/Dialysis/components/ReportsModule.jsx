@@ -6,19 +6,18 @@ import {
   Filter,
   TrendingUp,
   Users,
-  Monitor,
   BarChart3,
   PieChart,
   Activity
 } from 'lucide-react';
 
-export default function ReportsModule({ sessions, machines, stats }) {
+export default function ReportsModule({ sessions }) {
   const [reportType, setReportType] = useState('attendance');
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   });
-  const [selectedMachine, setSelectedMachine] = useState('all');
+
   const [selectedPatient, setSelectedPatient] = useState('all');
   const [exportFormat, setExportFormat] = useState('pdf');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -39,12 +38,11 @@ export default function ReportsModule({ sessions, machines, stats }) {
       const endDate = new Date(dateRange.endDate);
       
       const inDateRange = sessionDate >= startDate && sessionDate <= endDate;
-      const matchesMachine = selectedMachine === 'all' || session.machineId === selectedMachine;
       const matchesPatient = selectedPatient === 'all' || session.patientId === selectedPatient;
       
-      return inDateRange && matchesMachine && matchesPatient;
+      return inDateRange && matchesPatient;
     });
-  }, [sessions, dateRange, selectedMachine, selectedPatient]);
+  }, [sessions, dateRange, selectedPatient]);
 
   // Generate report data based on type
   const reportData = useMemo(() => {
@@ -53,14 +51,12 @@ export default function ReportsModule({ sessions, machines, stats }) {
         return generateAttendanceReport(filteredSessions);
       case 'treatment':
         return generateTreatmentReport(filteredSessions);
-      case 'machine_utilization':
-        return generateMachineUtilizationReport(filteredSessions, machines);
       case 'patient_progress':
         return generatePatientProgressReport(filteredSessions);
       default:
         return {};
     }
-  }, [reportType, filteredSessions, machines]);
+  }, [reportType, filteredSessions, uniquePatients]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Report generation functions
   function generateAttendanceReport(sessions) {
@@ -120,37 +116,7 @@ export default function ReportsModule({ sessions, machines, stats }) {
     };
   }
 
-  function generateMachineUtilizationReport(sessions, machines) {
-    const machineUsage = {};
-    
-    machines.forEach(machine => {
-      const machineSessions = sessions.filter(s => s.machineId === machine.machineId);
-      const utilizationHours = machineSessions.reduce((total, session) => {
-        const duration = session.duration || '0h 0m';
-        const hours = parseFloat(duration.match(/(\d+)h/) || [0, 0])[1];
-        const minutes = parseFloat(duration.match(/(\d+)m/) || [0, 0])[1];
-        return total + hours + (minutes / 60);
-      }, 0);
 
-      machineUsage[machine.machineId] = {
-        machineName: machine.machineName,
-        sessions: machineSessions.length,
-        utilizationHours: utilizationHours.toFixed(1),
-        utilizationRate: Math.round((utilizationHours / (16 * 7)) * 100) // 16 hours/day * 7 days
-      };
-    });
-
-    return {
-      machineUsage,
-      summary: {
-        totalMachines: machines.length,
-        activeMachines: machines.filter(m => m.status === 'active').length,
-        averageUtilization: Math.round(
-          Object.values(machineUsage).reduce((total, machine) => total + machine.utilizationRate, 0) / machines.length
-        )
-      }
-    };
-  }
 
   function generatePatientProgressReport(sessions) {
     const patientData = {};
@@ -235,7 +201,6 @@ export default function ReportsModule({ sessions, machines, stats }) {
   const reportTypes = [
     { value: 'attendance', label: 'Attendance Report', icon: Users },
     { value: 'treatment', label: 'Treatment Summary', icon: Activity },
-    { value: 'machine_utilization', label: 'Machine Utilization', icon: Monitor },
     { value: 'patient_progress', label: 'Patient Progress', icon: TrendingUp }
   ];
 
@@ -293,23 +258,7 @@ export default function ReportsModule({ sessions, machines, stats }) {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Machine Filter
-              </label>
-              <select
-                value={selectedMachine}
-                onChange={(e) => setSelectedMachine(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Machines</option>
-                {machines.map((machine) => (
-                  <option key={machine.machineId} value={machine.machineId}>
-                    {machine.machineName} - {machine.location}
-                  </option>
-                ))}
-              </select>
-            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -365,7 +314,6 @@ export default function ReportsModule({ sessions, machines, stats }) {
               <div className="text-sm text-blue-800 space-y-1">
                 <div>Sessions: {filteredSessions.length}</div>
                 <div>Date Range: {new Date(dateRange.startDate).toLocaleDateString()} - {new Date(dateRange.endDate).toLocaleDateString()}</div>
-                <div>Machines: {selectedMachine === 'all' ? 'All' : machines.find(m => m.machineId === selectedMachine)?.machineName}</div>
                 <div>Patients: {selectedPatient === 'all' ? 'All' : uniquePatients.find(p => p.id === selectedPatient)?.name}</div>
               </div>
             </div>

@@ -24,10 +24,7 @@ public class DialysisSession {
     
     @Column(name = "machine_id")
     private String machineId;
-    
-    @Column(name = "machine_name")
-    private String machineName;
-    
+
     @Column(name = "scheduled_date", nullable = false)
     private LocalDate scheduledDate;
     
@@ -76,31 +73,36 @@ public class DialysisSession {
     
     @Column(name = "post_blood_pressure")
     private String postBloodPressure;
-    
-    @Column(name = "complications", columnDefinition = "TEXT")
-    private String complications;
-    
-    @Column(name = "notes", columnDefinition = "TEXT")
-    private String notes;
-    
+
+    // Additional vital signs and treatment parameters
+    @Column(name = "pre_heart_rate")
+    private Integer preHeartRate;
+
+    @Column(name = "post_heart_rate")
+    private Integer postHeartRate;
+
+    @Column(name = "temperature")
+    private Double temperature;
+
+    @Column(name = "patient_comfort")
+    private String patientComfort;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "dialysis_access")
+    private DialysisAccess dialysisAccess;
+
+    @Column(name = "blood_flow")
+    private Integer bloodFlow;
+
+    @Column(name = "dialysate_flow")
+    private Integer dialysateFlow;
+
     @Column(name = "transferred_from")
     private String transferredFrom;
-    
-    @Column(name = "transfer_date")
-    private LocalDateTime transferDate;
-    
+
     @Column(name = "is_transferred")
     private Boolean isTransferred = false;
-    
-    @Column(name = "ward_id")
-    private Long wardId;
-    
-    @Column(name = "ward_name")
-    private String wardName;
-    
-    @Column(name = "bed_number")
-    private String bedNumber;
-    
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
@@ -173,15 +175,7 @@ public class DialysisSession {
     public void setMachineId(String machineId) {
         this.machineId = machineId;
     }
-    
-    public String getMachineName() {
-        return machineName;
-    }
-    
-    public void setMachineName(String machineName) {
-        this.machineName = machineName;
-    }
-    
+
     public LocalDate getScheduledDate() {
         return scheduledDate;
     }
@@ -301,23 +295,7 @@ public class DialysisSession {
     public void setPostBloodPressure(String postBloodPressure) {
         this.postBloodPressure = postBloodPressure;
     }
-    
-    public String getComplications() {
-        return complications;
-    }
-    
-    public void setComplications(String complications) {
-        this.complications = complications;
-    }
-    
-    public String getNotes() {
-        return notes;
-    }
-    
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-    
+
     public String getTransferredFrom() {
         return transferredFrom;
     }
@@ -325,47 +303,15 @@ public class DialysisSession {
     public void setTransferredFrom(String transferredFrom) {
         this.transferredFrom = transferredFrom;
     }
-    
-    public LocalDateTime getTransferDate() {
-        return transferDate;
-    }
-    
-    public void setTransferDate(LocalDateTime transferDate) {
-        this.transferDate = transferDate;
-    }
-    
+
     public Boolean getIsTransferred() {
         return isTransferred;
     }
-    
+
     public void setIsTransferred(Boolean isTransferred) {
         this.isTransferred = isTransferred;
     }
-    
-    public Long getWardId() {
-        return wardId;
-    }
-    
-    public void setWardId(Long wardId) {
-        this.wardId = wardId;
-    }
-    
-    public String getWardName() {
-        return wardName;
-    }
-    
-    public void setWardName(String wardName) {
-        this.wardName = wardName;
-    }
-    
-    public String getBedNumber() {
-        return bedNumber;
-    }
-    
-    public void setBedNumber(String bedNumber) {
-        this.bedNumber = bedNumber;
-    }
-    
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -382,6 +328,63 @@ public class DialysisSession {
         this.updatedAt = updatedAt;
     }
     
+    // Getters and Setters for new fields
+    public Integer getPreHeartRate() {
+        return preHeartRate;
+    }
+
+    public void setPreHeartRate(Integer preHeartRate) {
+        this.preHeartRate = preHeartRate;
+    }
+
+    public Integer getPostHeartRate() {
+        return postHeartRate;
+    }
+
+    public void setPostHeartRate(Integer postHeartRate) {
+        this.postHeartRate = postHeartRate;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
+    }
+
+    public String getPatientComfort() {
+        return patientComfort;
+    }
+
+    public void setPatientComfort(String patientComfort) {
+        this.patientComfort = patientComfort;
+    }
+
+    public DialysisAccess getDialysisAccess() {
+        return dialysisAccess;
+    }
+
+    public void setDialysisAccess(DialysisAccess dialysisAccess) {
+        this.dialysisAccess = dialysisAccess;
+    }
+
+    public Integer getBloodFlow() {
+        return bloodFlow;
+    }
+
+    public void setBloodFlow(Integer bloodFlow) {
+        this.bloodFlow = bloodFlow;
+    }
+
+    public Integer getDialysateFlow() {
+        return dialysateFlow;
+    }
+
+    public void setDialysateFlow(Integer dialysateFlow) {
+        this.dialysateFlow = dialysateFlow;
+    }
+
     // Enums
     public enum SessionStatus {
         SCHEDULED,
@@ -390,25 +393,32 @@ public class DialysisSession {
         CANCELLED,
         NO_SHOW
     }
-    
+
     public enum AttendanceStatus {
         PENDING,
         PRESENT,
         ABSENT,
         LATE
     }
-    
+
     public enum SessionType {
         HEMODIALYSIS,
         PERITONEAL_DIALYSIS,
         CONTINUOUS_RENAL_REPLACEMENT,
         PLASMAPHERESIS
     }
-    
+
     public enum Priority {
         LOW,
         NORMAL,
         HIGH,
         URGENT
+    }
+
+    public enum DialysisAccess {
+        AV_FISTULA,
+        AV_GRAFT,
+        CENTRAL_CATHETER,
+        PERITONEAL
     }
 }

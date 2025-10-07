@@ -189,4 +189,44 @@ public class DialysisMachineController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    // Get available machines for a specific time slot
+    @GetMapping("/available-for-time")
+    public ResponseEntity<?> getAvailableMachinesForTime(
+            @RequestParam String date,
+            @RequestParam String startTime,
+            @RequestParam int duration) {
+        try {
+            LocalDate sessionDate = LocalDate.parse(date);
+            java.time.LocalTime sessionStartTime = java.time.LocalTime.parse(startTime);
+
+            List<DialysisMachineDTO> availableMachines = machineService.getAvailableMachinesForTime(
+                    sessionDate, sessionStartTime, duration);
+
+            return ResponseEntity.ok(availableMachines);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to get available machines: " + e.getMessage()));
+        }
+    }
+
+    // Get all machines with their availability status for a specific time slot
+    @GetMapping("/availability-status")
+    public ResponseEntity<?> getMachinesWithAvailabilityStatus(
+            @RequestParam String date,
+            @RequestParam String startTime,
+            @RequestParam int duration) {
+        try {
+            LocalDate sessionDate = LocalDate.parse(date);
+            java.time.LocalTime sessionStartTime = java.time.LocalTime.parse(startTime);
+
+            List<Map<String, Object>> machinesWithStatus = machineService.getMachinesWithAvailabilityStatus(
+                    sessionDate, sessionStartTime, duration);
+
+            return ResponseEntity.ok(machinesWithStatus);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to get machine availability status: " + e.getMessage()));
+        }
+    }
 }

@@ -35,10 +35,7 @@ public interface DialysisSessionRepository extends JpaRepository<DialysisSession
     
     // Find transferred patients' sessions
     List<DialysisSession> findByIsTransferredTrue();
-    
-    // Find sessions by ward
-    List<DialysisSession> findByWardId(Long wardId);
-    
+
     // Find today's sessions
     @Query("SELECT s FROM DialysisSession s WHERE s.scheduledDate = CURRENT_DATE ORDER BY s.startTime")
     List<DialysisSession> findTodaysSessions();
@@ -93,8 +90,4 @@ public interface DialysisSessionRepository extends JpaRepository<DialysisSession
     
     // Check if session ID exists
     boolean existsBySessionId(String sessionId);
-    
-    // Find sessions that need follow-up (completed sessions without post-session notes)
-    @Query("SELECT s FROM DialysisSession s WHERE s.status = 'COMPLETED' AND (s.notes IS NULL OR s.notes = '')")
-    List<DialysisSession> findSessionsNeedingFollowUp();
 }

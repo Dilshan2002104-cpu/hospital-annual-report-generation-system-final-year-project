@@ -13,7 +13,6 @@ public class DialysisSessionDTO {
     private String patientName;
     private Long admissionId;
     private String machineId;
-    private String machineName;
     private LocalDate scheduledDate;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -29,14 +28,18 @@ public class DialysisSessionDTO {
     private String fluidRemoval;
     private String preBloodPressure;
     private String postBloodPressure;
-    private String complications;
-    private String notes;
+
+    // Additional vital signs and treatment parameters
+    private Integer preHeartRate;
+    private Integer postHeartRate;
+    private Double temperature;
+    private String patientComfort;
+    private DialysisSession.DialysisAccess dialysisAccess;
+    private Integer bloodFlow;
+    private Integer dialysateFlow;
+
     private String transferredFrom;
-    private LocalDateTime transferDate;
     private Boolean isTransferred;
-    private Long wardId;
-    private String wardName;
-    private String bedNumber;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -88,19 +91,11 @@ public class DialysisSessionDTO {
     public String getMachineId() {
         return machineId;
     }
-    
+
     public void setMachineId(String machineId) {
         this.machineId = machineId;
     }
-    
-    public String getMachineName() {
-        return machineName;
-    }
-    
-    public void setMachineName(String machineName) {
-        this.machineName = machineName;
-    }
-    
+
     public LocalDate getScheduledDate() {
         return scheduledDate;
     }
@@ -220,23 +215,7 @@ public class DialysisSessionDTO {
     public void setPostBloodPressure(String postBloodPressure) {
         this.postBloodPressure = postBloodPressure;
     }
-    
-    public String getComplications() {
-        return complications;
-    }
-    
-    public void setComplications(String complications) {
-        this.complications = complications;
-    }
-    
-    public String getNotes() {
-        return notes;
-    }
-    
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-    
+
     public String getTransferredFrom() {
         return transferredFrom;
     }
@@ -244,15 +223,7 @@ public class DialysisSessionDTO {
     public void setTransferredFrom(String transferredFrom) {
         this.transferredFrom = transferredFrom;
     }
-    
-    public LocalDateTime getTransferDate() {
-        return transferDate;
-    }
-    
-    public void setTransferDate(LocalDateTime transferDate) {
-        this.transferDate = transferDate;
-    }
-    
+
     public Boolean getIsTransferred() {
         return isTransferred;
     }
@@ -260,31 +231,7 @@ public class DialysisSessionDTO {
     public void setIsTransferred(Boolean isTransferred) {
         this.isTransferred = isTransferred;
     }
-    
-    public Long getWardId() {
-        return wardId;
-    }
-    
-    public void setWardId(Long wardId) {
-        this.wardId = wardId;
-    }
-    
-    public String getWardName() {
-        return wardName;
-    }
-    
-    public void setWardName(String wardName) {
-        this.wardName = wardName;
-    }
-    
-    public String getBedNumber() {
-        return bedNumber;
-    }
-    
-    public void setBedNumber(String bedNumber) {
-        this.bedNumber = bedNumber;
-    }
-    
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -299,5 +246,62 @@ public class DialysisSessionDTO {
     
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    // Getters and Setters for new fields
+    public Integer getPreHeartRate() {
+        return preHeartRate;
+    }
+
+    public void setPreHeartRate(Integer preHeartRate) {
+        this.preHeartRate = preHeartRate;
+    }
+
+    public Integer getPostHeartRate() {
+        return postHeartRate;
+    }
+
+    public void setPostHeartRate(Integer postHeartRate) {
+        this.postHeartRate = postHeartRate;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
+    }
+
+    public String getPatientComfort() {
+        return patientComfort;
+    }
+
+    public void setPatientComfort(String patientComfort) {
+        this.patientComfort = patientComfort;
+    }
+
+    public DialysisSession.DialysisAccess getDialysisAccess() {
+        return dialysisAccess;
+    }
+
+    public void setDialysisAccess(DialysisSession.DialysisAccess dialysisAccess) {
+        this.dialysisAccess = dialysisAccess;
+    }
+
+    public Integer getBloodFlow() {
+        return bloodFlow;
+    }
+
+    public void setBloodFlow(Integer bloodFlow) {
+        this.bloodFlow = bloodFlow;
+    }
+
+    public Integer getDialysateFlow() {
+        return dialysateFlow;
+    }
+
+    public void setDialysateFlow(Integer dialysateFlow) {
+        this.dialysateFlow = dialysateFlow;
     }
 }

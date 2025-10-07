@@ -111,6 +111,20 @@ export const useDialysisWebSocket = (onDialysisUpdate) => {
           onDialysisUpdate(data);
         }
       }
+    }, [onDialysisUpdate]),
+
+    // Listen to machine availability updates
+    '/topic/dialysis/machines': useCallback((data) => {
+      console.log('🤖 Machine Availability WebSocket update received:', data);
+      
+      // Trigger update callback with machine data
+      if (onDialysisUpdate) {
+        onDialysisUpdate({
+          type: 'MACHINE_AVAILABILITY_UPDATE',
+          machines: data,
+          timestamp: Date.now()
+        });
+      }
     }, [onDialysisUpdate])
   };
 

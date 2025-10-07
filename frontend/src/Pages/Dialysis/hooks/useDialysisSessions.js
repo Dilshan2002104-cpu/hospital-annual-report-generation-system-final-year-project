@@ -16,38 +16,6 @@ const useDialysisSessions = (showToast) => {
     }
   }, [showToast]);
 
-  // Helper function to generate a session for a single patient
-  const generateSessionForPatient = useCallback((patient) => {
-    const today = new Date();
-    const sessionId = `DS${Date.now()}_${patient.admissionId}`;
-    
-    return {
-      sessionId,
-      patientId: patient.patientNationalId,
-      patientName: patient.patientName,
-      patientNationalId: patient.patientNationalId,
-      admissionId: patient.admissionId,
-      machineId: null, // To be assigned
-      machineName: 'Not Assigned',
-      scheduledDate: today.toISOString().split('T')[0],
-      startTime: '08:00',
-      endTime: '12:00',
-      duration: '4h 0m',
-      status: 'scheduled',
-      attendance: 'pending',
-      sessionType: 'hemodialysis',
-      priority: 'normal',
-      complications: '',
-      notes: 'Patient transferred from Ward Management',
-      transferredFrom: 'Ward Management',
-      transferDate: new Date().toISOString(),
-      isTransferred: true,
-      wardId: patient.wardId,
-      wardName: patient.wardName,
-      bedNumber: patient.bedNumber
-    };
-  }, []);
-
   // Real-time WebSocket integration
   const handleDialysisUpdate = useCallback((data) => {
     console.log('🔄 Real-time dialysis update received:', data);
@@ -58,31 +26,23 @@ const useDialysisSessions = (showToast) => {
         setDialysisPatients(prev => {
           const existing = prev.find(p => p.admissionId === data.newAdmission.admissionId);
           if (!existing) {
-            console.log('✅ Adding new transferred patient:', data.newAdmission.patientName);
+            console.log('✅ Adding new transferred patient (awaiting schedule):', data.newAdmission.patientName);
             return [data.newAdmission, ...prev];
           }
           return prev;
         });
 
-        // Generate a new session for the transferred patient
-        const newSession = generateSessionForPatient(data.newAdmission);
-        setSessions(prev => {
-          const existing = prev.find(s => s.admissionId === data.newAdmission.admissionId);
-          if (!existing) {
-            console.log('✅ Creating session for transferred patient:', data.newAdmission.patientName);
-            return [newSession, ...prev];
-          }
-          return prev;
-        });
+        // NOTE: Removed auto-scheduling - patients now remain in "awaiting schedule" status
+        // They must be manually scheduled using the SessionScheduler interface
 
-        // Show toast notification only if showToast is available
+        // Show toast notification for transferred patient
         if (stableShowToast) {
-          stableShowToast('success', 'New Patient Transfer', 
-            `${data.newAdmission.patientName} has been transferred to Dialysis ward`);
+          stableShowToast('info', 'New Patient Transfer', 
+            `${data.newAdmission.patientName} has been transferred to Dialysis ward and is awaiting schedule`);
         }
       }
     }
-  }, [generateSessionForPatient, stableShowToast]);
+  }, [stableShowToast]);
 
   const {
     isConnected: wsConnected,
@@ -350,82 +310,101 @@ const useDialysisSessions = (showToast) => {
     }
   }, [showToast]);
 
-  // Enhanced session generation for real dialysis patients
-  const generateSessionsForPatients = useCallback((patients) => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    
-    const timeSlots = [
-      { start: '08:00', end: '12:00' },
-      { start: '13:00', end: '17:00' },
-      { start: '18:00', end: '22:00' }
-    ];
-    
-    const generatedSessions = [];
-    
-    patients.forEach((patient, patientIndex) => {
-      // Create sessions for today and tomorrow
-      [today, tomorrow].forEach((date, dayIndex) => {
-        const slotIndex = (patientIndex + dayIndex) % timeSlots.length;
-        const timeSlot = timeSlots[slotIndex];
-        const machineNumber = (patientIndex % 8) + 1; // 8 dialysis machines
-        
-        const session = {
-          sessionId: `DS_${patient.admissionId}_${date.toISOString().split('T')[0]}_${timeSlot.start}`,
-          patientId: patient.patientNationalId,
-          patientName: patient.patientName,
-          patientNationalId: patient.patientNationalId,
-          admissionId: patient.admissionId,
-          bedNumber: patient.bedNumber,
-          wardName: patient.wardName,
-          machineId: `M${machineNumber.toString().padStart(3, '0')}`,
-          machineName: `Fresenius 4008S - Unit ${machineNumber}`,
-          scheduledDate: date.toISOString().split('T')[0],
-          startTime: timeSlot.start,
-          endTime: timeSlot.end,
-          duration: '4h 0m',
-          status: dayIndex === 0 ? 
-            (patientIndex % 3 === 0 ? 'completed' : patientIndex % 3 === 1 ? 'in_progress' : 'scheduled') :
-            'scheduled',
-          attendance: dayIndex === 0 ? 
-            (patientIndex % 4 === 0 ? 'absent' : 'present') : 
-            'pending',
-          sessionType: 'hemodialysis',
-          priority: patientIndex % 5 === 0 ? 'urgent' : 'normal',
-          complications: '',
-          notes: dayIndex === 0 && patientIndex % 3 === 0 ? 'Transferred from Ward' : '',
-          preWeight: '',
-          postWeight: '',
-          fluidRemoval: '',
-          preBloodPressure: '',
-          postBloodPressure: '',
-          // Additional transfer info
-          transferredFrom: patient.admissionDate ? new Date(patient.admissionDate).toDateString() === today.toDateString() ? 'Recently Transferred' : null : null
-        };
-        
-        generatedSessions.push(session);
-      });
-    });
-    
-    return generatedSessions;
+  // Create a new dialysis session
+  // Check machine availability for specific date and time
+  const checkMachineAvailability = useCallback(async (date, startTime, duration) => {
+    try {
+      const jwtToken = localStorage.getItem('jwtToken');
+      const response = await axios.get(
+        `http://localhost:8080/api/dialysis/machines/available-for-time`,
+        {
+          params: {
+            date: date,
+            startTime: startTime,
+            duration: duration
+          },
+          headers: {
+            'Authorization': `Bearer ${jwtToken}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error checking machine availability:', error);
+      throw error;
+    }
   }, []);
 
-  // Load dialysis patients and generate sessions on component mount
+  // Get all machines with their availability status
+  const getMachinesWithAvailability = useCallback(async (date, startTime, duration) => {
+    try {
+      const jwtToken = localStorage.getItem('jwtToken');
+      const response = await axios.get(
+        `http://localhost:8080/api/dialysis/machines/availability-status`,
+        {
+          params: {
+            date: date,
+            startTime: startTime,
+            duration: duration
+          },
+          headers: {
+            'Authorization': `Bearer ${jwtToken}`
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching machines with availability:', error);
+      throw error;
+    }
+  }, []);
+
+  const createSession = useCallback(async (sessionData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Real API call to create session
+      const jwtToken = localStorage.getItem('jwtToken');
+      const response = await axios.post('http://localhost:8080/api/dialysis/sessions', sessionData, {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Add new session to local state
+      setSessions(prev => [response.data, ...prev]);
+      
+      if (showToast) {
+        showToast('success', 'Session Created', 'Dialysis session scheduled successfully');
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error creating dialysis session:', error);
+      setError(error.message);
+      
+      if (showToast) {
+        showToast('error', 'Create Failed', 'Failed to create session');
+      }
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  // Load dialysis patients on component mount
   useEffect(() => {
     const loadDialysisData = async () => {
       try {
-        const patients = await fetchDialysisPatients();
-        if (patients && patients.length > 0) {
-          const generatedSessions = generateSessionsForPatients(patients);
-          setSessions(generatedSessions);
-        } else {
-          // No patients found, set empty sessions
-          setSessions([]);
-        }
+        // Load existing sessions from API
+        await fetchSessions(true); // silent mode
+        
+        // Load current dialysis patients
+        await fetchDialysisPatients();
       } catch (error) {
-        console.error('Failed to load dialysis patients:', error);
-        // Set empty sessions on error
+        console.error('Failed to load dialysis data:', error);
         setSessions([]);
       }
     };
@@ -450,10 +429,15 @@ const useDialysisSessions = (showToast) => {
     // Functions
     fetchSessions,
     fetchDialysisPatients,
+    createSession,
     updateSession,
     markAttendance,
     addSessionDetails,
     deleteSession,
+    
+    // Machine availability functions
+    checkMachineAvailability,
+    getMachinesWithAvailability,
     
     // WebSocket functions
     getTransferredPatientsCount,

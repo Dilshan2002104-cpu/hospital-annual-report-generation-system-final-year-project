@@ -2,15 +2,17 @@ package com.HMS.HMS.service.Dialysis;
 
 import com.HMS.HMS.DTO.Dialysis.DialysisMachineDTO;
 import com.HMS.HMS.model.Dialysis.DialysisMachine;
+import com.HMS.HMS.model.Dialysis.DialysisSession;
 import com.HMS.HMS.repository.Dialysis.DialysisMachineRepository;
+import com.HMS.HMS.repository.Dialysis.DialysisSessionRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,10 +20,13 @@ import java.util.stream.Collectors;
 public class DialysisMachineService {
     
     private final DialysisMachineRepository machineRepository;
-    
+    private final DialysisSessionRepository sessionRepository;
+
     @Autowired
-    public DialysisMachineService(DialysisMachineRepository machineRepository) {
+    public DialysisMachineService(DialysisMachineRepository machineRepository,
+                                 DialysisSessionRepository sessionRepository) {
         this.machineRepository = machineRepository;
+        this.sessionRepository = sessionRepository;
     }
     
     // Get all machines
@@ -192,7 +197,74 @@ public class DialysisMachineService {
     public long getMachineCountByStatus(DialysisMachine.MachineStatus status) {
         return machineRepository.countByStatus(status);
     }
-    
+
+    // Get available machines for a specific time slot
+    public List<DialysisMachineDTO> getAvailableMachinesForTime(LocalDate date, LocalTime startTime, int durationHours) {
+        // Calculate end time
+        LocalTime endTime = startTime.plusHours(durationHours);
+
+        // Get all active machines
+        List<DialysisMachine> activeMachines = machineRepository.findActiveMachines();
+
+        // Filter out machines that have conflicting sessions
+        List<DialysisMachine> availableMachines = activeMachines.stream()
+                .filter(machine -> {
+                    List<DialysisSession> conflicts = sessionRepository.findConflictingSessions(
+                            machine.getMachineId(), date, startTime, endTime);
+                    return conflicts.isEmpty();
+                })
+                .collect(Collectors.toList());
+
+        return availableMachines.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Get all machines with their availability status for a specific time slot
+    public List<Map<String, Object>> getMachinesWithAvailabilityStatus(LocalDate date, LocalTime startTime, int durationHours) {
+        // Calculate end time
+        LocalTime endTime = startTime.plusHours(durationHours);
+
+        // Get all active machines
+        List<DialysisMachine> activeMachines = machineRepository.findActiveMachines();
+
+        // Build response with availability status
+        return activeMachines.stream()
+                .map(machine -> {
+                    Map<String, Object> machineInfo = new HashMap<>();
+                    machineInfo.put("machineId", machine.getMachineId());
+                    machineInfo.put("machineName", machine.getMachineName());
+                    machineInfo.put("model", machine.getModel());
+                    machineInfo.put("location", machine.getLocation());
+                    machineInfo.put("status", machine.getStatus());
+
+                    // Check for conflicts
+                    List<DialysisSession> conflicts = sessionRepository.findConflictingSessions(
+                            machine.getMachineId(), date, startTime, endTime);
+
+                    machineInfo.put("available", conflicts.isEmpty());
+                    machineInfo.put("conflictCount", conflicts.size());
+
+                    if (!conflicts.isEmpty()) {
+                        // Add conflict details
+                        List<Map<String, Object>> conflictDetails = conflicts.stream()
+                                .map(session -> {
+                                    Map<String, Object> detail = new HashMap<>();
+                                    detail.put("sessionId", session.getSessionId());
+                                    detail.put("patientName", session.getPatientName());
+                                    detail.put("startTime", session.getStartTime());
+                                    detail.put("endTime", session.getEndTime());
+                                    return detail;
+                                })
+                                .collect(Collectors.toList());
+                        machineInfo.put("conflicts", conflictDetails);
+                    }
+
+                    return machineInfo;
+                })
+                .collect(Collectors.toList());
+    }
+
     // Convert entity to DTO
     private DialysisMachineDTO convertToDTO(DialysisMachine machine) {
         DialysisMachineDTO dto = new DialysisMachineDTO();

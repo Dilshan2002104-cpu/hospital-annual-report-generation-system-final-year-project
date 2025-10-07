@@ -2,25 +2,22 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   Activity, 
-  FileText, 
-  Settings,
-  Droplets,
-  Monitor,
+  FileText,
   Clock,
-  UserPlus
+  UserPlus,
+  RefreshCw,
+  Droplet
 } from 'lucide-react';
 
 // Import components
 import DialysisHeader from './components/DialysisHeader';
-import AttendanceTracker from './components/AttendanceTracker';
+import SessionScheduler from './components/SessionScheduler';
 import SessionDetailsModal from './components/SessionDetailsModal';
 import ReportsModule from './components/ReportsModule';
-import MachineManagement from './components/MachineManagement';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 
 // Import custom hooks
 import useDialysisSessions from './hooks/useDialysisSessions';
-import useDialysisMachines from './hooks/useDialysisMachines';
 
 export default function DialysisDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,7 +28,7 @@ export default function DialysisDashboard() {
   // Custom hooks for data management
   const {
     sessions,
-    loading: sessionsLoading,
+    loading: _sessionsLoading,
     dialysisPatients,
     patientsLoading,
     wsConnected,
@@ -39,16 +36,11 @@ export default function DialysisDashboard() {
     wsNotifications,
     wsTransferredPatients,
     fetchDialysisPatients,
-    markAttendance,
+    createSession,
+    getMachinesWithAvailability,
     addSessionDetails,
     requestDialysisUpdate
   } = useDialysisSessions(addToast);
-
-  const {
-    machines,
-    loading: machinesLoading,
-    updateMachine
-  } = useDialysisMachines(addToast);
 
   // Toast functions
   function addToast(type, title, message) {
@@ -72,9 +64,6 @@ export default function DialysisDashboard() {
     const absentToday = todaySessions.filter(s => s.attendance === 'absent').length;
     const pendingToday = todaySessions.filter(s => s.attendance === 'pending').length;
     
-    const activeMachines = machines.filter(m => m.status === 'active').length;
-    const totalMachines = machines.length;
-    
     const completedSessions = todaySessions.filter(s => s.status === 'completed').length;
     const inProgressSessions = todaySessions.filter(s => s.status === 'in_progress').length;
 
@@ -84,41 +73,25 @@ export default function DialysisDashboard() {
       presentToday,
       absentToday,
       pendingToday,
-      activeMachines,
-      totalMachines,
       completedSessions,
       inProgressSessions,
       attendanceRate: todaySessions.length > 0 ? 
         Math.round((presentToday / todaySessions.length) * 100) : 0
     };
-  }, [sessions, machines]);
+  }, [sessions]);
 
   // Tab configuration
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: Monitor, description: 'Dashboard & Stats' },
-    { id: 'attendance', label: 'Attendance', icon: Users, description: 'Mark Present/Absent' },
+    { id: 'overview', label: 'Overview', icon: Activity, description: 'Dashboard & Stats' },
+    { id: 'attendance', label: 'Schedule Session', icon: Users, description: 'Schedule & Manage Sessions' },
     { id: 'sessions', label: 'Session Details', icon: Activity, description: 'Add Session Data' },
-    { id: 'machines', label: 'Machines', icon: Settings, description: 'Equipment Management' },
     { id: 'reports', label: 'Reports', icon: FileText, description: 'Generate Reports' }
   ];
 
   // Handle session actions
-
-
   const handleAddSessionDetails = () => {
     if (selectedSession) {
       setShowSessionDetails(true);
-    }
-  };
-
-
-
-  const handleAttendanceUpdate = async (sessionId, status) => {
-    try {
-      await markAttendance(sessionId, status);
-      addToast('success', 'Attendance Updated', `Patient marked as ${status}`);
-    } catch {
-      addToast('error', 'Update Failed', 'Could not update attendance');
     }
   };
 
@@ -130,6 +103,21 @@ export default function DialysisDashboard() {
       addToast('success', 'Details Added', 'Session details saved successfully');
     } catch {
       addToast('error', 'Save Failed', 'Could not save session details');
+    }
+  };
+
+  const handleScheduleSession = async (sessionData) => {
+    try {
+      // Use the real API to create the session
+      const newSession = await createSession(sessionData);
+      
+      addToast('success', 'Session Scheduled', `Dialysis session scheduled for ${sessionData.patientName}`);
+      
+      return newSession;
+    } catch (error) {
+      console.error('Failed to schedule session:', error);
+      addToast('error', 'Scheduling Failed', 'Could not schedule dialysis session');
+      throw error;
     }
   };
 
@@ -201,7 +189,7 @@ export default function DialysisDashboard() {
                       <p className="text-sm text-gray-600">Active Sessions</p>
                       <p className="text-2xl font-bold text-gray-900">{sessions.filter(s => s.transferredFrom).length}</p>
                     </div>
-                    <Droplets className="h-8 w-8 text-blue-600" />
+                    <Droplet className="h-8 w-8 text-blue-600" />
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Generated from transfers</p>
                 </div>
@@ -215,7 +203,7 @@ export default function DialysisDashboard() {
                 {patientsLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 ) : (
-                  <Monitor className="h-4 w-4 mr-2" />
+                  <RefreshCw className="h-4 w-4 mr-2" />
                 )}
                 {patientsLoading ? 'Syncing with Ward Management...' : 'Refresh Patient Data'}
               </button>
@@ -294,8 +282,8 @@ export default function DialysisDashboard() {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Active Sessions</p>
-                    <p className="text-2xl font-bold text-gray-900">{dialysisStats.activeMachines}</p>
+                    <p className="text-sm font-medium text-gray-600">Today's Sessions</p>
+                    <p className="text-2xl font-bold text-gray-900">{dialysisStats.todaySessions}</p>
                   </div>
                   <div className="p-3 bg-green-50 rounded-full">
                     <Activity className="h-6 w-6 text-green-600" />
@@ -303,7 +291,7 @@ export default function DialysisDashboard() {
                 </div>
                 <div className="mt-4 flex items-center">
                   <span className="text-blue-600 text-sm font-medium">
-                    {sessions.filter(s => new Date(s.scheduledDate).toDateString() === new Date().toDateString()).length} today
+                    {dialysisStats.inProgressSessions} in progress
                   </span>
                 </div>
               </div>
@@ -311,16 +299,16 @@ export default function DialysisDashboard() {
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Available Machines</p>
-                    <p className="text-2xl font-bold text-gray-900">{dialysisStats.totalMachines}</p>
+                    <p className="text-sm font-medium text-gray-600">Completed Sessions</p>
+                    <p className="text-2xl font-bold text-gray-900">{dialysisStats.completedSessions}</p>
                   </div>
                   <div className="p-3 bg-purple-50 rounded-full">
-                    <Monitor className="h-6 w-6 text-purple-600" />
+                    <Clock className="h-6 w-6 text-purple-600" />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center">
-                  <span className="text-orange-600 text-sm font-medium">
-                    {dialysisStats.activeMachines} active
+                  <span className="text-green-600 text-sm font-medium">
+                    Today
                   </span>
                 </div>
               </div>
@@ -332,7 +320,7 @@ export default function DialysisDashboard() {
                     <p className="text-2xl font-bold text-gray-900">{dialysisStats.attendanceRate}%</p>
                   </div>
                   <div className="p-3 bg-orange-50 rounded-full">
-                    <Droplets className="h-6 w-6 text-orange-600" />
+                    <Droplet className="h-6 w-6 text-orange-600" />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center">
@@ -347,7 +335,7 @@ export default function DialysisDashboard() {
       case 'attendance':
         return (
           <div className="space-y-6">
-            {/* Dialysis Patients Integration Header */}
+            {/* Real-time Patient Transfer Status */}
             <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -356,25 +344,19 @@ export default function DialysisDashboard() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      Dialysis Patient Management
+                      Schedule Dialysis Sessions
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Real-time integration with Ward Management - showing patients transferred to Dialysis Ward (Ward 4)
+                      Real-time integration with Ward Management - Manually schedule dialysis sessions for transferred patients
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={handleRefreshPatients}
-                  disabled={patientsLoading}
-                  className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
-                >
-                  {patientsLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <Monitor className="h-4 w-4 mr-2" />
-                  )}
-                  {patientsLoading ? 'Loading...' : 'Refresh Patients'}
-                </button>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'} rounded-full`}></div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {wsConnected ? 'Live Connection' : 'Disconnected'}
+                  </span>
+                </div>
               </div>
               
               {dialysisPatients.length > 0 && (
@@ -384,85 +366,217 @@ export default function DialysisDashboard() {
                       <Users className="h-5 w-5 text-purple-600 mr-2" />
                       <div>
                         <p className="text-sm font-medium text-gray-900">{dialysisPatients.length}</p>
-                        <p className="text-xs text-gray-600">Active Dialysis Patients</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-blue-200">
-                    <div className="flex items-center">
-                      <Activity className="h-5 w-5 text-blue-600 mr-2" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{sessions.filter(s => s.transferredFrom).length}</p>
-                        <p className="text-xs text-gray-600">Recently Transferred</p>
+                        <p className="text-xs text-gray-600">Patients Transferred</p>
                       </div>
                     </div>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-green-200">
                     <div className="flex items-center">
-                      <Clock className="h-5 w-5 text-green-600 mr-2" />
+                      <Activity className="h-5 w-5 text-green-600 mr-2" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{sessions.filter(s => new Date(s.scheduledDate).toDateString() === new Date().toDateString()).length}</p>
-                        <p className="text-xs text-gray-600">Today's Sessions</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {sessions.filter(s => s.status === 'scheduled').length}
+                        </p>
+                        <p className="text-xs text-gray-600">Manually Scheduled</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-orange-200">
+                    <div className="flex items-center">
+                      <Clock className="h-5 w-5 text-orange-600 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {Math.max(0, dialysisPatients.length - sessions.filter(s => s.status === 'scheduled').length)}
+                        </p>
+                        <p className="text-xs text-gray-600">Awaiting Schedule</p>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
+              
+              <button
+                onClick={handleRefreshPatients}
+                disabled={patientsLoading}
+                className="mt-4 w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
+              >
+                {patientsLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {patientsLoading ? 'Syncing with Ward Management...' : 'Refresh Patient Data'}
+              </button>
             </div>
             
-            <AttendanceTracker
-              sessions={sessions}
-              loading={sessionsLoading}
-              onAttendanceUpdate={handleAttendanceUpdate}
-              stats={dialysisStats}
+            <SessionScheduler
+              dialysisPatients={dialysisPatients}
+              existingSessions={sessions}
+              loading={patientsLoading}
+              onScheduleSession={handleScheduleSession}
+              getMachinesWithAvailability={getMachinesWithAvailability}
             />
           </div>
         );
       case 'sessions':
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="text-center py-12">
-              <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Session Details Management
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Select a session from the Attendance tab to add detailed information
-              </p>
-              {selectedSession ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto mb-4">
-                  <p className="text-sm font-medium text-blue-900">Selected Session:</p>
-                  <p className="text-blue-800">{selectedSession.patientName}</p>
-                  <p className="text-blue-700 text-sm">
-                    {new Date(selectedSession.scheduledDate).toLocaleDateString()} at {selectedSession.startTime}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Session Details Management</h3>
+                  <p className="text-sm text-gray-600 mt-1">Add and manage detailed session information</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">{sessions.length} total sessions</span>
+                </div>
+              </div>
+
+              {/* Sessions List */}
+              {sessions.length > 0 ? (
+                <div className="divide-y divide-gray-100">
+                  {sessions.map((session) => {
+                    const hasDetails = session.actualStartTime || session.preWeight || session.postWeight;
+                    const isCompleted = session.status === 'COMPLETED' || session.status === 'completed';
+
+                    return (
+                      <div
+                        key={session.sessionId}
+                        className="py-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-semibold text-sm">
+                                  {session.patientName?.split(' ').map(n => n[0]).join('') || 'P'}
+                                </span>
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900">{session.patientName}</h4>
+                                <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                  <span>ID: {session.patientNationalId}</span>
+                                  <span>•</span>
+                                  <span>{new Date(session.scheduledDate).toLocaleDateString()}</span>
+                                  <span>•</span>
+                                  <span>{session.startTime} - {session.endTime}</span>
+                                  <span>•</span>
+                                  <span>Machine: {session.machineName || session.machineId}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-3">
+                            {/* Status Badge */}
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              isCompleted
+                                ? 'bg-green-100 text-green-700'
+                                : session.status === 'IN_PROGRESS' || session.status === 'in_progress'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {session.status}
+                            </span>
+
+                            {/* Details Status */}
+                            {hasDetails ? (
+                              <span className="flex items-center text-xs text-green-600">
+                                <Activity className="w-4 h-4 mr-1" />
+                                Details Added
+                              </span>
+                            ) : (
+                              <span className="flex items-center text-xs text-orange-600">
+                                <Clock className="w-4 h-4 mr-1" />
+                                No Details
+                              </span>
+                            )}
+
+                            {/* Action Button */}
+                            <button
+                              onClick={() => {
+                                setSelectedSession(session);
+                                setShowSessionDetails(true);
+                              }}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                            >
+                              <FileText className="w-4 h-4" />
+                              <span>{hasDetails ? 'Edit Details' : 'Add Details'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Show summary if details exist */}
+                        {hasDetails && (
+                          <div className="mt-3 ml-13 bg-gray-50 rounded-lg p-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                              {session.actualStartTime && (
+                                <div>
+                                  <span className="text-gray-600">Actual Time:</span>
+                                  <span className="ml-1 font-medium">{session.actualStartTime} - {session.actualEndTime}</span>
+                                </div>
+                              )}
+                              {session.preWeight && (
+                                <div>
+                                  <span className="text-gray-600">Pre Weight:</span>
+                                  <span className="ml-1 font-medium">{session.preWeight} kg</span>
+                                </div>
+                              )}
+                              {session.postWeight && (
+                                <div>
+                                  <span className="text-gray-600">Post Weight:</span>
+                                  <span className="ml-1 font-medium">{session.postWeight} kg</span>
+                                </div>
+                              )}
+                              {session.fluidRemoval && (
+                                <div>
+                                  <span className="text-gray-600">Fluid Removed:</span>
+                                  <span className="ml-1 font-medium">{session.fluidRemoval} ml</span>
+                                </div>
+                              )}
+                              {session.preBloodPressure && (
+                                <div>
+                                  <span className="text-gray-600">Pre BP:</span>
+                                  <span className="ml-1 font-medium">{session.preBloodPressure}</span>
+                                </div>
+                              )}
+                              {session.postBloodPressure && (
+                                <div>
+                                  <span className="text-gray-600">Post BP:</span>
+                                  <span className="ml-1 font-medium">{session.postBloodPressure}</span>
+                                </div>
+                              )}
+                              {session.complications && (
+                                <div className="col-span-2">
+                                  <span className="text-red-600">Complications:</span>
+                                  <span className="ml-1 font-medium text-red-700">{session.complications}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No Sessions Found
+                  </h3>
+                  <p className="text-gray-600">
+                    Schedule sessions from the "Schedule Session" tab
                   </p>
                 </div>
-              ) : null}
-              <button
-                onClick={handleAddSessionDetails}
-                disabled={!selectedSession}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg transition-colors"
-              >
-                {selectedSession ? 'Add Session Details' : 'No Session Selected'}
-              </button>
+              )}
             </div>
           </div>
-        );
-      case 'machines':
-        return (
-          <MachineManagement
-            machines={machines}
-            sessions={sessions}
-            loading={machinesLoading}
-            onUpdateMachine={updateMachine}
-          />
         );
       case 'reports':
         return (
           <ReportsModule
             sessions={sessions}
-            machines={machines}
-            stats={dialysisStats}
           />
         );
       default:

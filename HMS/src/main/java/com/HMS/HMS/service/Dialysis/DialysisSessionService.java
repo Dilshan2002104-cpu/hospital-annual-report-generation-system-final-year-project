@@ -40,11 +40,17 @@ public class DialysisSessionService {
     
     // Create new session
     public DialysisSessionDTO createSession(DialysisSessionDTO sessionDTO) {
-        // Check if session ID already exists
-        if (sessionRepository.existsBySessionId(sessionDTO.getSessionId())) {
-            throw new IllegalArgumentException("Session with ID " + sessionDTO.getSessionId() + " already exists");
+        // Generate session ID if not provided
+        if (sessionDTO.getSessionId() == null || sessionDTO.getSessionId().isEmpty()) {
+            String sessionId = generateSessionId();
+            sessionDTO.setSessionId(sessionId);
+        } else {
+            // Check if session ID already exists
+            if (sessionRepository.existsBySessionId(sessionDTO.getSessionId())) {
+                throw new IllegalArgumentException("Session with ID " + sessionDTO.getSessionId() + " already exists");
+            }
         }
-        
+
         // Check for scheduling conflicts if machine is assigned
         if (sessionDTO.getMachineId() != null) {
             List<DialysisSession> conflicts = sessionRepository.findConflictingSessions(
@@ -57,9 +63,9 @@ public class DialysisSessionService {
                 throw new IllegalArgumentException("Scheduling conflict detected for machine " + sessionDTO.getMachineId());
             }
         }
-        
+
         DialysisSession session = convertToEntity(sessionDTO);
-        
+
         // Set default values if not provided
         if (session.getStatus() == null) {
             session.setStatus(DialysisSession.SessionStatus.SCHEDULED);
@@ -76,9 +82,17 @@ public class DialysisSessionService {
         if (session.getIsTransferred() == null) {
             session.setIsTransferred(false);
         }
-        
+
         DialysisSession savedSession = sessionRepository.save(session);
         return convertToDTO(savedSession);
+    }
+
+    // Generate unique session ID
+    private String generateSessionId() {
+        String prefix = "DS-";
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String random = String.format("%04d", (int)(Math.random() * 10000));
+        return prefix + timestamp + "-" + random;
     }
     
     // Update session
@@ -101,9 +115,6 @@ public class DialysisSessionService {
                 }
             }
             existingSession.setMachineId(sessionDTO.getMachineId());
-        }
-        if (sessionDTO.getMachineName() != null) {
-            existingSession.setMachineName(sessionDTO.getMachineName());
         }
         if (sessionDTO.getScheduledDate() != null) {
             existingSession.setScheduledDate(sessionDTO.getScheduledDate());
@@ -144,13 +155,7 @@ public class DialysisSessionService {
         if (sessionDTO.getPostBloodPressure() != null) {
             existingSession.setPostBloodPressure(sessionDTO.getPostBloodPressure());
         }
-        if (sessionDTO.getComplications() != null) {
-            existingSession.setComplications(sessionDTO.getComplications());
-        }
-        if (sessionDTO.getNotes() != null) {
-            existingSession.setNotes(sessionDTO.getNotes());
-        }
-        
+
         DialysisSession updatedSession = sessionRepository.save(existingSession);
         return convertToDTO(updatedSession);
     }
@@ -187,8 +192,28 @@ public class DialysisSessionService {
     public DialysisSessionDTO updateSessionDetails(String sessionId, DialysisSessionDTO detailsDTO) {
         DialysisSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found with ID: " + sessionId));
-        
-        // Update session details
+
+        // Update timing details
+        if (detailsDTO.getActualStartTime() != null) {
+            session.setActualStartTime(detailsDTO.getActualStartTime());
+        }
+        if (detailsDTO.getActualEndTime() != null) {
+            session.setActualEndTime(detailsDTO.getActualEndTime());
+            session.setStatus(DialysisSession.SessionStatus.COMPLETED);
+        }
+        if (detailsDTO.getDuration() != null) {
+            session.setDuration(detailsDTO.getDuration());
+        }
+
+        // Update session type and priority
+        if (detailsDTO.getSessionType() != null) {
+            session.setSessionType(detailsDTO.getSessionType());
+        }
+        if (detailsDTO.getPriority() != null) {
+            session.setPriority(detailsDTO.getPriority());
+        }
+
+        // Update weight and fluid management
         if (detailsDTO.getPreWeight() != null) {
             session.setPreWeight(detailsDTO.getPreWeight());
         }
@@ -198,23 +223,38 @@ public class DialysisSessionService {
         if (detailsDTO.getFluidRemoval() != null) {
             session.setFluidRemoval(detailsDTO.getFluidRemoval());
         }
+
+        // Update vital signs
         if (detailsDTO.getPreBloodPressure() != null) {
             session.setPreBloodPressure(detailsDTO.getPreBloodPressure());
         }
         if (detailsDTO.getPostBloodPressure() != null) {
             session.setPostBloodPressure(detailsDTO.getPostBloodPressure());
         }
-        if (detailsDTO.getComplications() != null) {
-            session.setComplications(detailsDTO.getComplications());
+        if (detailsDTO.getPreHeartRate() != null) {
+            session.setPreHeartRate(detailsDTO.getPreHeartRate());
         }
-        if (detailsDTO.getNotes() != null) {
-            session.setNotes(detailsDTO.getNotes());
+        if (detailsDTO.getPostHeartRate() != null) {
+            session.setPostHeartRate(detailsDTO.getPostHeartRate());
         }
-        if (detailsDTO.getActualEndTime() != null) {
-            session.setActualEndTime(detailsDTO.getActualEndTime());
-            session.setStatus(DialysisSession.SessionStatus.COMPLETED);
+        if (detailsDTO.getTemperature() != null) {
+            session.setTemperature(detailsDTO.getTemperature());
         }
-        
+
+        // Update treatment parameters
+        if (detailsDTO.getDialysisAccess() != null) {
+            session.setDialysisAccess(detailsDTO.getDialysisAccess());
+        }
+        if (detailsDTO.getBloodFlow() != null) {
+            session.setBloodFlow(detailsDTO.getBloodFlow());
+        }
+        if (detailsDTO.getDialysateFlow() != null) {
+            session.setDialysateFlow(detailsDTO.getDialysateFlow());
+        }
+        if (detailsDTO.getPatientComfort() != null) {
+            session.setPatientComfort(detailsDTO.getPatientComfort());
+        }
+
         DialysisSession updatedSession = sessionRepository.save(session);
         return convertToDTO(updatedSession);
     }

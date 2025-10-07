@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  Clock, 
-  Monitor, 
-  Activity, 
-  AlertTriangle, 
-  Droplets,
+import { useState, useEffect } from 'react';
+import {
+  X,
+  Clock,
+  Activity,
+  Droplet,
   Heart,
-  ThermometerSun,
-  Scale,
-  FileText,
   Save
 } from 'lucide-react';
 
@@ -18,6 +13,8 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
     actualStartTime: '',
     actualEndTime: '',
     duration: '',
+    sessionType: 'HEMODIALYSIS',
+    priority: 'NORMAL',
     preWeight: '',
     postWeight: '',
     fluidRemoval: '',
@@ -26,15 +23,10 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
     preHeartRate: '',
     postHeartRate: '',
     temperature: '',
-    complications: '',
-    medicationsGiven: '',
-    notes: '',
-    treatmentGoals: '',
     patientComfort: 'good',
-    dialysisAccess: 'av_fistula',
+    dialysisAccess: 'AV_FISTULA',
     bloodFlow: '',
-    dialysateFlow: '',
-    treatmentEfficiency: ''
+    dialysateFlow: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -47,6 +39,8 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
         actualStartTime: session.actualStartTime || session.startTime || '',
         actualEndTime: session.actualEndTime || session.endTime || '',
         duration: session.duration || '',
+        sessionType: session.sessionType || 'HEMODIALYSIS',
+        priority: session.priority || 'NORMAL',
         preWeight: session.preWeight || '',
         postWeight: session.postWeight || '',
         fluidRemoval: session.fluidRemoval || '',
@@ -55,15 +49,10 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
         preHeartRate: session.preHeartRate || '',
         postHeartRate: session.postHeartRate || '',
         temperature: session.temperature || '',
-        complications: session.complications || '',
-        medicationsGiven: session.medicationsGiven || '',
-        notes: session.notes || '',
-        treatmentGoals: session.treatmentGoals || '',
         patientComfort: session.patientComfort || 'good',
-        dialysisAccess: session.dialysisAccess || 'av_fistula',
+        dialysisAccess: session.dialysisAccess || 'AV_FISTULA',
         bloodFlow: session.bloodFlow || '',
-        dialysateFlow: session.dialysateFlow || '',
-        treatmentEfficiency: session.treatmentEfficiency || ''
+        dialysateFlow: session.dialysateFlow || ''
       });
       setErrors({});
     }
@@ -122,6 +111,7 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
   const validateForm = () => {
     const newErrors = {};
 
+    // Required fields validation
     if (!formData.actualStartTime) {
       newErrors.actualStartTime = 'Start time is required';
     }
@@ -130,20 +120,116 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
       newErrors.actualEndTime = 'End time is required';
     }
 
+    // Time validation - end time must be after start time
     if (formData.actualStartTime && formData.actualEndTime) {
       const start = new Date(`2000-01-01T${formData.actualStartTime}`);
       const end = new Date(`2000-01-01T${formData.actualEndTime}`);
       if (end <= start) {
         newErrors.actualEndTime = 'End time must be after start time';
       }
+
+      // Validate session duration (shouldn't be more than 24 hours)
+      const diffHours = (end - start) / (1000 * 60 * 60);
+      if (diffHours > 24) {
+        newErrors.actualEndTime = 'Session cannot be longer than 24 hours';
+      }
     }
 
-    if (formData.preWeight && (isNaN(formData.preWeight) || formData.preWeight <= 0)) {
-      newErrors.preWeight = 'Please enter a valid weight';
+    // Weight validation
+    if (formData.preWeight) {
+      const weight = parseFloat(formData.preWeight);
+      if (isNaN(weight) || weight <= 0) {
+        newErrors.preWeight = 'Please enter a valid weight';
+      } else if (weight < 1 || weight > 500) {
+        newErrors.preWeight = 'Weight must be between 1-500 kg';
+      }
     }
 
-    if (formData.postWeight && (isNaN(formData.postWeight) || formData.postWeight <= 0)) {
-      newErrors.postWeight = 'Please enter a valid weight';
+    if (formData.postWeight) {
+      const weight = parseFloat(formData.postWeight);
+      if (isNaN(weight) || weight <= 0) {
+        newErrors.postWeight = 'Please enter a valid weight';
+      } else if (weight < 1 || weight > 500) {
+        newErrors.postWeight = 'Weight must be between 1-500 kg';
+      }
+    }
+
+    // Validate post weight is less than or equal to pre weight
+    if (formData.preWeight && formData.postWeight) {
+      const pre = parseFloat(formData.preWeight);
+      const post = parseFloat(formData.postWeight);
+      if (post > pre) {
+        newErrors.postWeight = 'Post-treatment weight should be ≤ pre-treatment weight';
+      }
+    }
+
+    // Fluid removal validation
+    if (formData.fluidRemoval) {
+      const fluid = parseFloat(formData.fluidRemoval);
+      if (isNaN(fluid) || fluid < 0) {
+        newErrors.fluidRemoval = 'Please enter a valid fluid amount';
+      } else if (fluid > 10000) {
+        newErrors.fluidRemoval = 'Fluid removal seems too high (max 10L)';
+      }
+    }
+
+    // Blood pressure validation (format: systolic/diastolic)
+    const bpRegex = /^\d{2,3}\/\d{2,3}$/;
+    if (formData.preBloodPressure && !bpRegex.test(formData.preBloodPressure)) {
+      newErrors.preBloodPressure = 'Format should be: 120/80';
+    } else if (formData.preBloodPressure) {
+      const [sys, dia] = formData.preBloodPressure.split('/').map(Number);
+      if (sys < 50 || sys > 300 || dia < 30 || dia > 200) {
+        newErrors.preBloodPressure = 'Blood pressure values seem unusual';
+      }
+    }
+
+    if (formData.postBloodPressure && !bpRegex.test(formData.postBloodPressure)) {
+      newErrors.postBloodPressure = 'Format should be: 110/70';
+    } else if (formData.postBloodPressure) {
+      const [sys, dia] = formData.postBloodPressure.split('/').map(Number);
+      if (sys < 50 || sys > 300 || dia < 30 || dia > 200) {
+        newErrors.postBloodPressure = 'Blood pressure values seem unusual';
+      }
+    }
+
+    // Heart rate validation
+    if (formData.preHeartRate) {
+      const hr = parseInt(formData.preHeartRate);
+      if (isNaN(hr) || hr < 30 || hr > 250) {
+        newErrors.preHeartRate = 'Heart rate must be between 30-250 bpm';
+      }
+    }
+
+    if (formData.postHeartRate) {
+      const hr = parseInt(formData.postHeartRate);
+      if (isNaN(hr) || hr < 30 || hr > 250) {
+        newErrors.postHeartRate = 'Heart rate must be between 30-250 bpm';
+      }
+    }
+
+    // Temperature validation
+    if (formData.temperature) {
+      const temp = parseFloat(formData.temperature);
+      if (isNaN(temp) || temp < 30 || temp > 45) {
+        newErrors.temperature = 'Temperature must be between 30-45°C';
+      }
+    }
+
+    // Blood flow validation
+    if (formData.bloodFlow) {
+      const flow = parseInt(formData.bloodFlow);
+      if (isNaN(flow) || flow < 50 || flow > 600) {
+        newErrors.bloodFlow = 'Blood flow must be between 50-600 ml/min';
+      }
+    }
+
+    // Dialysate flow validation
+    if (formData.dialysateFlow) {
+      const flow = parseInt(formData.dialysateFlow);
+      if (isNaN(flow) || flow < 100 || flow > 1000) {
+        newErrors.dialysateFlow = 'Dialysate flow must be between 100-1000 ml/min';
+      }
     }
 
     setErrors(newErrors);
@@ -202,9 +288,43 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
             <div className="bg-gray-50 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <Clock className="w-5 h-5 mr-2 text-blue-600" />
-                Session Timing
+                Session Information
               </h3>
-              
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Session Type
+                  </label>
+                  <select
+                    value={formData.sessionType}
+                    onChange={(e) => handleInputChange('sessionType', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="HEMODIALYSIS">Hemodialysis</option>
+                    <option value="PERITONEAL_DIALYSIS">Peritoneal Dialysis</option>
+                    <option value="CONTINUOUS_RENAL_REPLACEMENT">Continuous Renal Replacement</option>
+                    <option value="PLASMAPHERESIS">Plasmapheresis</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Priority
+                  </label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => handleInputChange('priority', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="NORMAL">Normal</option>
+                    <option value="HIGH">High</option>
+                    <option value="URGENT">Urgent</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -272,8 +392,13 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
                     placeholder="120/80"
                     value={formData.preBloodPressure}
                     onChange={(e) => handleInputChange('preBloodPressure', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.preBloodPressure ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {errors.preBloodPressure && (
+                    <p className="text-red-600 text-sm mt-1">{errors.preBloodPressure}</p>
+                  )}
                 </div>
 
                 <div>
@@ -285,21 +410,49 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
                     placeholder="110/70"
                     value={formData.postBloodPressure}
                     onChange={(e) => handleInputChange('postBloodPressure', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.postBloodPressure ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {errors.postBloodPressure && (
+                    <p className="text-red-600 text-sm mt-1">{errors.postBloodPressure}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pre Heart Rate
+                    Pre Heart Rate (bpm)
                   </label>
                   <input
                     type="number"
                     placeholder="72"
                     value={formData.preHeartRate}
                     onChange={(e) => handleInputChange('preHeartRate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.preHeartRate ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {errors.preHeartRate && (
+                    <p className="text-red-600 text-sm mt-1">{errors.preHeartRate}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Post Heart Rate (bpm)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="68"
+                    value={formData.postHeartRate}
+                    onChange={(e) => handleInputChange('postHeartRate', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.postHeartRate ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors.postHeartRate && (
+                    <p className="text-red-600 text-sm mt-1">{errors.postHeartRate}</p>
+                  )}
                 </div>
 
                 <div>
@@ -312,8 +465,13 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
                     placeholder="36.5"
                     value={formData.temperature}
                     onChange={(e) => handleInputChange('temperature', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.temperature ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {errors.temperature && (
+                    <p className="text-red-600 text-sm mt-1">{errors.temperature}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -321,7 +479,7 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
             {/* Weight and Fluid Management */}
             <div className="bg-blue-50 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Droplets className="w-5 h-5 mr-2 text-blue-600" />
+                <Droplet className="w-5 h-5 mr-2 text-blue-600" />
                 Weight & Fluid Management
               </h3>
               
@@ -373,8 +531,13 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
                     placeholder="2000"
                     value={formData.fluidRemoval}
                     onChange={(e) => handleInputChange('fluidRemoval', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.fluidRemoval ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {errors.fluidRemoval && (
+                    <p className="text-red-600 text-sm mt-1">{errors.fluidRemoval}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -382,7 +545,7 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
             {/* Treatment Parameters */}
             <div className="bg-green-50 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Monitor className="w-5 h-5 mr-2 text-green-600" />
+                <Activity className="w-5 h-5 mr-2 text-green-600" />
                 Treatment Parameters
               </h3>
               
@@ -396,10 +559,10 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
                     onChange={(e) => handleInputChange('dialysisAccess', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="av_fistula">AV Fistula</option>
-                    <option value="av_graft">AV Graft</option>
-                    <option value="central_catheter">Central Catheter</option>
-                    <option value="peritoneal">Peritoneal</option>
+                    <option value="AV_FISTULA">AV Fistula</option>
+                    <option value="AV_GRAFT">AV Graft</option>
+                    <option value="CENTRAL_CATHETER">Central Catheter</option>
+                    <option value="PERITONEAL">Peritoneal</option>
                   </select>
                 </div>
 
@@ -443,55 +606,6 @@ export default function SessionDetailsModal({ isOpen, onClose, session, onSubmit
                     <option value="fair">Fair</option>
                     <option value="poor">Poor</option>
                   </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Complications & Notes */}
-            <div className="bg-yellow-50 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
-                Complications & Notes
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Complications
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Record any complications during treatment..."
-                    value={formData.complications}
-                    onChange={(e) => handleInputChange('complications', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Medications Given
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Heparin 5000u, EPO 4000u"
-                    value={formData.medicationsGiven}
-                    onChange={(e) => handleInputChange('medicationsGiven', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Notes
-                  </label>
-                  <textarea
-                    rows={4}
-                    placeholder="Additional notes about the session..."
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
                 </div>
               </div>
             </div>

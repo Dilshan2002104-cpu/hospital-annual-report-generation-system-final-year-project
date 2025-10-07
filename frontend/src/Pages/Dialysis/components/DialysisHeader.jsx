@@ -1,8 +1,7 @@
 import React from 'react';
 import { 
-  Droplets, 
+  Droplet, 
   Users, 
-  Monitor, 
   Clock,
   TrendingUp,
   Shield
@@ -38,15 +37,6 @@ export default function DialysisHeader({ stats }) {
       borderColor: 'border-emerald-200'
     },
     {
-      label: 'Active Machines',
-      value: `${stats.activeMachines}/${stats.totalMachines}`,
-      icon: Monitor,
-      color: 'purple',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600',
-      borderColor: 'border-purple-200'
-    },
-    {
       label: 'Attendance Rate',
       value: `${stats.attendanceRate}%`,
       icon: Users,
@@ -65,7 +55,7 @@ export default function DialysisHeader({ stats }) {
           <div className="flex items-center space-x-4">
             <div className="relative">
               <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                <Droplets className="w-9 h-9 text-white drop-shadow-lg" />
+                <Droplet className="w-9 h-9 text-white drop-shadow-lg" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white flex items-center justify-center">
                 <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
