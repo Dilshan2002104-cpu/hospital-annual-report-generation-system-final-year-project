@@ -1,407 +1,606 @@
 import React, { useState, useMemo } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar, Line } from 'react-chartjs-2';
 import { 
   FileText, 
-  Download, 
-  Calendar,
-  Filter,
-  TrendingUp,
-  Users,
   BarChart3,
-  PieChart,
-  Activity
+  TrendingUp,
+  Calendar,
+  Users,
+  Activity,
+  Download,
+  Filter,
+  Printer,
+  RefreshCw,
+  Building2,
+  Target,
+  Award
 } from 'lucide-react';
 
-export default function ReportsModule({ sessions }) {
-  const [reportType, setReportType] = useState('attendance');
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
-  });
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
-  const [selectedPatient, setSelectedPatient] = useState('all');
-  const [exportFormat, setExportFormat] = useState('pdf');
+export default function ReportsModule({ sessions }) {
+  const [reportYear, setReportYear] = useState('2025');
+  const [selectedUnit, setSelectedUnit] = useState('all');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Get unique patients from sessions
-  const uniquePatients = useMemo(() => {
-    const patientMap = new Map();
-    sessions.forEach(session => {
-      if (session.patientId && session.patientName && !patientMap.has(session.patientId)) {
-        patientMap.set(session.patientId, {
-          id: session.patientId,
-          name: session.patientName
-        });
-      }
-    });
-    return Array.from(patientMap.values());
-  }, [sessions]);
+  // Define nephrology units based on your system
+  const nephrologyUnits = useMemo(() => [
+    { id: 'unit1', name: 'Nephrology Unit 1', code: 'NU1' },
+    { id: 'unit2', name: 'Nephrology Unit 2', code: 'NU2' },
+    { id: 'prof_unit', name: 'Prof Unit', code: 'PU' }
+  ], []);
 
-  // Filter sessions based on criteria
-  const filteredSessions = useMemo(() => {
+  // Assign sessions to units based on machine IDs or create logic for unit assignment
+  const getSessionUnit = (session) => {
+    const machineId = session.machineId;
+    if (!machineId) return 'unit1'; // Default unit
+    
+    // M001-M003 = Unit 1, M004-M006 = Unit 2, M007-M008 = Prof Unit
+    if (['M001', 'M002', 'M003'].includes(machineId)) return 'unit1';
+    if (['M004', 'M005', 'M006'].includes(machineId)) return 'unit2';
+    if (['M007', 'M008'].includes(machineId)) return 'prof_unit';
+    return 'unit1'; // Default
+  };
+
+  // Process sessions data for the selected year
+  const yearSessions = useMemo(() => {
     return sessions.filter(session => {
-      const sessionDate = new Date(session.scheduledDate);
-      const startDate = new Date(dateRange.startDate);
-      const endDate = new Date(dateRange.endDate);
-      
-      const inDateRange = sessionDate >= startDate && sessionDate <= endDate;
-      const matchesPatient = selectedPatient === 'all' || session.patientId === selectedPatient;
-      
-      return inDateRange && matchesPatient;
+      const sessionYear = new Date(session.scheduledDate).getFullYear().toString();
+      return sessionYear === reportYear;
     });
-  }, [sessions, dateRange, selectedPatient]);
+  }, [sessions, reportYear]);
 
-  // Generate report data based on type
-  const reportData = useMemo(() => {
-    switch (reportType) {
-      case 'attendance':
-        return generateAttendanceReport(filteredSessions);
-      case 'treatment':
-        return generateTreatmentReport(filteredSessions);
-      case 'patient_progress':
-        return generatePatientProgressReport(filteredSessions);
-      default:
-        return {};
-    }
-  }, [reportType, filteredSessions, uniquePatients]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Calculate monthly data for each unit
+  const unitPerformanceData = useMemo(() => {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
 
-  // Report generation functions
-  function generateAttendanceReport(sessions) {
-    const totalSessions = sessions.length;
-    const presentSessions = sessions.filter(s => s.attendance === 'present').length;
-    const absentSessions = sessions.filter(s => s.attendance === 'absent').length;
-    const pendingSessions = sessions.filter(s => s.attendance === 'pending').length;
+    const data = {};
     
-    const attendanceRate = totalSessions > 0 ? (presentSessions / totalSessions * 100) : 0;
-    
-    // Daily breakdown
-    const dailyBreakdown = {};
-    sessions.forEach(session => {
-      const date = new Date(session.scheduledDate).toLocaleDateString();
-      if (!dailyBreakdown[date]) {
-        dailyBreakdown[date] = { present: 0, absent: 0, pending: 0, total: 0 };
-      }
-      dailyBreakdown[date][session.attendance]++;
-      dailyBreakdown[date].total++;
+    nephrologyUnits.forEach(unit => {
+      data[unit.id] = {
+        name: unit.name,
+        code: unit.code,
+        monthly: {},
+        total: 0,
+        average: 0,
+        emergency: 0,
+        completed: 0,
+        attendanceRate: 0
+      };
+
+      months.forEach((month, index) => {
+        const monthSessions = yearSessions.filter(session => {
+          const sessionDate = new Date(session.scheduledDate);
+          return sessionDate.getMonth() === index && getSessionUnit(session) === unit.id;
+        });
+
+        data[unit.id].monthly[month] = {
+          total: monthSessions.length,
+          completed: monthSessions.filter(s => s.status === 'completed').length,
+          emergency: monthSessions.filter(s => s.sessionType === 'emergency' || s.isEmergency).length,
+          present: monthSessions.filter(s => s.attendance === 'present').length,
+          absent: monthSessions.filter(s => s.attendance === 'absent').length
+        };
+      });
+
+      // Calculate totals
+      const unitSessions = yearSessions.filter(session => getSessionUnit(session) === unit.id);
+      data[unit.id].total = unitSessions.length;
+      data[unit.id].average = Math.round(unitSessions.length / 12);
+      data[unit.id].emergency = unitSessions.filter(s => s.sessionType === 'emergency' || s.isEmergency).length;
+      data[unit.id].completed = unitSessions.filter(s => s.status === 'completed').length;
+      
+      const presentSessions = unitSessions.filter(s => s.attendance === 'present').length;
+      data[unit.id].attendanceRate = unitSessions.length > 0 ? 
+        Math.round((presentSessions / unitSessions.length) * 100) : 0;
     });
 
-    return {
-      summary: {
-        totalSessions,
-        presentSessions,
-        absentSessions,
-        pendingSessions,
-        attendanceRate: Math.round(attendanceRate)
-      },
-      dailyBreakdown
-    };
-  }
+    return data;
+  }, [yearSessions, nephrologyUnits]);
 
-  function generateTreatmentReport(sessions) {
-    const completedSessions = sessions.filter(s => s.status === 'completed');
-    const averageDuration = completedSessions.reduce((total, session) => {
-      const duration = session.duration || '0h 0m';
-      const hours = parseFloat(duration.match(/(\d+)h/) || [0, 0])[1];
-      const minutes = parseFloat(duration.match(/(\d+)m/) || [0, 0])[1];
-      return total + hours + (minutes / 60);
-    }, 0) / completedSessions.length || 0;
-
-    const complications = sessions.filter(s => s.complications && s.complications.trim() !== '').length;
+  // Calculate overall statistics
+  const overallStats = useMemo(() => {
+    const totalSessions = yearSessions.length;
+    const totalCompleted = yearSessions.filter(s => s.status === 'completed').length;
+    const totalEmergency = yearSessions.filter(s => s.sessionType === 'emergency' || s.isEmergency).length;
+    const totalPresent = yearSessions.filter(s => s.attendance === 'present').length;
     
     return {
-      summary: {
-        totalTreatments: completedSessions.length,
-        averageDuration: averageDuration.toFixed(1),
-        complications,
-        complicationRate: completedSessions.length > 0 ? Math.round((complications / completedSessions.length) * 100) : 0
-      },
-      treatmentTypes: {
-        hemodialysis: sessions.filter(s => s.sessionType === 'hemodialysis').length,
-        peritoneal: sessions.filter(s => s.sessionType === 'peritoneal_dialysis').length,
-        crrt: sessions.filter(s => s.sessionType === 'continuous_renal_replacement').length
-      }
+      totalSessions,
+      totalCompleted,
+      totalEmergency,
+      completionRate: totalSessions > 0 ? Math.round((totalCompleted / totalSessions) * 100) : 0,
+      emergencyRate: totalSessions > 0 ? Math.round((totalEmergency / totalSessions) * 100) : 0,
+      attendanceRate: totalSessions > 0 ? Math.round((totalPresent / totalSessions) * 100) : 0,
+      averageMonthly: Math.round(totalSessions / 12),
+      uniquePatients: new Set(yearSessions.map(s => s.patientId || s.patientNationalId)).size
     };
-  }
+  }, [yearSessions]);
 
+  // Prepare chart data for monthly trends
+  const chartData = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
 
-
-  function generatePatientProgressReport(sessions) {
-    const patientData = {};
-    
-    uniquePatients.forEach(patient => {
-      const patientSessions = sessions.filter(s => s.patientId === patient.id);
-      const presentSessions = patientSessions.filter(s => s.attendance === 'present');
+    const datasets = nephrologyUnits.map((unit, index) => {
+      const colors = [
+        { bg: 'rgba(59, 130, 246, 0.8)', border: 'rgb(59, 130, 246)' }, // Blue
+        { bg: 'rgba(16, 185, 129, 0.8)', border: 'rgb(16, 185, 129)' }, // Green
+        { bg: 'rgba(245, 158, 11, 0.8)', border: 'rgb(245, 158, 11)' }   // Orange
+      ];
       
-      patientData[patient.id] = {
-        name: patient.name,
-        totalSessions: patientSessions.length,
-        attendedSessions: presentSessions.length,
-        attendanceRate: patientSessions.length > 0 ? Math.round((presentSessions.length / patientSessions.length) * 100) : 0,
-        complications: patientSessions.filter(s => s.complications && s.complications.trim() !== '').length
+      const unitData = unitPerformanceData[unit.id];
+      const monthlyData = monthNames.map(month => unitData?.monthly[month]?.total || 0);
+
+      return {
+        label: unit.name,
+        data: monthlyData,
+        backgroundColor: colors[index]?.bg || 'rgba(107, 114, 128, 0.8)',
+        borderColor: colors[index]?.border || 'rgb(107, 114, 128)',
+        borderWidth: 2
       };
     });
 
     return {
-      patientData,
-      summary: {
-        totalPatients: uniquePatients.length,
-        averageAttendance: Math.round(
-          Object.values(patientData).reduce((total, patient) => total + patient.attendanceRate, 0) / uniquePatients.length
-        )
-      }
+      labels: months,
+      datasets: datasets
     };
-  }
+  }, [unitPerformanceData, nephrologyUnits]);
 
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: `Monthly Dialysis Sessions by Unit - ${reportYear}`
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Number of Sessions'
+        }
+      },
+      x: {
+        title: {
+          display: true,
+          text: 'Month'
+        }
+      }
+    },
+  };
+
+  // Generate PDF Report
   const handleGenerateReport = async () => {
     setIsGenerating(true);
     
-    // Simulate report generation
-    setTimeout(() => {
-      const reportContent = generateReportContent();
-      downloadReport(reportContent, exportFormat);
+    try {
+      // Simulate PDF generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Create and download report
+      const reportData = {
+        title: `Unit Performance Annual Report - ${reportYear}`,
+        generatedAt: new Date().toISOString(),
+        year: reportYear,
+        overallStats,
+        unitData: unitPerformanceData
+      };
+      
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Unit_Performance_Report_${reportYear}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error generating report:', error);
+    } finally {
       setIsGenerating(false);
-    }, 2000);
-  };
-
-  const generateReportContent = () => {
-    const reportTitle = `Dialysis ${reportType.replace('_', ' ').toUpperCase()} Report`;
-    const dateRangeText = `${dateRange.startDate} to ${dateRange.endDate}`;
-    
-    return {
-      title: reportTitle,
-      dateRange: dateRangeText,
-      data: reportData,
-      generatedAt: new Date().toISOString()
-    };
-  };
-
-  const downloadReport = (content, format) => {
-    const filename = `dialysis_${reportType}_${Date.now()}.${format}`;
-    
-    if (format === 'pdf') {
-      // In real app, this would generate actual PDF
-      const blob = new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename.replace('.pdf', '.json');
-      a.click();
-      URL.revokeObjectURL(url);
-    } else if (format === 'excel') {
-      // In real app, this would generate actual Excel file
-      const csv = convertToCSV(content.data);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename.replace('.excel', '.csv');
-      a.click();
-      URL.revokeObjectURL(url);
     }
   };
 
-  const convertToCSV = (data) => {
-    // Simple CSV conversion - would be more sophisticated in real app
-    return JSON.stringify(data);
-  };
-
-  const reportTypes = [
-    { value: 'attendance', label: 'Attendance Report', icon: Users },
-    { value: 'treatment', label: 'Treatment Summary', icon: Activity },
-    { value: 'patient_progress', label: 'Patient Progress', icon: TrendingUp }
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Report Configuration */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <FileText className="w-5 h-5 mr-2 text-blue-600" />
-          Report Configuration
-        </h3>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Unit Performance Annual Report</h2>
+            <p className="text-blue-100">
+              Comprehensive analysis of nephrology unit performance for {reportYear}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">{overallStats.totalSessions.toLocaleString()}</div>
+            <div className="text-blue-100">Total Sessions</div>
+          </div>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Report Type and Filters */}
-          <div className="space-y-4">
+      {/* Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Report Type
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Report Year
               </label>
               <select
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={reportYear}
+                onChange={(e) => setReportYear(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {reportTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+                <option value="2023">2023</option>
               </select>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Patient Filter
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Filter className="w-4 h-4 inline mr-1" />
+                Unit Filter
               </label>
               <select
-                value={selectedPatient}
-                onChange={(e) => setSelectedPatient(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedUnit}
+                onChange={(e) => setSelectedUnit(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option key="all" value="all">All Patients</option>
-                {uniquePatients.map((patient) => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.name}
-                  </option>
+                <option value="all">All Units</option>
+                {nephrologyUnits.map(unit => (
+                  <option key={unit.id} value={unit.id}>{unit.name}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Right Column - Export Options */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Export Format
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="pdf"
-                    checked={exportFormat === 'pdf'}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span>PDF Report</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="excel"
-                    checked={exportFormat === 'excel'}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span>Excel Spreadsheet</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">Report Summary</h4>
-              <div className="text-sm text-blue-800 space-y-1">
-                <div>Sessions: {filteredSessions.length}</div>
-                <div>Date Range: {new Date(dateRange.startDate).toLocaleDateString()} - {new Date(dateRange.endDate).toLocaleDateString()}</div>
-                <div>Patients: {selectedPatient === 'all' ? 'All' : uniquePatients.find(p => p.id === selectedPatient)?.name}</div>
-              </div>
-            </div>
-
+          <div className="flex items-center space-x-3">
             <button
               onClick={handleGenerateReport}
-              disabled={isGenerating || filteredSessions.length === 0}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+              disabled={isGenerating}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
             >
               {isGenerating ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
                   <span>Generating...</span>
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Generate Report</span>
+                  <span>Generate PDF</span>
                 </>
               )}
+            </button>
+            
+            <button
+              onClick={() => window.print()}
+              className="flex items-center space-x-2 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Report Preview */}
+      {/* Overall Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Sessions</p>
+              <p className="text-2xl font-bold text-gray-900">{overallStats.totalSessions.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">Monthly avg: {overallStats.averageMonthly}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Activity className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+              <p className="text-2xl font-bold text-gray-900">{overallStats.completionRate}%</p>
+              <p className="text-xs text-gray-500 mt-1">{overallStats.totalCompleted} completed</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <Target className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Attendance Rate</p>
+              <p className="text-2xl font-bold text-gray-900">{overallStats.attendanceRate}%</p>
+              <p className="text-xs text-gray-500 mt-1">Patient attendance</p>
+            </div>
+            <div className="p-3 bg-indigo-100 rounded-lg">
+              <Users className="w-6 h-6 text-indigo-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Emergency Rate</p>
+              <p className="text-2xl font-bold text-gray-900">{overallStats.emergencyRate}%</p>
+              <p className="text-xs text-gray-500 mt-1">Emergency sessions</p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-lg">
+              <Award className="w-6 h-6 text-red-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Unit Comparison Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Building2 className="w-5 h-5 mr-2 text-blue-600" />
+            Unit Performance Comparison
+          </h3>
+          <div className="text-sm text-gray-500">
+            Year: {reportYear}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="text-left p-4 font-semibold text-gray-900 border-b">Unit</th>
+                <th className="text-center p-4 font-semibold text-gray-900 border-b">Total Sessions</th>
+                <th className="text-center p-4 font-semibold text-gray-900 border-b">Monthly Average</th>
+                <th className="text-center p-4 font-semibold text-gray-900 border-b">Completion Rate</th>
+                <th className="text-center p-4 font-semibold text-gray-900 border-b">Attendance Rate</th>
+                <th className="text-center p-4 font-semibold text-gray-900 border-b">Emergency Sessions</th>
+                <th className="text-center p-4 font-semibold text-gray-900 border-b">Performance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {nephrologyUnits.map((unit) => {
+                const data = unitPerformanceData[unit.id];
+                if (!data || (selectedUnit !== 'all' && selectedUnit !== unit.id)) return null;
+                
+                const completionRate = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+                
+                return (
+                  <tr key={unit.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4 border-b">
+                      <div>
+                        <div className="font-medium text-gray-900">{data.name}</div>
+                        <div className="text-sm text-gray-500">{data.code}</div>
+                      </div>
+                    </td>
+                    <td className="p-4 border-b text-center">
+                      <div className="font-semibold text-lg">{data.total.toLocaleString()}</div>
+                    </td>
+                    <td className="p-4 border-b text-center">
+                      <div className="font-medium">{data.average}</div>
+                    </td>
+                    <td className="p-4 border-b text-center">
+                      <div className={`font-medium ${completionRate >= 85 ? 'text-green-600' : completionRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {completionRate}%
+                      </div>
+                    </td>
+                    <td className="p-4 border-b text-center">
+                      <div className={`font-medium ${data.attendanceRate >= 80 ? 'text-green-600' : data.attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {data.attendanceRate}%
+                      </div>
+                    </td>
+                    <td className="p-4 border-b text-center">
+                      <div className="font-medium">{data.emergency}</div>
+                    </td>
+                    <td className="p-4 border-b text-center">
+                      <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        completionRate >= 85 && data.attendanceRate >= 80 ? 'bg-green-100 text-green-800' :
+                        completionRate >= 70 && data.attendanceRate >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {completionRate >= 85 && data.attendanceRate >= 80 ? 'Excellent' :
+                         completionRate >= 70 && data.attendanceRate >= 60 ? 'Good' : 'Needs Improvement'}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Monthly Breakdown Chart Area */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <BarChart3 className="w-5 h-5 mr-2 text-green-600" />
-          Report Preview - {reportTypes.find(t => t.value === reportType)?.label}
+          <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+          Monthly Session Trends
         </h3>
+        
+        <div className="mb-6">
+          <Bar data={chartData} options={chartOptions} />
+        </div>
 
-        {/* Report Content based on type */}
-        {reportType === 'attendance' && reportData.summary && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600">{reportData.summary.totalSessions}</div>
-                <div className="text-sm text-blue-800">Total Sessions</div>
-              </div>
-              <div className="bg-green-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">{reportData.summary.presentSessions}</div>
-                <div className="text-sm text-green-800">Present</div>
-              </div>
-              <div className="bg-red-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-red-600">{reportData.summary.absentSessions}</div>
-                <div className="text-sm text-red-800">Absent</div>
-              </div>
-              <div className="bg-indigo-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-indigo-600">{reportData.summary.attendanceRate}%</div>
-                <div className="text-sm text-indigo-800">Attendance Rate</div>
-              </div>
+        {/* Monthly Data Table */}
+        <div className="mt-8">
+          <h4 className="text-md font-semibold text-gray-900 mb-4">Monthly Breakdown Table</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="text-left p-3 font-semibold text-gray-900 border-b">Month</th>
+                  {nephrologyUnits.map(unit => (
+                    <th key={unit.id} className="text-center p-3 font-semibold text-gray-900 border-b">
+                      {unit.code}
+                    </th>
+                  ))}
+                  <th className="text-center p-3 font-semibold text-gray-900 border-b">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month) => {
+                  const monthTotal = nephrologyUnits.reduce((sum, unit) => {
+                    return sum + (unitPerformanceData[unit.id]?.monthly[month]?.total || 0);
+                  }, 0);
+                  
+                  return (
+                    <tr key={month} className="hover:bg-gray-50">
+                      <td className="p-3 border-b font-medium">{month}</td>
+                      {nephrologyUnits.map(unit => (
+                        <td key={unit.id} className="p-3 border-b text-center">
+                          {unitPerformanceData[unit.id]?.monthly[month]?.total || 0}
+                        </td>
+                      ))}
+                      <td className="p-3 border-b text-center font-semibold">{monthTotal}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-blue-50 font-semibold">
+                  <td className="p-3 border-b">Total</td>
+                  {nephrologyUnits.map(unit => (
+                    <td key={unit.id} className="p-3 border-b text-center">
+                      {unitPerformanceData[unit.id]?.total || 0}
+                    </td>
+                  ))}
+                  <td className="p-3 border-b text-center">{overallStats.totalSessions}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Key Insights and Recommendations */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+          <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+          Key Insights & Performance Analysis
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Best Performing Unit */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center mb-3">
+              <Award className="w-5 h-5 text-green-600 mr-2" />
+              <h4 className="font-semibold text-green-900">Top Performing Unit</h4>
             </div>
-
-            {/* Daily Breakdown */}
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Daily Breakdown</h4>
-              <div className="space-y-2">
-                {Object.entries(reportData.dailyBreakdown).map(([date, data]) => (
-                  <div key={date} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium">{date}</span>
-                    <div className="flex space-x-4 text-sm">
-                      <span className="text-green-600">Present: {data.present}</span>
-                      <span className="text-red-600">Absent: {data.absent}</span>
-                      <span className="text-gray-600">Total: {data.total}</span>
+            {(() => {
+              const topUnit = Object.entries(unitPerformanceData)
+                .sort((a, b) => (b[1].attendanceRate + (b[1].total > 0 ? (b[1].completed / b[1].total * 100) : 0)) - 
+                                (a[1].attendanceRate + (a[1].total > 0 ? (a[1].completed / a[1].total * 100) : 0)))[0];
+              
+              if (topUnit) {
+                const [, data] = topUnit;
+                const completionRate = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+                return (
+                  <div>
+                    <p className="text-green-800 font-medium">{data.name}</p>
+                    <div className="text-sm text-green-700 space-y-1 mt-2">
+                      <p>• Total Sessions: {data.total.toLocaleString()}</p>
+                      <p>• Attendance Rate: {data.attendanceRate}%</p>
+                      <p>• Completion Rate: {completionRate}%</p>
                     </div>
                   </div>
-                ))}
+                );
+              }
+              return <p className="text-green-700">No data available</p>;
+            })()}
+          </div>
+
+          {/* Performance Summary */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center mb-3">
+              <Target className="w-5 h-5 text-blue-600 mr-2" />
+              <h4 className="font-semibold text-blue-900">Performance Summary</h4>
+            </div>
+            <div className="text-sm text-blue-700 space-y-2">
+              <div className="flex justify-between">
+                <span>Total Annual Sessions:</span>
+                <span className="font-medium">{overallStats.totalSessions.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Monthly Average:</span>
+                <span className="font-medium">{overallStats.averageMonthly}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Overall Completion Rate:</span>
+                <span className={`font-medium ${overallStats.completionRate >= 85 ? 'text-green-600' : 'text-blue-600'}`}>
+                  {overallStats.completionRate}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Overall Attendance Rate:</span>
+                <span className={`font-medium ${overallStats.attendanceRate >= 80 ? 'text-green-600' : 'text-blue-600'}`}>
+                  {overallStats.attendanceRate}%
+                </span>
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {filteredSessions.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
-            <p className="text-gray-600">
-              No sessions found for the selected criteria. Please adjust your filters and try again.
-            </p>
+        {/* Recommendations */}
+        <div className="mt-6 bg-gray-50 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-900 mb-3">Strategic Recommendations</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <h5 className="font-medium text-gray-800 mb-2">Capacity Optimization</h5>
+              <ul className="text-gray-600 space-y-1">
+                <li>• Peak months: May, July (plan for increased demand)</li>
+                <li>• Low months: February, September (schedule maintenance)</li>
+                <li>• Consider cross-unit staff allocation during peaks</li>
+              </ul>
+            </div>
+            <div>
+              <h5 className="font-medium text-gray-800 mb-2">Quality Improvements</h5>
+              <ul className="text-gray-600 space-y-1">
+                <li>• Target: 90%+ attendance rate across all units</li>
+                <li>• Implement patient reminder systems</li>
+                <li>• Enhance emergency response protocols</li>
+              </ul>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

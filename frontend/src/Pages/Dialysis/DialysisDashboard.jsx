@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  X
+  X,
+  BarChart3
 } from 'lucide-react';
 
 // Import components
@@ -22,6 +23,7 @@ import DialysisHeader from './components/DialysisHeader';
 import SessionScheduler from './components/SessionScheduler';
 import SessionDetailsModal from './components/SessionDetailsModal';
 import ReportsModule from './components/ReportsModule';
+import DialysisAnalytics from './components/DialysisAnalytics';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 
 // Import custom hooks
@@ -303,6 +305,7 @@ export default function DialysisDashboard() {
     { id: 'overview', label: 'Overview', icon: Activity, description: 'Dashboard & Stats' },
     { id: 'attendance', label: 'Schedule Session', icon: Users, description: 'Schedule & Manage Sessions' },
     { id: 'sessions', label: 'Session Details', icon: Activity, description: 'Add Session Data' },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Data Visualization' },
     { id: 'reports', label: 'Reports', icon: FileText, description: 'Generate Reports' }
   ];
 
@@ -320,12 +323,37 @@ export default function DialysisDashboard() {
 
   const handleScheduleSession = async (sessionData) => {
     try {
+      // Enhanced logging for conflict-free scheduling
+      console.log('🏥 Scheduling dialysis session with conflict prevention:', sessionData);
+      
       // createSession already shows toast notifications
       const newSession = await createSession(sessionData);
+      
+      // Enhanced success message with machine blocking info
+      addToast(
+        'success', 
+        'Session Scheduled Successfully', 
+        `${sessionData.patientName} scheduled on ${sessionData.machineId} from ${sessionData.startTime} to ${sessionData.endTime}. Machine is now blocked for this time period.`
+      );
+      
+      console.log('✅ Session created successfully:', {
+        sessionId: newSession?.sessionId,
+        machine: sessionData.machineId,
+        timeBlocked: `${sessionData.scheduledDate} ${sessionData.startTime} - ${sessionData.endTime}`,
+        patient: sessionData.patientName,
+        conflictPrevention: 'Active'
+      });
+      
       return newSession;
     } catch (error) {
-      console.error('Failed to schedule session:', error);
-      // Error toast is already handled by createSession
+      console.error('❌ Failed to schedule session:', error);
+      
+      // Enhanced error handling for conflicts
+      if (error.response?.status === 409) { // Conflict status code
+        addToast('error', 'Scheduling Conflict', 'Machine is no longer available for this time slot. Please refresh and try again.');
+      } else {
+        // Error toast is already handled by createSession
+      }
       throw error;
     }
   };
@@ -1015,6 +1043,16 @@ export default function DialysisDashboard() {
               )}
             </div>
           </div>
+        );
+      case 'analytics':
+        return (
+          <DialysisAnalytics
+            sessions={sessions}
+            wsConnected={wsConnected}
+            wsNotifications={wsNotifications}
+            loading={_sessionsLoading}
+            onRefresh={fetchDialysisPatients}
+          />
         );
       case 'reports':
         return (

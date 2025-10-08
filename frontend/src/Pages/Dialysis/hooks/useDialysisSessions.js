@@ -52,6 +52,50 @@ const useDialysisSessions = (showToast) => {
     }
   }, []); // Stable callback with no dependencies
 
+  // Enhanced machine status management functions - moved to top for hoisting
+  const updateMachineStatus = useCallback(async (machineId, status, reason = '') => {
+    // Skip machine status updates entirely until backend implements the endpoint
+    // This prevents console errors and provides cleaner development experience
+    console.log(`ℹ️ Machine status update requested for ${machineId} -> ${status} (skipped - endpoint not available)`, { reason });
+    return { success: false, reason: 'Endpoint not implemented' };
+    
+    /* 
+    // Original implementation - uncomment when backend implements machine status API
+    try {
+      const jwtToken = localStorage.getItem('jwtToken');
+      const response = await axios.patch(
+        `http://localhost:8080/api/dialysis/machines/${machineId}/status`,
+        { 
+          status: status,
+          reason: reason,
+          timestamp: new Date().toISOString()
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${jwtToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log(`🔄 Machine ${machineId} status updated to: ${status}`, { reason, timestamp: new Date().toISOString() });
+      return response.data;
+    } catch (error) {
+      // Handle different error scenarios gracefully
+      if (error.response?.status === 404) {
+        console.log(`ℹ️ Machine status endpoint not implemented yet for ${machineId}. Skipping status update.`);
+        return { success: false, reason: 'Endpoint not implemented' };
+      } else if (error.response?.status === 500) {
+        console.log(`ℹ️ Backend machine status API not available for ${machineId}. Continuing without status update.`);
+        return { success: false, reason: 'Backend error' };
+      } else {
+        console.error(`❌ Failed to update machine ${machineId} status to ${status}:`, error);
+        return { success: false, reason: error.message };
+      }
+    }
+    */
+  }, []);
+
   const {
     isConnected: wsConnected,
     error: wsError,
@@ -178,8 +222,16 @@ const useDialysisSessions = (showToast) => {
       setLoading(true);
       setError(null);
       
-      // Real API call to update session details
+      // Find the session to get machine info
+      const session = sessions.find(s => s.sessionId === sessionId);
+      if (!session) {
+        throw new Error('Session not found');
+      }
+      
       const jwtToken = localStorage.getItem('jwtToken');
+      
+      // Step 1: Update session details
+      console.log('📝 Updating session details...', { sessionId, detailsData });
       await axios.patch(`http://localhost:8080/api/dialysis/sessions/${sessionId}/details`, 
         detailsData, 
         {
@@ -190,22 +242,53 @@ const useDialysisSessions = (showToast) => {
         }
       );
       
-      // Update local state
-      setSessions(prev => prev.map(session => 
-        session.sessionId === sessionId 
-          ? { 
-              ...session, 
-              ...detailsData,
-              status: detailsData.actualEndTime ? 'completed' : session.status
-            }
-          : session
-      ));
+      const isSessionCompleted = detailsData.actualEndTime;
       
-      if (showToastSafe) {
+      // Step 2: Update machine status when session is completed
+      if (isSessionCompleted && session.machineId) {
+        const machineUpdateResult = await updateMachineStatus(
+          session.machineId, 
+          'ACTIVE', 
+          `Session completed for patient: ${session.patientName} at ${detailsData.actualEndTime}`
+        );
+        
+        if (machineUpdateResult.success !== false) {
+          console.log(`✅ Session completed and machine ${session.machineId} released back to ACTIVE status`);
+          
+          if (showToastSafe) {
+            showToastSafe(
+              'success', 
+              'Session Completed & Machine Released', 
+              `Session details saved. Machine ${session.machineId} is now available for scheduling.`
+            );
+          }
+        } else {
+          console.log(`ℹ️ Session completed successfully. Machine status update skipped (${machineUpdateResult.reason}).`);
+          if (showToastSafe) {
+            showToastSafe(
+              'success', 
+              'Session Completed Successfully', 
+              `Session details saved successfully.`
+            );
+          }
+        }
+      } else if (showToastSafe) {
         showToastSafe('success', 'Details Saved', 'Session details saved successfully');
       }
+      
+      // Step 3: Update local state
+      setSessions(prev => prev.map(s => 
+        s.sessionId === sessionId 
+          ? { 
+              ...s, 
+              ...detailsData,
+              status: isSessionCompleted ? 'COMPLETED' : s.status
+            }
+          : s
+      ));
+      
     } catch (error) {
-      console.error('Error adding session details:', error);
+      console.error('❌ Error adding session details:', error);
       setError(error.message);
 
       if (showToastSafe) {
@@ -215,32 +298,66 @@ const useDialysisSessions = (showToast) => {
     } finally {
       setLoading(false);
     }
-  }, [showToastSafe]);
+  }, [showToastSafe, sessions, updateMachineStatus]);
 
   const deleteSession = useCallback(async (sessionId) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Find the session to get machine info before deletion
+      const session = sessions.find(s => s.sessionId === sessionId);
+      if (!session) {
+        throw new Error('Session not found');
+      }
 
-      // Real API call to delete session
       const jwtToken = localStorage.getItem('jwtToken');
+      
+      // Step 1: Delete the session
+      console.log('🗑️ Deleting dialysis session...', { sessionId, machineId: session.machineId });
       await axios.delete(`http://localhost:8080/api/dialysis/sessions/${sessionId}`, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
       });
 
-      // Update local state
-      setSessions(prev => prev.filter(session => session.sessionId !== sessionId));
-
-      if (showToastSafe) {
+      // Step 2: Release machine back to ACTIVE status
+      if (session.machineId && session.status !== 'COMPLETED') {
+        const machineUpdateResult = await updateMachineStatus(
+          session.machineId, 
+          'ACTIVE', 
+          `Session cancelled/deleted for patient: ${session.patientName}`
+        );
+        
+        if (machineUpdateResult.success !== false) {
+          console.log(`✅ Session deleted and machine ${session.machineId} released back to ACTIVE status`);
+          
+          if (showToastSafe) {
+            showToastSafe(
+              'success', 
+              'Session Deleted & Machine Released', 
+              `Session removed. Machine ${session.machineId} is now available for scheduling.`
+            );
+          }
+        } else {
+          console.log(`ℹ️ Session deleted successfully. Machine status update skipped (${machineUpdateResult.reason}).`);
+          if (showToastSafe) {
+            showToastSafe(
+              'success', 
+              'Session Deleted Successfully', 
+              `Session removed from schedule.`
+            );
+          }
+        }
+      } else if (showToastSafe) {
         showToastSafe('success', 'Session Deleted', 'Session deleted successfully');
       }
+
+      // Step 3: Update local state
+      setSessions(prev => prev.filter(s => s.sessionId !== sessionId));
+
     } catch (error) {
-      console.error('Error deleting dialysis session:', error);
+      console.error('❌ Error deleting dialysis session:', error);
       setError(error.message);
 
       if (showToastSafe) {
@@ -250,7 +367,7 @@ const useDialysisSessions = (showToast) => {
     } finally {
       setLoading(false);
     }
-  }, [showToastSafe]);
+  }, [showToastSafe, sessions, updateMachineStatus]);
 
   // Fetch current dialysis patients from Ward 4 (Dialysis Ward)
   const fetchDialysisPatients = useCallback(async () => {
@@ -372,8 +489,10 @@ const useDialysisSessions = (showToast) => {
       setLoading(true);
       setError(null);
       
-      // Real API call to create session
       const jwtToken = localStorage.getItem('jwtToken');
+      
+      // Step 1: Create the session
+      console.log('📝 Creating dialysis session...', sessionData);
       const response = await axios.post('http://localhost:8080/api/dialysis/sessions', sessionData, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
@@ -381,16 +500,43 @@ const useDialysisSessions = (showToast) => {
         }
       });
       
-      // Add new session to local state
-      setSessions(prev => [response.data, ...prev]);
+      const newSession = response.data;
+      console.log('✅ Session created successfully:', newSession);
       
-      if (showToastSafe) {
-        showToastSafe('success', 'Session Created', 'Dialysis session scheduled successfully');
+      // Step 2: Update machine status to IN_USE when session is scheduled
+      if (sessionData.machineId && sessionData.status === 'SCHEDULED') {
+        const machineUpdateResult = await updateMachineStatus(
+          sessionData.machineId, 
+          'IN_USE', 
+          `Scheduled for patient: ${sessionData.patientName} at ${sessionData.startTime}`
+        );
+        
+        if (machineUpdateResult.success !== false) {
+          if (showToastSafe) {
+            showToastSafe(
+              'success', 
+              'Session Scheduled & Machine Reserved', 
+              `${sessionData.patientName} scheduled for ${sessionData.startTime}. Machine ${sessionData.machineId} reserved.`
+            );
+          }
+        } else {
+          console.log(`ℹ️ Session created successfully. Machine status update skipped (${machineUpdateResult.reason}).`);
+          if (showToastSafe) {
+            showToastSafe(
+              'success', 
+              'Session Scheduled Successfully', 
+              `${sessionData.patientName} scheduled for ${sessionData.startTime} on ${sessionData.machineId}.`
+            );
+          }
+        }
       }
-
-      return response.data;
+      
+      // Step 3: Add new session to local state
+      setSessions(prev => [newSession, ...prev]);
+      
+      return newSession;
     } catch (error) {
-      console.error('Error creating dialysis session:', error);
+      console.error('❌ Error creating dialysis session:', error);
       setError(error.message);
 
       if (showToastSafe) {
@@ -400,7 +546,7 @@ const useDialysisSessions = (showToast) => {
     } finally {
       setLoading(false);
     }
-  }, [showToastSafe]);
+  }, [showToastSafe, updateMachineStatus]);
 
   // Load dialysis patients on component mount
   useEffect(() => {
@@ -443,7 +589,8 @@ const useDialysisSessions = (showToast) => {
     addSessionDetails,
     deleteSession,
     
-    // Machine availability functions
+    // Machine management functions
+    updateMachineStatus,
     checkMachineAvailability,
     getMachinesWithAvailability,
     
