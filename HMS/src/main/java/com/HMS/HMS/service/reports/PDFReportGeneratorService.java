@@ -1,6 +1,7 @@
 package com.HMS.HMS.service.reports;
 
 import com.HMS.HMS.DTO.reports.ClinicStatisticsReportDTO;
+import com.HMS.HMS.DTO.reports.DialysisAnnualReportDTO;
 import com.HMS.HMS.DTO.reports.MonthlyVisitDataDTO;
 import com.HMS.HMS.DTO.reports.SpecializationDataDTO;
 import com.HMS.HMS.DTO.reports.WardOccupancyDataDTO;
@@ -1265,6 +1266,336 @@ public class PDFReportGeneratorService {
             reportData.getYear(),
             reportData.getYear(),
             reportData.getReportGeneratedDate().format(dateFormatter)
+        ))
+                .setFont(bodyFont)
+                .setFontSize(9)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setFontColor(ColorConstants.GRAY);
+        document.add(reportInfo);
+    }
+
+    /**
+     * Generate Dialysis Annual Report PDF
+     */
+    public byte[] generateDialysisAnnualReportPDF(DialysisAnnualReportDTO reportData) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try {
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf, PageSize.A4);
+
+            // Set up fonts
+            PdfFont titleFont = PdfFontFactory.createFont();
+            PdfFont headerFont = PdfFontFactory.createFont();
+            PdfFont bodyFont = PdfFontFactory.createFont();
+
+            // Add title page
+            addDialysisTitlePage(document, reportData, titleFont, headerFont, bodyFont);
+            
+            // Add executive summary
+            addDialysisExecutiveSummary(document, reportData, headerFont, bodyFont);
+            
+            // Add monthly trends with line charts
+            addDialysisMonthlyTrends(document, reportData, headerFont, bodyFont);
+            
+            // Add machine utilization analysis
+            addMachineUtilizationAnalysis(document, reportData, headerFont, bodyFont);
+            
+            // Add patient outcomes
+            addPatientOutcomesAnalysis(document, reportData, headerFont, bodyFont);
+            
+            // Add quality metrics
+            addQualityMetricsSection(document, reportData, headerFont, bodyFont);
+            
+            // Add conclusions
+            addDialysisConclusions(document, reportData, headerFont, bodyFont);
+
+            document.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating dialysis annual report PDF", e);
+        }
+    }
+
+    private void addDialysisTitlePage(Document document, DialysisAnnualReportDTO reportData, 
+                                     PdfFont titleFont, PdfFont headerFont, PdfFont bodyFont) {
+        // Hospital name
+        Paragraph hospitalName = new Paragraph(reportData.getHospitalName() != null ? 
+            reportData.getHospitalName() : "National Institute for Nephrology, Dialysis & Transplantation")
+                .setFont(titleFont)
+                .setFontSize(18)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(10);
+        document.add(hospitalName);
+
+        // Report title
+        Paragraph title = new Paragraph("DIALYSIS ANNUAL REPORT")
+                .setFont(titleFont)
+                .setFontSize(24)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(5)
+                .setFontColor(new DeviceRgb(41, 84, 144));
+        document.add(title);
+
+        // Year
+        Paragraph year = new Paragraph(String.valueOf(reportData.getYear()))
+                .setFont(titleFont)
+                .setFontSize(20)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(30)
+                .setFontColor(new DeviceRgb(70, 130, 180));
+        document.add(year);
+
+        // Report date
+        Paragraph reportDate = new Paragraph("Report Generated: " + 
+            reportData.getReportGeneratedDate().format(dateFormatter))
+                .setFont(bodyFont)
+                .setFontSize(12)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(50);
+        document.add(reportDate);
+
+        // Introduction
+        if (reportData.getIntroductionText() != null) {
+            Paragraph intro = new Paragraph(reportData.getIntroductionText())
+                    .setFont(bodyFont)
+                    .setFontSize(11)
+                    .setTextAlignment(TextAlignment.JUSTIFIED)
+                    .setMarginBottom(20);
+            document.add(intro);
+        }
+
+        document.add(new AreaBreak());
+    }
+
+    private void addDialysisExecutiveSummary(Document document, DialysisAnnualReportDTO reportData, 
+                                           PdfFont headerFont, PdfFont bodyFont) {
+        // Executive Summary Header
+        Paragraph summaryHeader = new Paragraph("EXECUTIVE SUMMARY")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(41, 84, 144))
+                .setMarginBottom(15);
+        document.add(summaryHeader);
+
+        // Summary table
+        Table summaryTable = new Table(new float[]{3, 2})
+                .setWidth(UnitValue.createPercentValue(100))
+                .setMarginBottom(20);
+
+        // Add summary data
+        addDialysisSummaryRow(summaryTable, "Total Dialysis Sessions", decimalFormat.format(reportData.getTotalSessions()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Completed Sessions", decimalFormat.format(reportData.getCompletedSessions()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Cancelled Sessions", decimalFormat.format(reportData.getCancelledSessions()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Emergency Sessions", decimalFormat.format(reportData.getEmergencySessions()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Completion Rate", String.format("%.1f%%", reportData.getCompletionRate()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Emergency Rate", String.format("%.1f%%", reportData.getEmergencyRate()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Average Session Duration", String.format("%.1f hours", reportData.getAverageSessionDuration()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Total Patients Served", decimalFormat.format(reportData.getTotalPatients()), bodyFont);
+        addDialysisSummaryRow(summaryTable, "Year-over-Year Change", String.format("%.1f%%", reportData.getYearOverYearChange()), bodyFont);
+
+        document.add(summaryTable);
+        document.add(new AreaBreak());
+    }
+
+    private void addDialysisSummaryRow(Table table, String label, String value, PdfFont font) {
+        table.addCell(new Cell().add(new Paragraph(label).setFont(font).setFontSize(10)));
+        table.addCell(new Cell().add(new Paragraph(value).setFont(font).setFontSize(10).setBold()));
+    }
+
+    private void addDialysisMonthlyTrends(Document document, DialysisAnnualReportDTO reportData, 
+                                        PdfFont headerFont, PdfFont bodyFont) {
+        // Monthly Trends Header
+        Paragraph trendsHeader = new Paragraph("MONTHLY TRENDS ANALYSIS")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(41, 84, 144))
+                .setMarginBottom(15);
+        document.add(trendsHeader);
+
+        // Trends analysis text
+        if (reportData.getTrendsAnalysisText() != null) {
+            Paragraph trendsText = new Paragraph(reportData.getTrendsAnalysisText())
+                    .setFont(bodyFont)
+                    .setFontSize(11)
+                    .setTextAlignment(TextAlignment.JUSTIFIED)
+                    .setMarginBottom(20);
+            document.add(trendsText);
+        }
+
+        // Monthly Sessions Chart
+        try {
+            if (reportData.getMonthlySessions() != null && !reportData.getMonthlySessions().isEmpty()) {
+                byte[] chartImage = chartGenerationService.generateDialysisMonthlyLineChart(
+                    reportData.getMonthlySessions(), "Monthly Dialysis Sessions", "Sessions");
+                
+                Image chart = new Image(ImageDataFactory.create(chartImage))
+                        .setWidth(UnitValue.createPercentValue(90))
+                        .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER)
+                        .setMarginBottom(20);
+                document.add(chart);
+            }
+        } catch (Exception e) {
+            System.err.println("Error adding monthly sessions chart: " + e.getMessage());
+        }
+
+        // Monthly Patients Chart
+        try {
+            if (reportData.getMonthlyPatients() != null && !reportData.getMonthlyPatients().isEmpty()) {
+                byte[] chartImage = chartGenerationService.generateDialysisMonthlyLineChart(
+                    reportData.getMonthlyPatients(), "Monthly Patient Count", "Patients");
+                
+                Image chart = new Image(ImageDataFactory.create(chartImage))
+                        .setWidth(UnitValue.createPercentValue(90))
+                        .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER)
+                        .setMarginBottom(20);
+                document.add(chart);
+            }
+        } catch (Exception e) {
+            System.err.println("Error adding monthly patients chart: " + e.getMessage());
+        }
+
+        document.add(new AreaBreak());
+    }
+
+    private void addMachineUtilizationAnalysis(Document document, DialysisAnnualReportDTO reportData, 
+                                             PdfFont headerFont, PdfFont bodyFont) {
+        // Machine Utilization Header
+        Paragraph machineHeader = new Paragraph("MACHINE UTILIZATION ANALYSIS")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(41, 84, 144))
+                .setMarginBottom(15);
+        document.add(machineHeader);
+
+        // Machine analysis text
+        if (reportData.getMachineAnalysisText() != null) {
+            Paragraph machineText = new Paragraph(reportData.getMachineAnalysisText())
+                    .setFont(bodyFont)
+                    .setFontSize(11)
+                    .setTextAlignment(TextAlignment.JUSTIFIED)
+                    .setMarginBottom(20);
+            document.add(machineText);
+        }
+
+        // Monthly Machine Utilization Chart
+        try {
+            if (reportData.getMonthlyMachineUtilization() != null && !reportData.getMonthlyMachineUtilization().isEmpty()) {
+                byte[] chartImage = chartGenerationService.generateMachineUtilizationLineChart(
+                    reportData.getMonthlyMachineUtilization());
+                
+                Image chart = new Image(ImageDataFactory.create(chartImage))
+                        .setWidth(UnitValue.createPercentValue(90))
+                        .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER)
+                        .setMarginBottom(20);
+                document.add(chart);
+            }
+        } catch (Exception e) {
+            System.err.println("Error adding machine utilization chart: " + e.getMessage());
+        }
+
+        document.add(new AreaBreak());
+    }
+
+    private void addPatientOutcomesAnalysis(Document document, DialysisAnnualReportDTO reportData, 
+                                          PdfFont headerFont, PdfFont bodyFont) {
+        // Patient Outcomes Header
+        Paragraph patientHeader = new Paragraph("PATIENT OUTCOMES ANALYSIS")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(41, 84, 144))
+                .setMarginBottom(15);
+        document.add(patientHeader);
+
+        // Patient analysis text
+        if (reportData.getPatientAnalysisText() != null) {
+            Paragraph patientText = new Paragraph(reportData.getPatientAnalysisText())
+                    .setFont(bodyFont)
+                    .setFontSize(11)
+                    .setTextAlignment(TextAlignment.JUSTIFIED)
+                    .setMarginBottom(20);
+            document.add(patientText);
+        }
+
+        // Patient outcomes data
+        if (reportData.getPatientOutcomes() != null && !reportData.getPatientOutcomes().isEmpty()) {
+            com.HMS.HMS.DTO.reports.PatientOutcomeDataDTO outcomes = reportData.getPatientOutcomes().get(0);
+            
+            // Patient statistics table
+            Table outcomeTable = new Table(new float[]{3, 2})
+                    .setWidth(UnitValue.createPercentValue(100))
+                    .setMarginBottom(20);
+
+            addDialysisSummaryRow(outcomeTable, "Total Patients", String.valueOf(outcomes.getTotalPatients()), bodyFont);
+            addDialysisSummaryRow(outcomeTable, "New Patients", String.valueOf(outcomes.getNewPatients()), bodyFont);
+            addDialysisSummaryRow(outcomeTable, "Regular Patients", String.valueOf(outcomes.getRegularPatients()), bodyFont);
+            addDialysisSummaryRow(outcomeTable, "Average Sessions per Patient", String.format("%.1f", outcomes.getAverageSessionsPerPatient()), bodyFont);
+            addDialysisSummaryRow(outcomeTable, "Treatment Adherence", String.format("%.1f%%", outcomes.getTreatmentAdherence()), bodyFont);
+
+            document.add(outcomeTable);
+        }
+
+        document.add(new AreaBreak());
+    }
+
+    private void addQualityMetricsSection(Document document, DialysisAnnualReportDTO reportData, 
+                                        PdfFont headerFont, PdfFont bodyFont) {
+        // Quality Metrics Header
+        Paragraph qualityHeader = new Paragraph("QUALITY METRICS")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(41, 84, 144))
+                .setMarginBottom(15);
+        document.add(qualityHeader);
+
+        // Quality metrics data
+        if (reportData.getQualityMetrics() != null) {
+            com.HMS.HMS.DTO.reports.QualityMetricsDTO metrics = reportData.getQualityMetrics();
+            
+            Table qualityTable = new Table(new float[]{3, 2})
+                    .setWidth(UnitValue.createPercentValue(100))
+                    .setMarginBottom(20);
+
+            addDialysisSummaryRow(qualityTable, "Infection Rate", String.format("%.2f%%", metrics.getInfectionRate()), bodyFont);
+            addDialysisSummaryRow(qualityTable, "Complication Rate", String.format("%.2f%%", metrics.getComplicationRate()), bodyFont);
+            addDialysisSummaryRow(qualityTable, "Patient Satisfaction", String.format("%.1f%%", metrics.getPatientSatisfaction()), bodyFont);
+            addDialysisSummaryRow(qualityTable, "Staff Compliance", String.format("%.1f%%", metrics.getStaffCompliance()), bodyFont);
+            addDialysisSummaryRow(qualityTable, "Equipment Reliability", String.format("%.1f%%", metrics.getEquipmentReliability()), bodyFont);
+            addDialysisSummaryRow(qualityTable, "Protocol Adherence", String.format("%.1f%%", metrics.getProtocolAdherence()), bodyFont);
+
+            document.add(qualityTable);
+        }
+
+        document.add(new AreaBreak());
+    }
+
+    private void addDialysisConclusions(Document document, DialysisAnnualReportDTO reportData, 
+                                      PdfFont headerFont, PdfFont bodyFont) {
+        // Conclusions Header
+        Paragraph conclusionHeader = new Paragraph("CONCLUSIONS")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(41, 84, 144))
+                .setMarginBottom(15);
+        document.add(conclusionHeader);
+
+        // Conclusion text
+        if (reportData.getConclusionText() != null) {
+            Paragraph conclusionText = new Paragraph(reportData.getConclusionText())
+                    .setFont(bodyFont)
+                    .setFontSize(11)
+                    .setTextAlignment(TextAlignment.JUSTIFIED)
+                    .setMarginBottom(20);
+            document.add(conclusionText);
+        }
+
+        // Report footer
+        Paragraph reportInfo = new Paragraph(String.format(
+            "Report generated on %s | Dialysis Department | %s",
+            reportData.getReportGeneratedDate().format(dateFormatter),
+            reportData.getHospitalName() != null ? reportData.getHospitalName() : "National Institute for Nephrology, Dialysis & Transplantation"
         ))
                 .setFont(bodyFont)
                 .setFontSize(9)

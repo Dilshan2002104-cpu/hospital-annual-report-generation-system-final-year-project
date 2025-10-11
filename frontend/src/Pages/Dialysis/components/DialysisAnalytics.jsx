@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,7 +12,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2';
 import { 
   Activity, 
   Users, 
@@ -28,12 +28,11 @@ import {
   Settings,
   Shield,
   Database,
-  Wifi,
-  WifiOff
+  Monitor,
+  Heart,
+  Weight,
+  Gauge
 } from 'lucide-react';
-
-// Import the new analytics hook
-import useDialysisAnalytics from '../hooks/useDialysisAnalytics';
 
 ChartJS.register(
   CategoryScale,
@@ -48,440 +47,800 @@ ChartJS.register(
   Filler
 );
 
-export default function DialysisAnalytics({ 
-  sessions = [], 
-  wsConnected = false,
-  wsNotifications = null,
-  loading: externalLoading = false,
-  onRefresh 
-}) {
+export default function DialysisAnalytics() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [timeRange, setTimeRange] = useState('30');
   const [refreshing, setRefreshing] = useState(false);
-  const [timeRange, setTimeRange] = useState('7days');
-  
-  // Use the new analytics hook for real API integration
-  const {
-    machines,
-    analyticsData,
-    loading: analyticsLoading,
-    error: _analyticsError, // Prefixed with _ to indicate intentionally unused
-    refreshAnalytics
-  } = useDialysisAnalytics(sessions, (type, title, message) => {
-    console.log(`${type}: ${title} - ${message}`);
-  });
+  const [activeTab, setActiveTab] = useState('overview'); // Add tab state
 
-  // Combine loading states
-  const loading = externalLoading || analyticsLoading;
+  // Analytics data state
+  const [machinePerformance, setMachinePerformance] = useState(null);
+  const [sessionTrends, setSessionTrends] = useState(null);
+  const [patientMetrics, setPatientMetrics] = useState(null);
+  const [operationalMetrics, setOperationalMetrics] = useState(null);
+  const [kpiDashboard, setKpiDashboard] = useState(null);
+  const [utilizationHeatmap, setUtilizationHeatmap] = useState(null);
+  const [monthlyComparison, setMonthlyComparison] = useState(null);
+  const [machineWiseTrends, setMachineWiseTrends] = useState(null);
 
-  // Handle real-time WebSocket notifications
-  useEffect(() => {
-    if (wsNotifications?.type === 'MACHINE_STATUS_UPDATE') {
-      console.log('🔄 Machine status update received:', wsNotifications);
-      // Refresh analytics when machine status changes
-      refreshAnalytics(timeRange);
-    } else if (wsNotifications?.type === 'SESSION_UPDATE') {
-      console.log('📊 Session update received:', wsNotifications);
-      // Refresh analytics when sessions are updated
-      refreshAnalytics(timeRange);
+  // Fetch analytics data
+  const fetchAnalyticsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const jwtToken = localStorage.getItem('jwtToken');
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      // Add authorization header only if token exists
+      if (jwtToken) {
+        headers['Authorization'] = `Bearer ${jwtToken}`;
+      }
+
+      // Calculate date range
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - parseInt(timeRange) * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0];
+
+      console.log('Fetching analytics data:', {
+        startDate,
+        endDate,
+        timeRange,
+        hasToken: !!jwtToken
+      });
+
+      // Fetch all analytics data
+      const [
+        machineResponse,
+        trendsResponse,
+        metricsResponse,
+        operationalResponse,
+        kpiResponse,
+        heatmapResponse,
+        monthlyResponse,
+        machineWiseResponse
+      ] = await Promise.all([
+        fetch(`http://localhost:8080/api/dialysis/analytics/machine-performance?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/session-trends?days=${timeRange}`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/patient-metrics?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/operational-metrics`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/kpi-dashboard`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/utilization-heatmap?days=7`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/monthly-comparison?months=6`, { headers }),
+        fetch(`http://localhost:8080/api/dialysis/analytics/machine-wise-trends?days=${timeRange}`, { headers })
+      ]);
+
+      if (!machineResponse.ok || !trendsResponse.ok || !metricsResponse.ok || 
+          !operationalResponse.ok || !kpiResponse.ok || !heatmapResponse.ok || 
+          !monthlyResponse.ok || !machineWiseResponse.ok) {
+        
+        // Check for specific error types
+        const errorResponse = !machineResponse.ok ? machineResponse : 
+                             !trendsResponse.ok ? trendsResponse :
+                             !metricsResponse.ok ? metricsResponse :
+                             !operationalResponse.ok ? operationalResponse :
+                             !kpiResponse.ok ? kpiResponse :
+                             !heatmapResponse.ok ? heatmapResponse : 
+                             !monthlyResponse.ok ? monthlyResponse : machineWiseResponse;
+        
+        if (errorResponse.status === 401) {
+          throw new Error('Authentication required. Please login again.');
+        } else if (errorResponse.status === 403) {
+          throw new Error('Access denied. Insufficient permissions.');
+        } else if (errorResponse.status === 404) {
+          throw new Error('Analytics service not found.');
+        } else if (errorResponse.status >= 500) {
+          throw new Error('Server error. Please try again later.');
+        } else {
+          throw new Error(`Failed to fetch analytics data (${errorResponse.status})`);
+        }
+      }
+
+      const [machineData, trendsData, metricsData, operationalData, kpiData, heatmapData, monthlyData, machineWiseData] = 
+        await Promise.all([
+          machineResponse.json(),
+          trendsResponse.json(),
+          metricsResponse.json(),
+          operationalResponse.json(),
+          kpiResponse.json(),
+          heatmapResponse.json(),
+          monthlyResponse.json(),
+          machineWiseResponse.json()
+        ]);
+
+      setMachinePerformance(machineData);
+      setSessionTrends(trendsData);
+      setPatientMetrics(metricsData);
+      setOperationalMetrics(operationalData);
+      setKpiDashboard(kpiData);
+      setUtilizationHeatmap(heatmapData);
+      setMonthlyComparison(monthlyData);
+      setMachineWiseTrends(machineWiseData);
+
+    } catch (error) {
+      console.error('Analytics fetch error:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
-  }, [wsNotifications, refreshAnalytics, timeRange]);
+  }, [timeRange]);
 
+  // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await Promise.all([
-        onRefresh && onRefresh(),
-        refreshAnalytics(timeRange)
-      ]);
-    } finally {
-      setTimeout(() => setRefreshing(false), 1000);
-    }
+    await fetchAnalyticsData();
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
-  // Chart configurations
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'bottom',
-      },
-      title: {
-        display: false,
-      },
-    },
-    maintainAspectRatio: false,
-  };
+  // Fetch data on component mount and time range change
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
 
-  // Machine Status Doughnut Chart
-  const machineStatusData = {
-    labels: ['Active', 'In Use', 'Maintenance', 'Out of Order'],
-    datasets: [
-      {
-        data: analyticsData ? [
-          analyticsData.activeMachines,
-          analyticsData.inUseMachines,
-          analyticsData.maintenanceMachines,
-          analyticsData.machineUtilization.OUT_OF_ORDER || 0
-        ] : [0, 0, 0, 0],
-        backgroundColor: [
-          'rgba(34, 197, 94, 0.8)',   // Green - Active
-          'rgba(59, 130, 246, 0.8)',  // Blue - In Use  
-          'rgba(245, 158, 11, 0.8)',  // Yellow - Maintenance
-          'rgba(239, 68, 68, 0.8)'    // Red - Out of Order
-        ],
-        borderColor: [
-          'rgba(34, 197, 94, 1)',
-          'rgba(59, 130, 246, 1)',
-          'rgba(245, 158, 11, 1)',
-          'rgba(239, 68, 68, 1)'
-        ],
-        borderWidth: 2,
-      },
-    ],
-  };
+  // KPI Card component
+  const KPICard = ({ title, value, subtitle, icon: Icon, color, trend }) => (
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
+          <p className={`text-3xl font-bold ${color || 'text-gray-900'} mb-1`}>
+            {value !== undefined ? value : '—'}
+          </p>
+          {subtitle && (
+            <p className="text-sm text-gray-500">{subtitle}</p>
+          )}
+          {trend && (
+            <div className={`flex items-center text-sm mt-2 ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <TrendingUp className="w-4 h-4 mr-1" />
+              {Math.abs(trend)}% vs last period
+            </div>
+          )}
+        </div>
+        <div className={`p-3 rounded-lg ${color ? color.replace('text-', 'bg-').replace('900', '100') : 'bg-gray-100'}`}>
+          {Icon && <Icon className={`w-6 h-6 ${color || 'text-gray-600'}`} />}
+        </div>
+      </div>
+    </div>
+  );
 
-  // Session Flow Bar Chart
-  const sessionFlowData = {
-    labels: analyticsData ? analyticsData.sessionsByTimeSlot.map(slot => slot.timeSlot) : [],
-    datasets: [
-      {
-        label: 'Scheduled',
-        data: analyticsData ? analyticsData.sessionsByTimeSlot.map(slot => slot.scheduled) : [],
-        backgroundColor: 'rgba(99, 102, 241, 0.5)',
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 1,
-      },
-      {
-        label: 'Completed',
-        data: analyticsData ? analyticsData.sessionsByTimeSlot.map(slot => slot.completed) : [],
-        backgroundColor: 'rgba(16, 185, 129, 0.5)',
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 1,
-      },
-      {
-        label: 'In Progress',
-        data: analyticsData ? analyticsData.sessionsByTimeSlot.map(slot => slot.inProgress) : [],
-        backgroundColor: 'rgba(245, 158, 11, 0.5)',
-        borderColor: 'rgba(245, 158, 11, 1)',
-        borderWidth: 1,
-      }
-    ],
-  };
+  // Machine Performance Chart
+  const MachinePerformanceChart = () => {
+    if (!machinePerformance?.machineUtilization?.machines) return null;
 
-  // Daily Trends Line Chart
-  const dailyTrendsData = {
-    labels: analyticsData ? analyticsData.last7Days.map(d => d.date) : [],
-    datasets: [
-      {
-        label: 'Scheduled Sessions',
-        data: analyticsData ? analyticsData.last7Days.map(d => d.scheduled) : [],
+    const machines = machinePerformance.machineUtilization.machines;
+    
+    const chartData = {
+      labels: machines.map(m => m.machineName || m.machineId),
+      datasets: [{
+        label: 'Sessions Count',
+        data: machines.map(m => m.sessionCount),
+        backgroundColor: 'rgba(59, 130, 246, 0.6)',
         borderColor: 'rgba(59, 130, 246, 1)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
+        borderWidth: 2,
+        borderRadius: 4,
+      }]
+    };
+
+    const options = {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+        title: {
+          display: true,
+          text: 'Machine Performance - Session Count'
+        }
       },
-      {
-        label: 'Completed Sessions',
-        data: analyticsData ? analyticsData.last7Days.map(d => d.completed) : [],
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)',
+          }
+        },
+        x: {
+          grid: {
+            display: false,
+          }
+        }
+      }
+    };
+
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <Bar data={chartData} options={options} />
+      </div>
+    );
+  };
+
+  // Session Trends Chart
+  const SessionTrendsChart = () => {
+    if (!sessionTrends?.dailyVolume?.daily) return null;
+
+    const dailyData = sessionTrends.dailyVolume.daily;
+    
+    const chartData = {
+      labels: dailyData.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+      datasets: [{
+        label: 'Daily Sessions',
+        data: dailyData.map(d => d.sessionCount),
         borderColor: 'rgba(16, 185, 129, 1)',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 3,
         fill: true,
         tension: 0.4,
-      }
-    ],
-  };
+        pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+      }]
+    };
 
-  // Patient Types Doughnut Chart
-  const patientTypesData = {
-    labels: analyticsData ? Object.keys(analyticsData.patientTypes) : [],
-    datasets: [
-      {
-        data: analyticsData ? Object.values(analyticsData.patientTypes) : [],
-        backgroundColor: [
-          'rgba(168, 85, 247, 0.8)', // Purple - Regular
-          'rgba(239, 68, 68, 0.8)',  // Red - Emergency
-          'rgba(6, 182, 212, 0.8)',  // Cyan - Temporary
-        ],
-        borderColor: [
-          'rgba(168, 85, 247, 1)',
-          'rgba(239, 68, 68, 1)',
-          'rgba(6, 182, 212, 1)',
-        ],
-        borderWidth: 2,
+    const options = {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+        title: {
+          display: true,
+          text: 'Session Volume Trends'
+        }
       },
-    ],
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)',
+          }
+        },
+        x: {
+          grid: {
+            display: false,
+          }
+        }
+      }
+    };
+
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <Line data={chartData} options={options} />
+      </div>
+    );
   };
 
-  if (loading) {
+  // Individual Machine Line Charts
+  const IndividualMachineChart = ({ machine, color }) => {
+    if (!machine.dailyTrends) return null;
+
+    const dateLabels = machine.dailyTrends.map(day => {
+      const date = new Date(day.date);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    const chartData = {
+      labels: dateLabels,
+      datasets: [{
+        label: 'Sessions',
+        data: machine.dailyTrends.map(day => day.sessionCount),
+        borderColor: color,
+        backgroundColor: color + '20',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: color,
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+      }]
+    };
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        title: {
+          display: true,
+          text: `${machine.machineName} - ${machine.location}`,
+          font: {
+            size: 14,
+            weight: 'bold'
+          },
+          color: color
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#ffffff',
+          bodyColor: '#ffffff',
+          borderColor: color,
+          borderWidth: 2,
+          cornerRadius: 8,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const dayData = machine.dailyTrends[context.dataIndex];
+              return [
+                `Sessions: ${context.parsed.y}`,
+                `Completed: ${dayData.completedCount}`,
+                `Utilization: ${Math.round(dayData.utilizationRate)}%`,
+                `Avg Duration: ${dayData.avgSessionDuration ? dayData.avgSessionDuration.toFixed(1) : 'N/A'}h`
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Sessions',
+            font: {
+              size: 12,
+              weight: 'bold'
+            }
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)',
+          },
+          ticks: {
+            stepSize: 1,
+            font: {
+              size: 11
+            }
+          }
+        },
+        x: {
+          grid: {
+            display: false,
+          },
+          ticks: {
+            font: {
+              size: 10
+            },
+            maxRotation: 45
+          }
+        }
+      },
+      elements: {
+        line: {
+          borderWidth: 3
+        },
+        point: {
+          radius: 5,
+          hoverRadius: 7
+        }
+      }
+    };
+
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading analytics...</span>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <div style={{ height: '280px' }}>
+          <Line data={chartData} options={options} />
+        </div>
+        
+        {/* Machine Stats */}
+        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-lg font-bold" style={{ color: color }}>
+              {machine.totalSessions}
+            </p>
+            <p className="text-xs text-gray-600">Total Sessions</p>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-lg font-bold text-green-600">
+              {Math.round(machine.completionRate)}%
+            </p>
+            <p className="text-xs text-gray-600">Completion Rate</p>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-lg font-bold text-blue-600">
+              {machine.dailyTrends ? Math.round(
+                machine.dailyTrends.reduce((sum, day) => sum + day.utilizationRate, 0) / machine.dailyTrends.length
+              ) : 0}%
+            </p>
+            <p className="text-xs text-gray-600">Avg Utilization</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Machine-Wise Trends Container
+  const MachineWiseTrendsChart = () => {
+    if (!machineWiseTrends?.machineWiseData) return null;
+
+    const machineData = machineWiseTrends.machineWiseData;
+    
+    // Generate colors for each machine
+    const colors = [
+      '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', 
+      '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6B7280'
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine-Wise Performance Trends</h3>
+          <p className="text-sm text-gray-600 mb-6">Individual performance charts for each dialysis machine</p>
+          
+          {/* Machine Charts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {machineData.map((machine, index) => (
+              <IndividualMachineChart
+                key={machine.machineId}
+                machine={machine}
+                color={colors[index % colors.length]}
+              />
+            ))}
+          </div>
+          
+          {/* Overall Summary */}
+          <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Fleet Overview</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">
+                  {machineData.length}
+                </p>
+                <p className="text-sm text-gray-600">Active Machines</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">
+                  {machineData.reduce((sum, machine) => sum + machine.totalSessions, 0)}
+                </p>
+                <p className="text-sm text-gray-600">Total Sessions</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-yellow-600">
+                  {Math.round(
+                    machineData.reduce((sum, machine) => sum + machine.completionRate, 0) / machineData.length
+                  )}%
+                </p>
+                <p className="text-sm text-gray-600">Avg Completion</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">
+                  {machineData.filter(machine => machine.completionRate > 90).length}
+                </p>
+                <p className="text-sm text-gray-600">High Performers</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Monthly Comparison Chart
+  const MonthlyComparisonChart = () => {
+    if (!monthlyComparison?.monthlyData) return null;
+
+    const monthlyData = monthlyComparison.monthlyData;
+    
+    const chartData = {
+      labels: monthlyData.map(m => m.month),
+      datasets: [
+        {
+          label: 'Total Sessions',
+          data: monthlyData.map(m => m.totalSessions),
+          backgroundColor: 'rgba(99, 102, 241, 0.6)',
+          borderColor: 'rgba(99, 102, 241, 1)',
+          borderWidth: 2,
+          borderRadius: 4,
+        },
+        {
+          label: 'Completed Sessions',
+          data: monthlyData.map(m => m.completedSessions),
+          backgroundColor: 'rgba(34, 197, 94, 0.6)',
+          borderColor: 'rgba(34, 197, 94, 1)',
+          borderWidth: 2,
+          borderRadius: 4,
+        }
+      ]
+    };
+
+    const options = {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+        title: {
+          display: true,
+          text: 'Monthly Performance Comparison'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)',
+          }
+        },
+        x: {
+          grid: {
+            display: false,
+          }
+        }
+      }
+    };
+
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <Bar data={chartData} options={options} />
+      </div>
+    );
+  };
+
+  // Patient Metrics Component
+  const PatientMetricsCard = () => {
+    if (!patientMetrics) return null;
+    
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Users className="w-5 h-5 text-green-600 mr-2" />
+          Patient Care Metrics
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center p-4 bg-green-50 rounded-lg">
+            <p className="text-2xl font-bold text-green-600">
+              {patientMetrics.totalPatients || 0}
+            </p>
+            <p className="text-sm text-gray-600">Total Patients</p>
+          </div>
+          <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <p className="text-2xl font-bold text-blue-600">
+              {patientMetrics.averageSessionDuration || 0}min
+            </p>
+            <p className="text-sm text-gray-600">Avg Session Duration</p>
+          </div>
+          <div className="text-center p-4 bg-purple-50 rounded-lg">
+            <p className="text-2xl font-bold text-purple-600">
+              {Math.round(patientMetrics.completionRate || 0)}%
+            </p>
+            <p className="text-sm text-gray-600">Completion Rate</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Utilization Heatmap Component
+  const UtilizationHeatmapCard = () => {
+    if (!utilizationHeatmap) return null;
+    
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Activity className="w-5 h-5 text-orange-600 mr-2" />
+          Utilization Heatmap
+        </h3>
+        <div className="text-center p-8 bg-gray-50 rounded-lg">
+          <p className="text-gray-600 mb-2">Peak Hours Analysis</p>
+          <p className="text-2xl font-bold text-orange-600">
+            {utilizationHeatmap.peakHours || 'N/A'}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Maximum utilization period
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading analytics data...</p>
         </div>
       </div>
     );
   }
 
-  if (!analyticsData) {
+  if (error) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="text-center py-12">
-          <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
-          <p className="text-gray-600">No dialysis session data available for analysis</p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="flex items-center">
+          <AlertTriangle className="w-6 h-6 text-red-500 mr-3" />
+          <div>
+            <h3 className="text-red-800 font-medium">Error Loading Analytics</h3>
+            <p className="text-red-600 text-sm mt-1">{error}</p>
+          </div>
         </div>
+        <button
+          onClick={handleRefresh}
+          className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
-
-  const machineUtilizationRate = analyticsData.totalMachines > 0 
-    ? Math.round(((analyticsData.inUseMachines + analyticsData.activeMachines) / analyticsData.totalMachines) * 100) 
-    : 0;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-              <Activity className="w-7 h-7 mr-3 text-blue-600" />
-              Dialysis Analytics Dashboard
-              {wsConnected && (
-                <span className="ml-3 flex items-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="ml-1 text-sm text-green-600">Live</span>
-                </span>
-              )}
-              {!wsConnected && (
-                <span className="ml-3 flex items-center">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span className="ml-1 text-sm text-red-600">Offline</span>
-                </span>
-              )}
-            </h2>
-            <div className="flex items-center space-x-4 mt-1">
-              <p className="text-gray-600">Real-time dialysis operations insights and performance metrics</p>
-              {analyticsData?.dataSource && (
-                <div className="flex items-center space-x-2">
-                  {Object.values(analyticsData.dataSource).some(source => source === 'api') ? (
-                    <div className="flex items-center text-green-600">
-                      <Database className="w-4 h-4 mr-1" />
-                      <span className="text-xs font-medium">Real API Data</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-orange-600">
-                      <Wifi className="w-4 h-4 mr-1" />
-                      <span className="text-xs font-medium">Computed Data</span>
-                    </div>
-                  )}
-                  {analyticsData.isOffline && (
-                    <div className="flex items-center text-red-600">
-                      <WifiOff className="w-4 h-4 mr-1" />
-                      <span className="text-xs font-medium">Offline Mode</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <select
-              value={timeRange}
-              onChange={(e) => {
-                setTimeRange(e.target.value);
-                refreshAnalytics(e.target.value);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="7days">Last 7 days</option>
-              <option value="30days">Last 30 days</option>
-              <option value="90days">Last 90 days</option>
-            </select>
+      {/* Header with Controls */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+            <BarChart3 className="w-8 h-8 text-blue-600 mr-3" />
+            Analytics Dashboard
+          </h2>
+          <p className="text-gray-600 mt-1">Comprehensive dialysis management insights</p>
+        </div>
+        
+        <div className="flex items-center space-x-4">
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 3 months</option>
+          </select>
+          
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6" aria-label="Tabs">
             <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              onClick={() => setActiveTab('overview')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <div className="flex items-center">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Overview
+              </div>
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Active Sessions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Sessions</p>
-              <p className="text-3xl font-bold text-blue-600">{analyticsData.sessionStatus.IN_PROGRESS || 0}</p>
-              <p className="text-xs text-gray-500 mt-1">Currently running</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Droplet className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Machine Utilization */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Machine Utilization</p>
-              <p className="text-3xl font-bold text-green-600">{machineUtilizationRate}%</p>
-              <p className="text-xs text-gray-500 mt-1">{analyticsData.inUseMachines + analyticsData.activeMachines}/{analyticsData.totalMachines} machines</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <Zap className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Treatment Efficiency */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Treatment Efficiency</p>
-              <p className="text-3xl font-bold text-purple-600">{analyticsData.efficiencyRate}%</p>
-              <p className="text-xs text-gray-500 mt-1">Completion rate</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Average Session Duration */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Avg Session Duration</p>
-              <p className="text-3xl font-bold text-orange-600">{Math.floor(analyticsData.avgSessionDuration / 60)}h {analyticsData.avgSessionDuration % 60}m</p>
-              <p className="text-xs text-gray-500 mt-1">Treatment time</p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-              <Clock className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Machine Status */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Settings className="w-5 h-5 mr-2 text-gray-600" />
-            Machine Status Distribution
-          </h3>
-          <div className="h-64">
-            <Doughnut data={machineStatusData} options={chartOptions} />
-          </div>
-        </div>
-
-        {/* Session Flow by Time Slots */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Calendar className="w-5 h-5 mr-2 text-gray-600" />
-            Session Flow by Time Slots
-          </h3>
-          <div className="h-64">
-            <Bar data={sessionFlowData} options={chartOptions} />
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Session Trends */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2 text-gray-600" />
-            Daily Session Trends (Last 7 Days)
-          </h3>
-          <div className="h-64">
-            <Line data={dailyTrendsData} options={chartOptions} />
-          </div>
-        </div>
-
-        {/* Patient Types */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="w-5 h-5 mr-2 text-gray-600" />
-            Patient Type Distribution
-          </h3>
-          <div className="h-64">
-            <Doughnut data={patientTypesData} options={chartOptions} />
-          </div>
-        </div>
-      </div>
-
-      {/* Live Operations Status */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Shield className="w-5 h-5 mr-2 text-gray-600" />
-          Live Operations Monitor
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Machine Grid */}
-          <div className="md:col-span-2">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Machine Status Grid</h4>
-            <div className="grid grid-cols-4 gap-2">
-              {machines.map((machine, index) => (
-                <div
-                  key={machine.machineId || index}
-                  className={`p-3 rounded-lg border-2 text-center ${
-                    machine.status === 'ACTIVE' 
-                      ? 'bg-green-50 border-green-200 text-green-800'
-                      : machine.status === 'IN_USE'
-                      ? 'bg-blue-50 border-blue-200 text-blue-800'
-                      : machine.status === 'MAINTENANCE'
-                      ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                      : 'bg-red-50 border-red-200 text-red-800'
-                  }`}
-                >
-                  <div className="text-xs font-semibold">{machine.machineId || `DM-00${index + 1}`}</div>
-                  <div className={`w-2 h-2 rounded-full mx-auto mt-1 ${
-                    machine.status === 'ACTIVE' 
-                      ? 'bg-green-500'
-                      : machine.status === 'IN_USE'
-                      ? 'bg-blue-500'
-                      : machine.status === 'MAINTENANCE'
-                      ? 'bg-yellow-500'
-                      : 'bg-red-500'
-                  }`}></div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Today's Summary */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Today's Summary</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm text-gray-600">Total Sessions</span>
-                <span className="font-semibold text-gray-900">{analyticsData.totalSessions}</span>
+            <button
+              onClick={() => setActiveTab('machine-trends')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'machine-trends'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <Monitor className="w-4 h-4 mr-2" />
+                Machine-Wise Performance Trends
               </div>
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-sm text-green-600">Completed</span>
-                <span className="font-semibold text-green-800">{analyticsData.completedSessions}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <span className="text-sm text-blue-600">In Progress</span>
-                <span className="font-semibold text-blue-800">{analyticsData.sessionStatus.IN_PROGRESS || 0}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                <span className="text-sm text-yellow-600">Scheduled</span>
-                <span className="font-semibold text-yellow-800">{analyticsData.sessionStatus.SCHEDULED || 0}</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+
+      {/* KPI Dashboard */}
+      {kpiDashboard && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <KPICard
+            title="Available Machines"
+            value={`${kpiDashboard.availableMachines}/${kpiDashboard.totalMachines}`}
+            subtitle="Ready for use"
+            icon={Monitor}
+            color="text-green-600"
+          />
+          <KPICard
+            title="Today's Sessions"
+            value={kpiDashboard.scheduledToday}
+            subtitle={`${kpiDashboard.completedToday} completed`}
+            icon={Calendar}
+            color="text-blue-600"
+          />
+          <KPICard
+            title="Completion Rate"
+            value={`${Math.round(kpiDashboard.completionRate || 0)}%`}
+            subtitle="Today's performance"
+            icon={CheckCircle}
+            color="text-emerald-600"
+          />
+          <KPICard
+            title="Active Sessions"
+            value={kpiDashboard.activeSessions}
+            subtitle="Currently in progress"
+            icon={Activity}
+            color="text-orange-600"
+          />
+        </div>
+      )}
+
+          {/* Charts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <MachinePerformanceChart />
+            <SessionTrendsChart />
+            <MonthlyComparisonChart />
+          </div>
+
+          {/* Patient Metrics and Utilization Heatmap */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PatientMetricsCard />
+            <UtilizationHeatmapCard />
+          </div>
+
+          {/* Additional Metrics */}
+          {operationalMetrics && (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Database className="w-5 h-5 text-blue-600 mr-2" />
+                Operational Metrics
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {operationalMetrics.todayStats && (
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Today's Statistics</h4>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <p>Total: {operationalMetrics.todayStats.total}</p>
+                      <p>Completed: {operationalMetrics.todayStats.completed}</p>
+                      <p>In Progress: {operationalMetrics.todayStats.inProgress}</p>
+                      <p>Scheduled: {operationalMetrics.todayStats.scheduled}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {operationalMetrics.weeklyStats && (
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Weekly Performance</h4>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <p>Total Sessions: {operationalMetrics.weeklyStats.totalSessions}</p>
+                      <p>Completion Rate: {Math.round(operationalMetrics.weeklyStats.completionRate)}%</p>
+                      <p>Avg Daily: {Math.round(operationalMetrics.weeklyStats.averageDaily)}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {operationalMetrics.resourceUtilization && (
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Resource Utilization</h4>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <p>Machine Utilization: {Math.round(operationalMetrics.resourceUtilization.machineUtilization)}%</p>
+                      <p>Available Capacity: {operationalMetrics.resourceUtilization.availableCapacity}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Machine-Wise Performance Trends Tab */}
+      {activeTab === 'machine-trends' && (
+        <div className="space-y-6">
+          <MachineWiseTrendsChart />
+        </div>
+      )}
     </div>
   );
 }

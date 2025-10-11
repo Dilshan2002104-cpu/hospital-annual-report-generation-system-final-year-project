@@ -686,4 +686,96 @@ public class ChartGenerationService {
 
         return chartToByteArray(chart);
     }
+
+    /**
+     * Generate dialysis monthly line chart for sessions or patients
+     */
+    public byte[] generateDialysisMonthlyLineChart(List<MonthlyDialysisDataDTO> monthlyData, String title, String yAxisLabel) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyDialysisDataDTO data : monthlyData) {
+            if ("Sessions".equals(data.getDataType())) {
+                dataset.addValue(data.getSessionCount(), "Sessions", getMonthShortName(data.getMonth()));
+            } else if ("Patients".equals(data.getDataType())) {
+                dataset.addValue(data.getPatientCount(), "Patients", getMonthShortName(data.getMonth()));
+            }
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            yAxisLabel,
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        // Customize the chart
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.getTitle().setFont(new Font("Arial", Font.BOLD, 16));
+
+        CategoryPlot plot = (CategoryPlot) chart.getPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+        plot.setDomainGridlinesVisible(true);
+        plot.setRangeGridlinesVisible(true);
+        plot.setDomainGridlinePaint(Color.LIGHT_GRAY);
+        plot.setRangeGridlinePaint(Color.LIGHT_GRAY);
+
+        LineAndShapeRenderer renderer = new LineAndShapeRenderer();
+        renderer.setSeriesPaint(0, new Color(41, 84, 144)); // Hospital blue
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+
+        plot.setRenderer(renderer);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate machine utilization line chart
+     */
+    public byte[] generateMachineUtilizationLineChart(List<MonthlyMachineUtilizationDTO> utilizationData) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyMachineUtilizationDTO data : utilizationData) {
+            dataset.addValue(data.getUtilizationPercentage(), "Utilization %", getMonthShortName(data.getMonth()));
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            "Monthly Machine Utilization",
+            "Month",
+            "Utilization Percentage (%)",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        // Customize the chart
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.getTitle().setFont(new Font("Arial", Font.BOLD, 16));
+
+        CategoryPlot plot = (CategoryPlot) chart.getPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+        plot.setDomainGridlinesVisible(true);
+        plot.setRangeGridlinesVisible(true);
+        plot.setDomainGridlinePaint(Color.LIGHT_GRAY);
+        plot.setRangeGridlinePaint(Color.LIGHT_GRAY);
+
+        // Set Y-axis range for percentage (0-100)
+        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+        rangeAxis.setRange(0, 100);
+
+        LineAndShapeRenderer renderer = new LineAndShapeRenderer();
+        renderer.setSeriesPaint(0, new Color(70, 130, 180)); // Steel blue
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+
+        plot.setRenderer(renderer);
+
+        return chartToByteArray(chart);
+    }
 }

@@ -1045,15 +1045,7 @@ export default function DialysisDashboard() {
           </div>
         );
       case 'analytics':
-        return (
-          <DialysisAnalytics
-            sessions={sessions}
-            wsConnected={wsConnected}
-            wsNotifications={wsNotifications}
-            loading={_sessionsLoading}
-            onRefresh={fetchDialysisPatients}
-          />
-        );
+        return <DialysisAnalytics />;
       case 'reports':
         return (
           <ReportsModule

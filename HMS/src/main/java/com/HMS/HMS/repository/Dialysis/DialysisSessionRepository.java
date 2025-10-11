@@ -44,6 +44,9 @@ public interface DialysisSessionRepository extends JpaRepository<DialysisSession
     @Query("SELECT s FROM DialysisSession s WHERE s.scheduledDate >= CURRENT_DATE AND s.status = 'SCHEDULED' ORDER BY s.scheduledDate, s.startTime")
     List<DialysisSession> findUpcomingSessions();
     
+    // Find sessions by date range and status
+    List<DialysisSession> findByScheduledDateBetweenAndStatus(LocalDate startDate, LocalDate endDate, DialysisSession.SessionStatus status);
+    
     // Find active sessions (in progress)
     @Query("SELECT s FROM DialysisSession s WHERE s.status = 'IN_PROGRESS'")
     List<DialysisSession> findActiveSessions();
@@ -90,4 +93,26 @@ public interface DialysisSessionRepository extends JpaRepository<DialysisSession
     
     // Check if session ID exists
     boolean existsBySessionId(String sessionId);
+    
+    // Annual report queries
+    @Query("SELECT COUNT(s) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year")
+    Long countByYear(@Param("year") int year);
+    
+    @Query("SELECT COUNT(s) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year AND s.status = 'COMPLETED'")
+    Long countCompletedByYear(@Param("year") int year);
+    
+    @Query("SELECT COUNT(s) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year AND s.status = 'CANCELLED'")
+    Long countCancelledByYear(@Param("year") int year);
+    
+    @Query("SELECT COUNT(s) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year AND s.sessionType = 'EMERGENCY'")
+    Long countEmergencyByYear(@Param("year") int year);
+    
+    @Query("SELECT COUNT(DISTINCT s.patientNationalId) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year")
+    Long countUniquePatientsByYear(@Param("year") int year);
+    
+    @Query("SELECT MONTH(s.scheduledDate), COUNT(s) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year GROUP BY MONTH(s.scheduledDate) ORDER BY MONTH(s.scheduledDate)")
+    List<Object[]> getMonthlySessionCounts(@Param("year") int year);
+    
+    @Query("SELECT MONTH(s.scheduledDate), COUNT(DISTINCT s.patientNationalId) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year GROUP BY MONTH(s.scheduledDate) ORDER BY MONTH(s.scheduledDate)")
+    List<Object[]> getMonthlyPatientCounts(@Param("year") int year);
 }
