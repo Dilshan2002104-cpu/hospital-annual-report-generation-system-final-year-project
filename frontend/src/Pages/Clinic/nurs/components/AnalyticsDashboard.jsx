@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, Stethoscope, RefreshCw, Eye, ChevronRight, Clock, CheckCircle, AlertCircle, XCircle, Search, X, FileText, Download } from 'lucide-react';
 import axios from 'axios';
 import { Line } from 'react-chartjs-2';
@@ -13,26 +13,17 @@ import { chartColors, lineChartOptions } from '../utils/chartConfig';
 const AnalyticsDashboard = () => {
   const [activeView, setActiveView] = useState('summary');
   const [refreshing, setRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [_lastRefresh, setLastRefresh] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [generatingReport, setGeneratingReport] = useState(false);
 
   // Data hooks
   const { patients, loading: patientsLoading, fetchPatients } = usePatients();
-  const { doctors, loading: doctorsLoading, fetchDoctors } = useDoctors();
+  const { doctors: _doctors, loading: doctorsLoading, fetchDoctors } = useDoctors();
   const { allAppointments, loading: appointmentsLoading, fetchAllAppointments } = useAllAppointments();
 
-  // Auto-refresh every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      handleRefresh();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
@@ -46,7 +37,16 @@ const AnalyticsDashboard = () => {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [fetchPatients, fetchDoctors, fetchAllAppointments]);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [handleRefresh]);
 
   // Generate comprehensive clinic report
   const generateComprehensiveReport = async () => {

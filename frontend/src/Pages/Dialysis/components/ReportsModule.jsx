@@ -23,7 +23,6 @@ import {
   Activity,
   Download,
   Filter,
-  Printer,
   RefreshCw,
   Target,
   Award,
@@ -59,7 +58,6 @@ ChartJS.register(
 export default function ReportsModule({ sessions }) {
   const [reportMode, setReportMode] = useState('annual-report'); // 'annual-report', 'comprehensive', 'machine-specific', 'patient-analytics'
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedQuarter, setSelectedQuarter] = useState('Q4');
   const [selectedMachine, setSelectedMachine] = useState('all');
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -67,9 +65,8 @@ export default function ReportsModule({ sessions }) {
   const [success, setSuccess] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Available years and quarters
+  // Available years
   const availableYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-  const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
   
   // Report types configuration
   const reportTypes = [
@@ -288,13 +285,13 @@ export default function ReportsModule({ sessions }) {
           endpoint = `http://localhost:8080/api/dialysis/reports/annual/${selectedYear}`;
           break;
         case 'comprehensive':
-          endpoint = `http://localhost:8080/api/dialysis/reports/comprehensive/${selectedYear}/${selectedQuarter}`;
+          endpoint = `http://localhost:8080/api/dialysis/reports/comprehensive/${selectedYear}`;
           break;
         case 'machine-specific':
           endpoint = `http://localhost:8080/api/dialysis/reports/machine-performance/${selectedMachine}/${selectedYear}`;
           break;
         case 'patient-analytics':
-          endpoint = `http://localhost:8080/api/dialysis/reports/patient-analytics/${selectedYear}/${selectedQuarter}`;
+          endpoint = `http://localhost:8080/api/dialysis/reports/patient-analytics/${selectedYear}`;
           break;
         default:
           endpoint = `http://localhost:8080/api/dialysis/analytics/kpi-dashboard`;
@@ -350,7 +347,7 @@ export default function ReportsModule({ sessions }) {
     } finally {
       setLoading(false);
     }
-  }, [reportMode, selectedYear, selectedQuarter, selectedMachine, generateFallbackReportData]);
+  }, [reportMode, selectedYear, selectedMachine, generateFallbackReportData]);
 
   useEffect(() => {
     fetchReportData();
@@ -378,16 +375,16 @@ export default function ReportsModule({ sessions }) {
           filename = `Dialysis_Annual_Report_${selectedYear}.pdf`;
           break;
         case 'comprehensive':
-          endpoint = `http://localhost:8080/api/dialysis/reports/comprehensive/export-pdf/${selectedYear}/${selectedQuarter}`;
-          filename = `Comprehensive_Dialysis_Report_${selectedYear}_${selectedQuarter}.pdf`;
+          endpoint = `http://localhost:8080/api/dialysis/reports/comprehensive/export-pdf/${selectedYear}`;
+          filename = `Comprehensive_Dialysis_Report_${selectedYear}.pdf`;
           break;
         case 'machine-specific':
           endpoint = `http://localhost:8080/api/dialysis/reports/machine-performance/export-pdf/${selectedMachine}/${selectedYear}`;
           filename = `Machine_Performance_Report_${selectedMachine}_${selectedYear}.pdf`;
           break;
         case 'patient-analytics':
-          endpoint = `http://localhost:8080/api/dialysis/reports/patient-analytics/export-pdf/${selectedYear}/${selectedQuarter}`;
-          filename = `Patient_Analytics_Report_${selectedYear}_${selectedQuarter}.pdf`;
+          endpoint = `http://localhost:8080/api/dialysis/reports/patient-analytics/export-pdf/${selectedYear}`;
+          filename = `Patient_Analytics_Report_${selectedYear}.pdf`;
           break;
         default:
           throw new Error('Invalid report mode selected');
@@ -456,82 +453,6 @@ export default function ReportsModule({ sessions }) {
     }
   };
 
-  // Chart data generators
-  const getMonthlySessionsChartData = () => {
-    if (!reportData?.monthlyData) return null;
-
-    return {
-      labels: reportData.monthlyData.map(month => month.month.substring(0, 3)),
-      datasets: [
-        {
-          label: 'Total Sessions',
-          data: reportData.monthlyData.map(month => month.totalSessions),
-          backgroundColor: 'rgba(59, 130, 246, 0.6)',
-          borderColor: 'rgba(59, 130, 246, 1)',
-          borderWidth: 2
-        },
-        {
-          label: 'Completed Sessions',
-          data: reportData.monthlyData.map(month => month.completedSessions),
-          backgroundColor: 'rgba(16, 185, 129, 0.6)',
-          borderColor: 'rgba(16, 185, 129, 1)',
-          borderWidth: 2
-        },
-        {
-          label: 'Emergency Sessions',
-          data: reportData.monthlyData.map(month => month.emergencySessions),
-          backgroundColor: 'rgba(239, 68, 68, 0.6)',
-          borderColor: 'rgba(239, 68, 68, 1)',
-          borderWidth: 2
-        }
-      ]
-    };
-  };
-
-  const getMachineUtilizationChartData = () => {
-    if (!reportData?.machinePerformance) return null;
-
-    return {
-      labels: reportData.machinePerformance.map(machine => machine.machineName.replace('Dialysis Machine ', 'M')),
-      datasets: [
-        {
-          label: 'Utilization Rate (%)',
-          data: reportData.machinePerformance.map(machine => machine.utilizationRate),
-          backgroundColor: 'rgba(168, 85, 247, 0.6)',
-          borderColor: 'rgba(168, 85, 247, 1)',
-          borderWidth: 2
-        }
-      ]
-    };
-  };
-
-  const getPatientOutcomesChartData = () => {
-    if (!reportData?.patientOutcomes?.clinicalOutcomes) return null;
-
-    const outcomes = reportData.patientOutcomes.clinicalOutcomes;
-    return {
-      labels: ['Excellent', 'Good', 'Fair', 'Poor'],
-      datasets: [
-        {
-          data: [outcomes.excellent, outcomes.good, outcomes.fair, outcomes.poor],
-          backgroundColor: [
-            'rgba(34, 197, 94, 0.8)',
-            'rgba(59, 130, 246, 0.8)',
-            'rgba(245, 158, 11, 0.8)',
-            'rgba(239, 68, 68, 0.8)'
-          ],
-          borderColor: [
-            'rgba(34, 197, 94, 1)',
-            'rgba(59, 130, 246, 1)',
-            'rgba(245, 158, 11, 1)',
-            'rgba(239, 68, 68, 1)'
-          ],
-          borderWidth: 2
-        }
-      ]
-    };
-  };
-
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -567,39 +488,106 @@ export default function ReportsModule({ sessions }) {
 
       {/* Report Type Selection */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Configuration</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Report Configuration</h3>
+          <div className="flex items-center text-sm text-gray-500">
+            <FileText className="w-4 h-4 mr-1" />
+            Select Report Type & Settings
+          </div>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {reportTypes.map((type) => {
-            const IconComponent = type.icon;
-            return (
-              <button
-                key={type.id}
-                onClick={() => setReportMode(type.id)}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  reportMode === type.id
-                    ? `border-${type.color}-500 bg-${type.color}-50`
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <div className="flex items-center mb-2">
-                  <IconComponent className={`w-5 h-5 mr-2 ${
-                    reportMode === type.id ? `text-${type.color}-600` : 'text-gray-600'
-                  }`} />
-                  <h4 className={`font-medium ${
-                    reportMode === type.id ? `text-${type.color}-900` : 'text-gray-900'
-                  }`}>
-                    {type.name}
-                  </h4>
+        {/* Featured Annual Report */}
+        <div className="mb-6 p-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="p-3 bg-emerald-100 rounded-lg mr-4">
+                <TrendingUp className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-emerald-900">Annual Dialysis Report</h4>
+                <p className="text-emerald-700">Primary annual report for comprehensive dialysis operations analysis</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setReportMode('annual-report')}
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                reportMode === 'annual-report'
+                  ? 'bg-emerald-600 text-white shadow-lg'
+                  : 'bg-white text-emerald-600 border-2 border-emerald-600 hover:bg-emerald-50'
+              }`}
+            >
+              {reportMode === 'annual-report' ? '✓ Selected' : 'Select Report'}
+            </button>
+          </div>
+          
+          {reportMode === 'annual-report' && (
+            <div className="bg-white rounded-lg p-4 border border-emerald-200">
+              <h5 className="font-semibold text-emerald-900 mb-3">Annual Report Features:</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center text-emerald-800">
+                  <CheckCircle className="w-4 h-4 mr-2 text-emerald-600" />
+                  Monthly session trends & analytics
                 </div>
-                <p className={`text-sm ${
-                  reportMode === type.id ? `text-${type.color}-700` : 'text-gray-600'
-                }`}>
-                  {type.description}
-                </p>
-              </button>
-            );
-          })}
+                <div className="flex items-center text-emerald-800">
+                  <CheckCircle className="w-4 h-4 mr-2 text-emerald-600" />
+                  Patient outcome analysis
+                </div>
+                <div className="flex items-center text-emerald-800">
+                  <CheckCircle className="w-4 h-4 mr-2 text-emerald-600" />
+                  Equipment utilization reports
+                </div>
+                <div className="flex items-center text-emerald-800">
+                  <CheckCircle className="w-4 h-4 mr-2 text-emerald-600" />
+                  Quality assurance metrics
+                </div>
+                <div className="flex items-center text-emerald-800">
+                  <CheckCircle className="w-4 h-4 mr-2 text-emerald-600" />
+                  Strategic recommendations
+                </div>
+                <div className="flex items-center text-emerald-800">
+                  <CheckCircle className="w-4 h-4 mr-2 text-emerald-600" />
+                  Executive summary & insights
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Other Report Types */}
+        <div className="mb-6">
+          <h4 className="text-md font-semibold text-gray-700 mb-3">Additional Report Types</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {reportTypes.filter(type => type.id !== 'annual-report').map((type) => {
+              const IconComponent = type.icon;
+              return (
+                <button
+                  key={type.id}
+                  onClick={() => setReportMode(type.id)}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    reportMode === type.id
+                      ? `border-${type.color}-500 bg-${type.color}-50`
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center mb-2">
+                    <IconComponent className={`w-5 h-5 mr-2 ${
+                      reportMode === type.id ? `text-${type.color}-600` : 'text-gray-600'
+                    }`} />
+                    <h4 className={`font-medium ${
+                      reportMode === type.id ? `text-${type.color}-900` : 'text-gray-900'
+                    }`}>
+                      {type.name}
+                    </h4>
+                  </div>
+                  <p className={`text-sm ${
+                    reportMode === type.id ? `text-${type.color}-700` : 'text-gray-600'
+                  }`}>
+                    {type.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Report Controls */}
@@ -616,22 +604,6 @@ export default function ReportsModule({ sessions }) {
             >
               {availableYears.map(year => (
                 <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Filter className="w-4 h-4 inline mr-1" />
-              Quarter
-            </label>
-            <select
-              value={selectedQuarter}
-              onChange={(e) => setSelectedQuarter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {quarters.map(quarter => (
-                <option key={quarter} value={quarter}>{quarter}</option>
               ))}
             </select>
           </div>
@@ -658,15 +630,6 @@ export default function ReportsModule({ sessions }) {
 
           <div className="flex items-end space-x-2">
             <button
-              onClick={fetchReportData}
-              disabled={loading}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
-
-            <button
               onClick={downloadPDFReport}
               disabled={isGenerating || !reportData}
               className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
@@ -682,14 +645,6 @@ export default function ReportsModule({ sessions }) {
                   Download PDF
                 </>
               )}
-            </button>
-
-            <button
-              onClick={() => window.print()}
-              className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print
             </button>
           </div>
         </div>
@@ -711,187 +666,6 @@ export default function ReportsModule({ sessions }) {
       {/* Report Content */}
       {!loading && reportData && (
         <>
-          {/* Summary Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Sessions</p>
-                  <p className="text-3xl font-bold text-gray-900">{reportData.summary?.totalSessions?.toLocaleString() || '0'}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Completion: {reportData.summary?.completionRate || 0}%
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Activity className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Patient Satisfaction</p>
-                  <p className="text-3xl font-bold text-gray-900">{reportData.summary?.patientSatisfactionScore || 0}%</p>
-                  <p className="text-xs text-gray-500 mt-1">Quality metric</p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <Heart className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Machine Utilization</p>
-                  <p className="text-3xl font-bold text-gray-900">{reportData.summary?.machineUtilizationRate || 0}%</p>
-                  <p className="text-xs text-gray-500 mt-1">Equipment efficiency</p>
-                </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Monitor className="w-6 h-6 text-purple-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Emergency Rate</p>
-                  <p className="text-3xl font-bold text-gray-900">{reportData.summary?.emergencyRate || 0}%</p>
-                  <p className="text-xs text-gray-500 mt-1">Emergency sessions</p>
-                </div>
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Monthly Sessions Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
-                  Monthly Session Analysis
-                </h3>
-                <span className="text-sm text-gray-500">{selectedYear}</span>
-              </div>
-              {getMonthlySessionsChartData() && (
-                <Bar 
-                  data={getMonthlySessionsChartData()} 
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { position: 'top' },
-                      title: { display: false }
-                    },
-                    scales: {
-                      y: { beginAtZero: true },
-                      x: { grid: { display: false } }
-                    }
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Machine Utilization Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Gauge className="w-5 h-5 mr-2 text-purple-600" />
-                  Machine Utilization
-                </h3>
-                <span className="text-sm text-gray-500">Current Period</span>
-              </div>
-              {getMachineUtilizationChartData() && (
-                <Bar 
-                  data={getMachineUtilizationChartData()} 
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { display: false },
-                      title: { display: false }
-                    },
-                    scales: {
-                      y: { 
-                        beginAtZero: true,
-                        max: 100,
-                        title: { display: true, text: 'Utilization (%)' }
-                      },
-                      x: { grid: { display: false } }
-                    }
-                  }}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Patient Outcomes and Quality Metrics */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Patient Outcomes Pie Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Target className="w-5 h-5 mr-2 text-green-600" />
-                  Clinical Outcomes Distribution
-                </h3>
-                <span className="text-sm text-gray-500">Treatment Results</span>
-              </div>
-              {getPatientOutcomesChartData() && (
-                <div className="flex items-center">
-                  <div className="w-64 h-64">
-                    <Doughnut 
-                      data={getPatientOutcomesChartData()} 
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: { position: 'right' }
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Quality Metrics */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Shield className="w-5 h-5 mr-2 text-indigo-600" />
-                  Quality Assurance Metrics
-                </h3>
-                <span className="text-sm text-gray-500">Performance Indicators</span>
-              </div>
-              {reportData.qualityMetrics && (
-                <div className="space-y-4">
-                  {Object.entries(reportData.qualityMetrics).map(([key, value]) => {
-                    const metricName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    const isPercentage = typeof value === 'number' && value <= 100;
-                    const displayValue = isPercentage ? `${value}%` : value;
-                    const color = value >= 90 ? 'green' : value >= 80 ? 'yellow' : 'red';
-                    
-                    return (
-                      <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="font-medium text-gray-900">{metricName}</span>
-                        <div className="flex items-center">
-                          <span className={`text-lg font-bold text-${color}-600`}>{displayValue}</span>
-                          {value >= 90 ? <CheckCircle className="w-4 h-4 text-green-500 ml-2" /> : 
-                           value >= 80 ? <Clock className="w-4 h-4 text-yellow-500 ml-2" /> :
-                           <AlertTriangle className="w-4 h-4 text-red-500 ml-2" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Machine Performance Table */}
           {reportMode === 'machine-specific' && reportData.machinePerformance && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -993,29 +767,6 @@ export default function ReportsModule({ sessions }) {
                   <p>• Implement predictive maintenance protocols</p>
                   <p>• Enhance patient flow management systems</p>
                   <p>• Expand capacity for emergency cases</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Summary Statistics */}
-            <div className="mt-6 bg-gray-50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-3">Report Summary</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{reportData.summary?.totalSessions || 0}</div>
-                  <div className="text-gray-600">Total Sessions</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{reportData.patientOutcomes?.totalPatients || 0}</div>
-                  <div className="text-gray-600">Patients Served</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{reportData.machinePerformance?.length || 0}</div>
-                  <div className="text-gray-600">Active Machines</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">{reportData.summary?.emergencyRate || 0}%</div>
-                  <div className="text-gray-600">Emergency Rate</div>
                 </div>
               </div>
             </div>

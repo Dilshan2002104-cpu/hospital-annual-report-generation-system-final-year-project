@@ -1206,69 +1206,6 @@ export default function DialysisAnalytics() {
               </div>
             ) : annualData ? (
               <>
-                {/* Annual Summary KPIs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-blue-800">Total Annual Sessions</p>
-                        <p className="text-3xl font-bold text-blue-900">
-                          {annualData.summary?.totalSessions?.toLocaleString() || '0'}
-                        </p>
-                        <p className="text-xs text-blue-600 mt-1">
-                          YoY Growth: +{annualData.summary?.yearOverYearGrowth?.toFixed(1) || '0'}%
-                        </p>
-                      </div>
-                      <Activity className="w-10 h-10 text-blue-600" />
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-green-800">Peak Patients</p>
-                        <p className="text-3xl font-bold text-green-900">
-                          {annualData.summary?.totalPatients || '0'}
-                        </p>
-                        <p className="text-xs text-green-600 mt-1">
-                          Avg: {Math.floor((annualData.summary?.totalPatients || 0) / 12)} per month
-                        </p>
-                      </div>
-                      <Users className="w-10 h-10 text-green-600" />
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-purple-800">Avg Utilization</p>
-                        <p className="text-3xl font-bold text-purple-900">
-                          {annualData.summary?.averageUtilization?.toFixed(1) || '0'}%
-                        </p>
-                        <p className="text-xs text-purple-600 mt-1">
-                          Equipment efficiency
-                        </p>
-                      </div>
-                      <Gauge className="w-10 h-10 text-purple-600" />
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-lg p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-emerald-800">Completion Rate</p>
-                        <p className="text-3xl font-bold text-emerald-900">
-                          {annualData.summary?.completionRate?.toFixed(1) || '0'}%
-                        </p>
-                        <p className="text-xs text-emerald-600 mt-1">
-                          Quality metric
-                        </p>
-                      </div>
-                      <CheckCircle className="w-10 h-10 text-emerald-600" />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Charts Section */}
                 <div className="space-y-8">
                   {/* Monthly Sessions Trends */}

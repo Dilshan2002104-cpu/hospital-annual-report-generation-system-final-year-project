@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Line, Bar, Doughnut, PolarArea } from 'react-chartjs-2';
 import { Calendar, Clock, Activity, AlertCircle, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
-import { chartColors, lineChartOptions, barChartOptions, doughnutChartOptions, polarAreaOptions, chartUtils } from '../../utils/chartConfig';
+import { chartColors, lineChartOptions, barChartOptions, doughnutChartOptions, chartUtils } from '../../utils/chartConfig';
 
 const AppointmentAnalytics = ({ appointments }) => {
   // Appointment status distribution
