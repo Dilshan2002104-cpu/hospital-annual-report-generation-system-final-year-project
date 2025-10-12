@@ -56,8 +56,6 @@
             <version>6.21.3</version>
         </dependency>
 
-
-
         <!-- JFreeChart for generating charts in reports -->
         <dependency>
             <groupId>org.jfree</groupId>
