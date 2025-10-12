@@ -2,11 +2,9 @@ import React from 'react';
 import { Users, UserPlus, Calendar, Activity, Shield, Stethoscope, Clipboard, UserCheck, ClipboardList, Heart, AlertCircle, History } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
-import useDoctors from '../hooks/useDoctors';
 import useAppointments from '../hooks/useAppointments';
 
-const ClinicOverview = ({ todayStats, onTabChange }) => {
-  const { doctors, loading: doctorsLoading } = useDoctors();
+const ClinicOverview = ({ todayStats, doctors = [], doctorsLoading = false, onTabChange }) => {
   const { appointments } = useAppointments();
 
   // Calculate real-time doctor statistics
@@ -30,9 +28,9 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
           <Heart size={28} className="mr-3 text-blue-500" />
-          Nursing Station Overview
+          Clinic Management Overview
         </h2>
-        <p className="text-gray-600">Today's patient care metrics and nursing workload status</p>
+        <p className="text-gray-600">Today's patient care metrics and clinical workload status</p>
       </div>
       
       {/* Statistics Cards */}
@@ -74,7 +72,7 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
           color="green"
         />
         <StatCard
-          title="Nursing Unit"
+          title="Clinic Status"
           value="Active"
           subtitle="All systems operational"
           icon={Shield}
@@ -86,7 +84,7 @@ const ClinicOverview = ({ todayStats, onTabChange }) => {
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <ClipboardList size={20} className="mr-2 text-blue-600" />
-          Nursing Quick Actions
+          Clinic Quick Actions
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <button

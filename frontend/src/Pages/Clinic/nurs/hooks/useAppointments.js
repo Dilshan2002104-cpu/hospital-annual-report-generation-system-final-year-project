@@ -252,6 +252,7 @@ const useAppointments = (showToast = null) => {
 
   return {
     appointments,
+    setAppointments,
     loading,
     submitting,
     fetchAppointments,

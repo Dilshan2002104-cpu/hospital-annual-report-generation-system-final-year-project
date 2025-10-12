@@ -12,12 +12,12 @@ const Header = ({ todayStats }) => {
             </div>
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-800 to-indigo-900 bg-clip-text text-transparent">
-                Nursing Station Dashboard
+                Clinic Management
               </h1>
               <div className="flex items-center space-x-4 mt-2">
                 <p className="text-gray-700 text-sm font-medium flex items-center">
                   <Shield size={14} className="mr-2 text-blue-600" />
-                  NINDT Nursing Unit - Patient Care Management
+                  NINDT Clinic Management - Patient Care System
                 </p>
                 <div className="hidden md:flex items-center space-x-4">
                   <div className="flex items-center space-x-2">

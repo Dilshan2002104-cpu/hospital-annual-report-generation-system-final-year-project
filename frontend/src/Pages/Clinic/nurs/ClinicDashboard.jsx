@@ -3,6 +3,8 @@ import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield, Stethosco
 
 // Import custom hooks
 import usePatients from './hooks/usePatients';
+import useDoctors from './hooks/useDoctors';
+import useAppointments from './hooks/useAppointments';
 
 // Import components
 import Header from './components/Header';
@@ -29,45 +31,10 @@ export default function ClinicDashboard() {
   const removeToast = (id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
-  const [doctors] = useState([
-    {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      specialization: 'Nephrology',
-      status: 'available',
-      todayPatients: 8,
-      completed: 6,
-      avatar: 'SJ'
-    },
-    {
-      id: 2,
-      name: 'Dr. Michael Chen',
-      specialization: 'Dialysis Specialist',
-      status: 'busy',
-      todayPatients: 12,
-      completed: 10,
-      avatar: 'MC'
-    },
-    {
-      id: 3,
-      name: 'Dr. Emily Davis',
-      specialization: 'Transplant Surgery',
-      status: 'unavailable',
-      todayPatients: 4,
-      completed: 4,
-      avatar: 'ED'
-    },
-    {
-      id: 4,
-      name: 'Dr. Ahmed Hassan',
-      specialization: 'Internal Medicine',
-      status: 'available',
-      todayPatients: 10,
-      completed: 7,
-      avatar: 'AH'
-    }
-  ]);
-  const [appointments, setAppointments] = useState([]);
+
+  // Use custom hooks for real data
+  const { doctors, loading: doctorsLoading } = useDoctors();
+  const { appointments, setAppointments } = useAppointments();
 
   // Use custom hook for patient management
   const {
@@ -83,9 +50,11 @@ export default function ClinicDashboard() {
   // Statistics calculations
   const todayStats = useMemo(() => {
     const totalDoctors = doctors.length;
-    const availableDoctors = doctors.filter(d => d.status === 'available').length;
+    const availableDoctors = doctors.filter(d => d.available === true).length;
     const totalAppointments = appointments.length;
-    const completedAppointments = appointments.filter(a => a.status === 'completed').length;
+    const completedAppointments = appointments.filter(a => 
+      a.status === 'completed' || a.status === 'done'
+    ).length;
     const totalPatients = patients.length;
     const todayRegistrations = patients.filter(p => {
       const today = new Date().toDateString();
@@ -112,7 +81,7 @@ export default function ClinicDashboard() {
   };
 
   const tabs = [
-    { id: 'status', label: 'Nursing Station', icon: Activity },
+    { id: 'status', label: 'Clinic Management', icon: Activity },
     { id: 'schedule', label: 'Patient Schedule', icon: Calendar },
     { id: 'register', label: 'Patient Intake', icon: UserPlus },
     { id: 'patients', label: 'Patient Records', icon: Users },
@@ -127,7 +96,8 @@ export default function ClinicDashboard() {
         return (
           <ClinicOverview 
             todayStats={todayStats} 
-            doctors={doctors} 
+            doctors={doctors}
+            doctorsLoading={doctorsLoading}
             onTabChange={setActiveTab}
           />
         );
@@ -224,8 +194,8 @@ export default function ClinicDashboard() {
                 <Heart size={16} className="text-white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Nursing Station Dashboard</p>
-                <p className="text-xs text-gray-500">National Institute of Nephrology, Dialysis and Transplantation - Nursing Unit</p>
+                <p className="text-sm font-semibold text-gray-900">Clinic Management</p>
+                <p className="text-xs text-gray-500">National Institute of Nephrology, Dialysis and Transplantation - Clinic Management</p>
               </div>
             </div>
             <div className="flex items-center space-x-6 text-sm text-gray-500">
