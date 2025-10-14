@@ -280,7 +280,7 @@ const useClinicPrescriptions = () => {
       }
 
       // Fetch clinic prescriptions from the specific clinic endpoint
-      const response = await axios.get('http://localhost:8080/api/prescriptions/clinic?page=0&size=100&sortBy=prescribedDate&sortDir=desc', {
+      const response = await axios.get('http://localhost:8080/api/clinic/prescriptions?page=0&size=100&sortBy=prescribedDate&sortDir=desc', {
         headers: getAuthHeaders()
       });
 
@@ -391,9 +391,9 @@ const useClinicPrescriptions = () => {
 
       console.log('🔍 Creating clinic prescription with data:', prescriptionData);
 
-      // Validate required fields
-      if (!prescriptionData.patientId) {
-        throw new Error('Patient ID is required');
+      // Validate required fields - Updated to match new payload format
+      if (!prescriptionData.patientNationalId) {
+        throw new Error('Patient National ID is required');
       }
 
       if (!prescriptionData.prescribedBy) {
@@ -404,66 +404,68 @@ const useClinicPrescriptions = () => {
         throw new Error('At least one medication is required');
       }
 
-      // Transform frontend data to API format
+      // Transform frontend data to API format (EXACT SAME as Ward Management)
       const apiData = {
-        patientNationalId: prescriptionData.patientId,
-        patientName: prescriptionData.patientName,
-        startDate: prescriptionData.startDate || new Date().toISOString().split('T')[0],
+        patientNationalId: prescriptionData.patientNationalId,
+        admissionId: null, // Clinic patients don't have admissions
+        prescribedBy: prescriptionData.prescribedBy || 'Clinic Doctor',
+        startDate: prescriptionData.startDate,
         endDate: prescriptionData.endDate,
-        prescribedBy: prescriptionData.prescribedBy,
-        prescriptionNotes: prescriptionData.notes || '',
-        consultationType: prescriptionData.consultationType || 'outpatient',
-        isUrgent: prescriptionData.isUrgent || false,
+        prescriptionNotes: prescriptionData.prescriptionNotes || prescriptionData.notes || '',
+        
+        // Map medications to prescriptionItems (EXACT SAME format as Ward Management)
         prescriptionItems: prescriptionData.medications.map(med => {
           // Validate medication data
-          const medicationId = parseInt(med.id) || parseInt(med.medicationId);
+          const medicationId = parseInt(med.medicationId);
           if (isNaN(medicationId) || medicationId <= 0) {
-            throw new Error(`Invalid medication ID for medication: ${med.name || med.drugName || 'Unknown'}`);
+            throw new Error(`Invalid medication ID for medication: ${med.drugName || 'Unknown'}`);
           }
 
           const quantity = parseInt(med.quantity);
           if (isNaN(quantity) || quantity <= 0) {
-            throw new Error(`Invalid quantity: ${med.quantity} for medication: ${med.name || med.drugName || 'Unknown'}`);
+            throw new Error(`Invalid quantity: ${med.quantity} for medication: ${med.drugName || 'Unknown'}`);
           }
 
           return {
             medicationId: medicationId,
-            dose: med.dosage || med.dose,
+            dose: med.dose,
             frequency: med.frequency,
             quantity: quantity,
-            quantityUnit: 'tablets', // Default unit
+            quantityUnit: med.quantityUnit || 'tablets',
             instructions: med.instructions || 'Take as directed',
-            route: 'oral', // Default route for clinic prescriptions
+            route: med.route || 'Oral',
             isUrgent: med.isUrgent || false,
-            notes: med.notes || ''
+            notes: med.notes || 'Clinic prescription'
           };
         })
       };
 
       console.log('📤 Sending clinic prescription API request:', JSON.stringify(apiData, null, 2));
 
-      const response = await axios.post('http://localhost:8080/api/prescriptions/clinic', apiData, {
+      // Try using the new clinic prescription endpoint
+      const response = await axios.post('http://localhost:8080/api/clinic/prescriptions', apiData, {
         headers: getAuthHeaders()
       });
 
       console.log('✅ Clinic prescription created successfully:', response.data);
 
       // Transform API response back to frontend format
-      const apiPrescription = response.data.data;
+      // The new clinic prescription API returns data directly, not wrapped in a data property
+      const apiPrescription = response.data; // Changed from response.data.data
       const newPrescription = {
         id: apiPrescription.prescriptionId || apiPrescription.id,
         prescriptionId: apiPrescription.prescriptionId,
-        patientName: apiPrescription.patientName,
-        patientId: apiPrescription.patientId,
-        patientNationalId: apiPrescription.patientNationalId,
+        patientName: apiPrescription.patient?.firstName + ' ' + apiPrescription.patient?.lastName || 'Unknown Patient',
+        patientId: apiPrescription.patient?.nationalId || apiPrescription.patientNationalId,
+        patientNationalId: apiPrescription.patient?.nationalId || apiPrescription.patientNationalId,
         startDate: apiPrescription.startDate,
         endDate: apiPrescription.endDate,
         prescribedBy: apiPrescription.prescribedBy,
         prescribedDate: apiPrescription.prescribedDate,
         lastModified: apiPrescription.lastModified,
-        status: apiPrescription.status?.toLowerCase() || 'active',
-        wardName: apiPrescription.wardName || 'Outpatient Clinic',
-        consultationType: apiPrescription.consultationType || 'outpatient',
+        status: apiPrescription.status?.toLowerCase() || 'pending',
+        wardName: apiPrescription.clinicName || 'Outpatient Clinic',
+        consultationType: apiPrescription.visitType || 'outpatient',
         totalMedications: apiPrescription.totalMedications || 0,
         prescriptionNotes: apiPrescription.prescriptionNotes,
         notes: apiPrescription.prescriptionNotes,
@@ -472,7 +474,9 @@ const useClinicPrescriptions = () => {
         hasUrgentMedications: apiPrescription.prescriptionItems?.some(item => item.isUrgent) || false,
         medications: apiPrescription.prescriptionItems?.map(item => ({
           id: item.id,
-          drugName: item.drugName,
+          medicationId: item.medication?.id,
+          drugName: item.medication?.drugName || 'Unknown Medication',
+          genericName: item.medication?.genericName,
           dose: item.dose,
           dosage: item.dose,
           frequency: item.frequency,
@@ -481,7 +485,8 @@ const useClinicPrescriptions = () => {
           instructions: item.instructions,
           route: item.route,
           isUrgent: item.isUrgent || false,
-          itemStatus: item.itemStatus?.toLowerCase() || 'active'
+          itemStatus: item.itemStatus?.toLowerCase() || 'pending',
+          notes: item.notes
         })) || []
       };
 

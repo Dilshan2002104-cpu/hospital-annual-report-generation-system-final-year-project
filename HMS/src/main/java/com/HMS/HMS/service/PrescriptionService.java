@@ -86,11 +86,14 @@ public class PrescriptionService {
                 throw new IllegalArgumentException("Patient not found with National ID: " + requestDTO.getPatientNationalId());
             }
 
-            Admission admission = admissionRepository.findById(requestDTO.getAdmissionId())
-                    .orElseThrow(() -> new IllegalArgumentException("Admission not found with ID: " + requestDTO.getAdmissionId()));
-
-            // Ensure ward relationship is loaded
-            admission.getWard(); // This will trigger lazy loading if not already loaded
+            // Handle admission - can be null for clinic patients
+            Admission admission = null;
+            if (requestDTO.getAdmissionId() != null) {
+                admission = admissionRepository.findById(requestDTO.getAdmissionId())
+                        .orElseThrow(() -> new IllegalArgumentException("Admission not found with ID: " + requestDTO.getAdmissionId()));
+                // Ensure ward relationship is loaded
+                admission.getWard(); // This will trigger lazy loading if not already loaded
+            }
 
             // Create prescription container entity with relationships
             Prescription prescription = new Prescription();
@@ -102,15 +105,21 @@ public class PrescriptionService {
             prescription.setEndDate(requestDTO.getEndDate());
             prescription.setPrescribedDate(LocalDateTime.now());
 
-            // Set ward name safely - handle potential null ward relationship
-            try {
-                String wardName = admission.getWard() != null ? admission.getWard().getWardName() : "Unknown Ward";
-                prescription.setWardName(wardName);
-            } catch (Exception e) {
-                prescription.setWardName("Unknown Ward");
+            // Set ward name and bed number - handle clinic vs ward patients
+            if (admission != null) {
+                // Ward patient - use admission details
+                try {
+                    String wardName = admission.getWard() != null ? admission.getWard().getWardName() : "Unknown Ward";
+                    prescription.setWardName(wardName);
+                } catch (Exception e) {
+                    prescription.setWardName("Unknown Ward");
+                }
+                prescription.setBedNumber(admission.getBedNumber());
+            } else {
+                // Clinic patient - no admission
+                prescription.setWardName("Outpatient Clinic");
+                prescription.setBedNumber(null);
             }
-
-            prescription.setBedNumber(admission.getBedNumber());
             prescription.setPrescriptionNotes(requestDTO.getPrescriptionNotes());
             prescription.setStatus(PrescriptionStatus.ACTIVE);
             prescription.setTotalMedications(requestDTO.getPrescriptionItems().size());

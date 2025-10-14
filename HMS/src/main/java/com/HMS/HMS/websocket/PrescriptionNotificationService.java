@@ -126,4 +126,51 @@ public class PrescriptionNotificationService {
 
         System.out.println("WebSocket notification sent for inventory update: " + drugName);
     }
+
+    /**
+     * Notify pharmacy about new clinic prescription creation
+     */
+    public void notifyClinicPrescriptionCreated(com.HMS.HMS.model.Prescription.ClinicPrescription clinicPrescription) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "CLINIC_PRESCRIPTION_CREATED");
+        notification.put("action", "NEW_CLINIC_PRESCRIPTION");
+        notification.put("prescriptionId", clinicPrescription.getPrescriptionId());
+        notification.put("patientName", clinicPrescription.getPatient().getFirstName() + " " + clinicPrescription.getPatient().getLastName());
+        notification.put("patientNationalId", clinicPrescription.getPatient().getNationalId());
+        notification.put("prescribedBy", clinicPrescription.getPrescribedBy());
+        notification.put("clinicName", clinicPrescription.getClinicName());
+        notification.put("totalMedications", clinicPrescription.getTotalMedications());
+        notification.put("status", clinicPrescription.getStatus());
+        notification.put("prescribedDate", clinicPrescription.getPrescribedDate());
+        notification.put("timestamp", System.currentTimeMillis());
+        notification.put("message", "New clinic prescription created for " + 
+            clinicPrescription.getPatient().getFirstName() + " " + clinicPrescription.getPatient().getLastName());
+
+        // Send to all pharmacy clients subscribed to /topic/prescriptions
+        messagingTemplate.convertAndSend("/topic/prescriptions", notification);
+
+        System.out.println("🔔 WebSocket notification sent for new clinic prescription: " + clinicPrescription.getPrescriptionId());
+    }
+
+    /**
+     * Notify about clinic prescription status update
+     */
+    public void notifyClinicPrescriptionStatusChanged(com.HMS.HMS.model.Prescription.ClinicPrescription clinicPrescription) {
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "CLINIC_PRESCRIPTION_STATUS_CHANGED");
+        notification.put("action", "UPDATE_CLINIC_PRESCRIPTION");
+        notification.put("prescriptionId", clinicPrescription.getPrescriptionId());
+        notification.put("patientName", clinicPrescription.getPatient().getFirstName() + " " + clinicPrescription.getPatient().getLastName());
+        notification.put("patientNationalId", clinicPrescription.getPatient().getNationalId());
+        notification.put("status", clinicPrescription.getStatus());
+        notification.put("clinicName", clinicPrescription.getClinicName());
+        notification.put("timestamp", System.currentTimeMillis());
+        notification.put("message", "Clinic prescription " + clinicPrescription.getPrescriptionId() + " status changed to " + clinicPrescription.getStatus());
+
+        // Send to all pharmacy clients subscribed to /topic/prescriptions
+        messagingTemplate.convertAndSend("/topic/prescriptions", notification);
+
+        System.out.println("🔔 WebSocket notification sent for clinic prescription status change: " + 
+            clinicPrescription.getPrescriptionId() + " -> " + clinicPrescription.getStatus());
+    }
 }

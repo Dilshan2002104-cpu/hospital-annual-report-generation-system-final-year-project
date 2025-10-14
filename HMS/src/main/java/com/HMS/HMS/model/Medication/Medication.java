@@ -1,7 +1,7 @@
 package com.HMS.HMS.model.Medication;
 
 import com.HMS.HMS.model.Prescription.PrescriptionItem;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -68,7 +68,7 @@ public class Medication {
     private Boolean isActive = Boolean.TRUE;
 
     @OneToMany(mappedBy = "medication", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference("medication-prescription-items")
+    @JsonIgnore // Ignore to prevent circular references in JSON serialization
     private List<PrescriptionItem> prescriptionItems = new ArrayList<>();
 
     public Medication(){}

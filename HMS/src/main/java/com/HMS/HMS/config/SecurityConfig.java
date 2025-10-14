@@ -78,6 +78,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/prescriptions/**").permitAll()
                         .requestMatchers("/api/dialysis/**").permitAll()
+                        .requestMatchers("/api/clinic/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
