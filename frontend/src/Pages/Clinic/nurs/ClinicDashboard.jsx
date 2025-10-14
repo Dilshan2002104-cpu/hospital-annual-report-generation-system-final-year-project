@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield, Stethoscope, ClipboardList, History, BarChart3 } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Activity, Calendar, UserPlus, Users, FileText, Heart, Shield, Stethoscope, ClipboardList, History, BarChart3, Pill } from 'lucide-react';
 
 // Import custom hooks
 import usePatients from './hooks/usePatients';
@@ -16,6 +16,7 @@ import PatientDatabase from './components/PatientDatabase';
 import PatientHistory from './components/PatientHistory';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ReportsModule from './components/ReportsModule';
+import ClinicPrescriptionsManagement from './components/ClinicPrescriptionsManagement';
 import { ToastContainer } from './components/Toast';
 
 export default function ClinicDashboard() {
@@ -23,14 +24,14 @@ export default function ClinicDashboard() {
   const [toasts, setToasts] = useState([]);
 
   // Toast utility functions
-  const addToast = (type, title, message) => {
+  const addToast = useCallback((type, title, message) => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, type, title, message }]);
-  };
+  }, []);
 
-  const removeToast = (id) => {
+  const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
+  }, []);
 
   // Use custom hooks for real data
   const { doctors, loading: doctorsLoading } = useDoctors();
@@ -76,15 +77,16 @@ export default function ClinicDashboard() {
     };
   }, [doctors, appointments, patients]);
 
-  const handleScheduleAppointment = (appointment) => {
-    setAppointments([...appointments, appointment]);
-  };
+  const handleScheduleAppointment = useCallback((appointment) => {
+    setAppointments(prev => [...prev, appointment]);
+  }, [setAppointments]);
 
   const tabs = [
     { id: 'status', label: 'Clinic Management', icon: Activity },
     { id: 'schedule', label: 'Patient Schedule', icon: Calendar },
     { id: 'register', label: 'Patient Intake', icon: UserPlus },
     { id: 'patients', label: 'Patient Records', icon: Users },
+    { id: 'prescriptions', label: 'Prescriptions', icon: Pill },
     { id: 'history', label: 'Patient History', icon: History },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'reports', label: 'Care Reports', icon: ClipboardList }
@@ -131,6 +133,10 @@ export default function ClinicDashboard() {
             onDeletePatient={deletePatient}
             onTabChange={setActiveTab}
           />
+        );
+      case 'prescriptions':
+        return (
+          <ClinicPrescriptionsManagement />
         );
       case 'history':
         return (

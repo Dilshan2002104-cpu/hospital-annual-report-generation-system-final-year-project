@@ -15,17 +15,15 @@ import {
 
 export default function SampleCollection({
   samples = [],
-  testOrders = [],
   loading,
   onCollectSample,
   onUpdateStatus,
-  onSearchSamples,
   stats
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [selectedSample, setSelectedSample] = useState(null);
+  const [_SELECTED_SAMPLE, _SET_SELECTED_SAMPLE] = useState(null);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
 
   // Filter samples

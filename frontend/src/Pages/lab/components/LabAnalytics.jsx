@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp, BarChart3, PieChart } from 'lucide-react';
 
-export default function LabAnalytics({ testOrders, samples, results, equipment, loading, stats }) {
+export default function LabAnalytics({ loading }) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">

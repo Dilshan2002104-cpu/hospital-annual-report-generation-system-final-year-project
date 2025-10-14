@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 const useLabTests = (showToast = null) => {
   const [testOrders, setTestOrders] = useState([]);
@@ -7,7 +6,7 @@ const useLabTests = (showToast = null) => {
   const [lastError, setLastError] = useState(null);
 
   // Mock data for demonstration
-  const mockTestOrders = [
+  const mockTestOrders = useMemo(() => [
     {
       orderId: 'LAB-001',
       patientId: 'PAT-12345',
@@ -38,7 +37,7 @@ const useLabTests = (showToast = null) => {
       orderDate: new Date(Date.now() - 7200000).toISOString(),
       requestingPhysician: 'Dr. Brown'
     }
-  ];
+  ], []);
 
   const fetchTestOrders = useCallback(async () => {
     try {
@@ -90,7 +89,7 @@ const useLabTests = (showToast = null) => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, mockTestOrders]);
 
   const createTestOrder = useCallback(async (orderData) => {
     try {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react';
 
-export default function QualityControl({ results, testOrders, samples, loading, stats }) {
+export default function QualityControl({ loading, stats }) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">

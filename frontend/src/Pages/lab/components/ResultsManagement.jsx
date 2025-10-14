@@ -13,9 +13,7 @@ import {
 
 export default function ResultsManagement({
   results = [],
-  testOrders = [],
   loading,
-  onCreateResult,
   onValidateResult,
   onApproveResult,
   stats

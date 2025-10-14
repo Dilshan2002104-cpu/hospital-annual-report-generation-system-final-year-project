@@ -13,7 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-export default function LabOverview({ stats, testOrders, samples, equipment, results, onTabChange }) {
+export default function LabOverview({ stats, onTabChange }) {
   const quickActions = [
     {
       title: 'New Test Order',

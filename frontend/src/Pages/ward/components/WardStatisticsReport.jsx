@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -67,9 +67,9 @@ const WardStatisticsReport = () => {
     } else {
       fetchWardStatistics();
     }
-  }, [reportMode, selectedWard, selectedYear]);
+  }, [reportMode, selectedWard, selectedYear, fetchHospitalWideStatistics, fetchWardStatistics]);
 
-  const fetchWardStatistics = async () => {
+  const fetchWardStatistics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -103,9 +103,9 @@ const WardStatisticsReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedWard, selectedYear]);
 
-  const fetchHospitalWideStatistics = async () => {
+  const fetchHospitalWideStatistics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -140,7 +140,7 @@ const WardStatisticsReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear]);
 
   const downloadPDF = async () => {
     setPdfDownloading(true);
@@ -155,7 +155,7 @@ const WardStatisticsReport = () => {
         logMessage = `Downloading hospital-wide PDF for ${selectedYear}`;
       } else {
         const selectedWardData = wards.find(w => w.apiName === selectedWard);
-        const wardDisplayName = selectedWardData ? selectedWardData.displayName : selectedWard;
+        const _WARD_DISPLAY_NAME = selectedWardData ? selectedWardData.displayName : selectedWard;
         url = `http://localhost:8080/api/reports/ward-statistics/ward/${selectedWard}/export-pdf/${selectedYear}`;
         filename = `Ward_${selectedWard}_Statistics_${selectedYear}.pdf`;
         logMessage = `Downloading PDF for ${selectedWard} (${selectedYear})`;

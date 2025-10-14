@@ -15,6 +15,9 @@ import java.util.Optional;
 public interface MedicationRepository extends JpaRepository<Medication,Long> {
     boolean existsByBatchNumber(String batchNumber);
     Optional<Medication> findByBatchNumber(String batchNumber);
+    
+    // Find by exact drug name
+    Medication findByDrugName(String drugName);
 
     // Basic search methods
     Page<Medication> findByDrugNameContainingIgnoreCase(String drugName, Pageable pageable);

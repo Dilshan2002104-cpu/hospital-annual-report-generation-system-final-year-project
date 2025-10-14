@@ -51,14 +51,14 @@ export default function DrugDatabase({
     } finally {
       setSearchLoading(false);
     }
-  }, [onSearchDrug, pageSize, sortBy]);  // Removed reactive dependencies that cause loops
+  }, [onSearchDrug, pageSize, sortBy, filterCategory, pagination?.pageNumber, searchTerm]);
 
   // Sync page size from hook
   useEffect(() => {
     if (pagination && pagination.pageSize !== pageSize) {
       setPageSize(pagination.pageSize);
     }
-  }, [pagination?.pageSize]);
+  }, [pagination?.pageSize, pageSize, pagination]);
 
   // Initial load on component mount
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function DrugDatabase({
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, filterCategory]); // Removed performSearch from dependencies
+  }, [searchTerm, filterCategory, performSearch]);
 
   // Handle pagination change
   const handlePageChange = (newPage) => {

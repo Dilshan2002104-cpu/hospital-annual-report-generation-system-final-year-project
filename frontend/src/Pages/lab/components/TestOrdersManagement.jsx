@@ -27,7 +27,7 @@ export default function TestOrdersManagement({
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [_SELECTED_ORDER, _SET_SELECTED_ORDER] = useState(null);
 
   // Filter test orders
   const filteredOrders = useMemo(() => {
@@ -258,7 +258,7 @@ export default function TestOrdersManagement({
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => _SET_SELECTED_ORDER(order)}
                         className="text-purple-600 hover:text-purple-900 p-1 rounded"
                         title="View Details"
                       >

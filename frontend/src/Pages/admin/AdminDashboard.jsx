@@ -77,7 +77,7 @@ const getFromStorage = (key) => {
   }
 };
 
-const setToStorage = (key, value) => {
+const _SET_TO_STORAGE = (key, value) => {
   try {
     localStorage.setItem(key, value);
   } catch (error) {
@@ -125,7 +125,7 @@ const validatePassword = (password) => {
   return null;
 };
 
-const debounce = (func, delay) => {
+const _DEBOUNCE = (func, delay) => {
   let timeoutId;
   return (...args) => {
     clearTimeout(timeoutId);
@@ -366,7 +366,7 @@ export default function AdminDashboard() {
     addToast(message, TOAST_TYPES.WARNING, title);
   }, [addToast]);
 
-  const showInfo = useCallback((message, title = 'Info') => {
+  const _SHOW_INFO = useCallback((message, title = 'Info') => {
     addToast(message, TOAST_TYPES.INFO, title);
   }, [addToast]);
 
@@ -1096,7 +1096,7 @@ export default function AdminDashboard() {
                       </td>
                     </tr>
                   ) : paginatedUsers.length > 0 ? (
-                    paginatedUsers.map((user, index) => (
+                    paginatedUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-gray-50 transition-all duration-200 group">
                         <td className="px-6 py-5">
                           <input

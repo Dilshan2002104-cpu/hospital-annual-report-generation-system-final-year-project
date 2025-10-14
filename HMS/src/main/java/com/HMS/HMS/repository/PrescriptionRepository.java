@@ -123,4 +123,8 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
 
     // Find all prescriptions by created date range
     List<Prescription> findAllByCreatedAtBetween(LocalDateTime startDateTime, LocalDateTime endDateTime);
+
+    // Find clinic prescriptions (outpatient - no admission or clinic ward)
+    @Query("SELECT p FROM Prescription p WHERE p.admission IS NULL OR p.wardName LIKE '%clinic%' OR p.wardName LIKE '%outpatient%' ORDER BY p.prescribedDate DESC")
+    Page<Prescription> findClinicPrescriptions(Pageable pageable);
 }

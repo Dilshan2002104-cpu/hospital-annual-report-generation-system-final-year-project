@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileText, Download, Calendar } from 'lucide-react';
 
-export default function LabReports({ testOrders, samples, results, stats }) {
+export default function LabReports() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

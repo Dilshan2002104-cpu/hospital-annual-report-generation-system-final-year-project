@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Search, User, ChevronDown, Check, X, AlertTriangle, Bed, Shield } from 'lucide-react';
 import usePatients from '../hooks/usePatients';
 import useWards from '../hooks/useWards';
@@ -7,7 +7,7 @@ import useAdmissions from '../hooks/useAdmissions';
 const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   const { patients, loading, fetchPatients, searchPatients, calculateAge } = usePatients();
   const { wards, loading: wardsLoading } = useWards();
-  const { loading: isSubmitting, lastError, admitPatient, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions } = useAdmissions();
+  const { loading: isSubmitting, lastError: _LAST_ERROR, admitPatient, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions } = useAdmissions();
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -29,7 +29,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   const [touched, setTouched] = useState({});
 
   // Generate available beds for the selected ward
-  const generateAvailableBeds = (wardId) => {
+  const generateAvailableBeds = useCallback((wardId) => {
     if (!wardId || !wards || !activeAdmissions) return [];
 
     const selectedWard = wards.find(w => w.wardId === parseInt(wardId));
@@ -50,7 +50,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       .map(admission => admission.bedNumber);
 
     return bedNumbers.filter(bed => !occupiedBeds.includes(bed));
-  };
+  }, [wards, activeAdmissions]);
 
   // Get ward capacity based on type
   const getWardCapacity = (wardType) => {
@@ -96,7 +96,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
       errors.bedNumber = 'Bed number is required';
     } else if (admission.bedNumber.length > 10) {
       errors.bedNumber = 'Bed number must be 10 characters or less';
-    } else if (!/^[A-Za-z0-9\-]+$/.test(admission.bedNumber.trim())) {
+    } else if (!/^[A-Za-z0-9-]+$/.test(admission.bedNumber.trim())) {
       errors.bedNumber = 'Bed number can only contain letters, numbers, and hyphens';
     }
 
@@ -158,7 +158,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
           errors.bedNumber = 'Bed number is required';
         } else if (value.length > 10) {
           errors.bedNumber = 'Bed number must be 10 characters or less';
-        } else if (!/^[A-Za-z0-9\-]+$/.test(value.trim())) {
+        } else if (!/^[A-Za-z0-9-]+$/.test(value.trim())) {
           errors.bedNumber = 'Bed number can only contain letters, numbers, and hyphens';
         } else {
           delete errors.bedNumber;
@@ -199,7 +199,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
   };
 
   // Handle input changes with validation
-  const handleInputChange = (field, value) => {
+  const _HANDLE_INPUT_CHANGE = (field, value) => {
     setAdmission(prev => ({ ...prev, [field]: value }));
     setTouched(prev => ({ ...prev, [field]: true }));
 
@@ -300,7 +300,7 @@ const AdmitPatientModal = ({ isOpen, onClose, onAdmissionSuccess }) => {
     } else {
       setAvailableBeds([]);
     }
-  }, [admission.wardId, activeAdmissions, wards]);
+  }, [admission.wardId, activeAdmissions, wards, generateAvailableBeds]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {

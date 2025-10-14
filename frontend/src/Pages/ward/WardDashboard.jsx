@@ -44,7 +44,7 @@ const WardDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
   const [transferModal, setTransferModal] = useState(false);
-  const [confirmDischargeDialog, setConfirmDischargeDialog] = useState(false);
+  const [_CONFIRM_DISCHARGE_DIALOG, _SET_CONFIRM_DISCHARGE_DIALOG] = useState(false);
   const [patientDetailsModal, setPatientDetailsModal] = useState(false);
   const [admitPatientModal, setAdmitPatientModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -53,7 +53,7 @@ const WardDashboard = () => {
   const notifications = useNotifications();
   
   // Use the admissions hook to get all admissions (both active and discharged)
-  const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions, dischargePatient, loading } = useAdmissions();
+  const { allAdmissions, activeAdmissions, fetchingAdmissions, fetchActiveAdmissions, fetchAllAdmissions, dischargePatient, loading: _LOADING } = useAdmissions();
   
   // State for handling local updates
   const [localAllAdmissions, setLocalAllAdmissions] = useState([]);
@@ -255,7 +255,7 @@ const WardDashboard = () => {
 
   // Calculate ward alerts for modern notifications
   const wardAlerts = useMemo(() => {
-    const alerts = [];
+    const _ALERTS = [];
 
     // Capacity alerts
     const criticalWards = wards.filter(ward => {

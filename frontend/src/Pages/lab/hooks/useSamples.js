@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 const useSamples = (showToast = null) => {
   const [samples, setSamples] = useState([]);
@@ -7,7 +6,7 @@ const useSamples = (showToast = null) => {
   const [lastError, setLastError] = useState(null);
 
   // Mock data for demonstration
-  const mockSamples = [
+  const mockSamples = useMemo(() => [
     {
       sampleId: 'SAMP-001',
       patientId: 'PAT-12345',
@@ -39,7 +38,7 @@ const useSamples = (showToast = null) => {
       tests: ['Lipid Profile'],
       rejectionReason: 'Hemolyzed sample'
     }
-  ];
+  ], []);
 
   const fetchSamples = useCallback(async () => {
     try {
@@ -89,7 +88,7 @@ const useSamples = (showToast = null) => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, mockSamples]);
 
   const collectSample = useCallback(async (sampleData) => {
     try {

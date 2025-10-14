@@ -1,7 +1,7 @@
 import React from 'react';
 import { Database, Settings, AlertTriangle, CheckCircle } from 'lucide-react';
 
-export default function EquipmentManagement({ equipment, loading, onUpdateEquipment, onScheduleMaintenance, stats }) {
+export default function EquipmentManagement({ equipment, loading, stats }) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">

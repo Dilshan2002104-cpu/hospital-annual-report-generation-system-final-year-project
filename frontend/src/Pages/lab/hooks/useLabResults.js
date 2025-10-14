@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 const useLabResults = (showToast = null) => {
   const [results, setResults] = useState([]);
@@ -7,7 +6,7 @@ const useLabResults = (showToast = null) => {
   const [lastError, setLastError] = useState(null);
 
   // Mock data for demonstration
-  const mockResults = [
+  const mockResults = useMemo(() => [
     {
       resultId: 'RES-001',
       testOrderId: 'LAB-001',
@@ -54,7 +53,7 @@ const useLabResults = (showToast = null) => {
       technician: 'Tech C',
       notes: 'Significantly elevated - urgent physician notification required'
     }
-  ];
+  ], []);
 
   const fetchResults = useCallback(async () => {
     try {
@@ -104,7 +103,7 @@ const useLabResults = (showToast = null) => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, mockResults]);
 
   const createResult = useCallback(async (resultData) => {
     try {

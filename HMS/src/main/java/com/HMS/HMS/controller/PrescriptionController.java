@@ -5,6 +5,7 @@ import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionRequestDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionResponseDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionItemDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionUpdateDTO;
+import com.HMS.HMS.DTO.PrescriptionDTO.ClinicPrescriptionRequestDTO;
 import com.HMS.HMS.model.Prescription.PrescriptionStatus;
 import com.HMS.HMS.service.PrescriptionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -790,6 +791,90 @@ public class PrescriptionController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Create a new clinic prescription (outpatient - no admission required)
+     */
+    @PostMapping("/clinic")
+    public ResponseEntity<ApiResponse<PrescriptionResponseDTO>> createClinicPrescription(
+            @RequestBody ClinicPrescriptionRequestDTO requestDTO) {
+        try {
+            // Log the incoming request for debugging
+            System.out.println("Creating clinic prescription for patient: " + requestDTO.getPatientNationalId());
+            System.out.println("Prescribed by: " + requestDTO.getPrescribedBy());
+            System.out.println("Number of medications: " + 
+                (requestDTO.getPrescriptionItems() != null ? requestDTO.getPrescriptionItems().size() : 0));
+            System.out.println("Is urgent: " + requestDTO.getIsUrgent());
+
+            // Validate that prescription contains medications
+            if (requestDTO.getPrescriptionItems() == null || requestDTO.getPrescriptionItems().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Prescription must contain at least one medication"));
+            }
+
+            // Validate required fields
+            if (requestDTO.getPatientNationalId() == null || requestDTO.getPatientNationalId().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Patient National ID is required"));
+            }
+
+            if (requestDTO.getPrescribedBy() == null || requestDTO.getPrescribedBy().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Prescribing doctor name is required"));
+            }
+
+            PrescriptionResponseDTO prescription = prescriptionService.createClinicPrescription(requestDTO);
+
+            URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                    .path("/{id}")
+                    .buildAndExpand(prescription.getId())
+                    .toUri();
+
+            ApiResponse<PrescriptionResponseDTO> response =
+                    ApiResponse.success("Clinic prescription with " + prescription.getTotalMedications() +
+                            " medications created successfully", prescription);
+
+            return ResponseEntity.created(location).body(response);
+
+        } catch (IllegalStateException e) {
+            System.err.println("Clinic prescription creation failed - IllegalStateException: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error("Duplicate prescription: " + e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            System.err.println("Clinic prescription creation failed - IllegalArgumentException: " + e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid request: " + e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("Clinic prescription creation failed - Exception: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to create clinic prescription: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all clinic prescriptions with pagination
+     */
+    @GetMapping("/clinic")
+    public ResponseEntity<ApiResponse<Page<PrescriptionResponseDTO>>> getClinicPrescriptions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "prescribedDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        try {
+            Sort.Direction direction = sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
+            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+            Page<PrescriptionResponseDTO> prescriptions = prescriptionService.getClinicPrescriptions(pageable);
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Clinic prescriptions retrieved successfully", prescriptions)
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve clinic prescriptions: " + e.getMessage()));
         }
     }
 }

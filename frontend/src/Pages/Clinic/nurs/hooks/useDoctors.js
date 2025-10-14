@@ -28,7 +28,7 @@ const useDoctors = () => {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  const transformDoctorData = (apiDoctor, index) => ({
+  const transformDoctorData = useCallback((apiDoctor) => ({
     id: apiDoctor.employeeId,
     name: apiDoctor.doctorName,
     empId: apiDoctor.employeeId,
@@ -38,7 +38,7 @@ const useDoctors = () => {
     bgColor: getRandomBgColor(),
     textColor: getRandomTextColor(),
     available: true
-  });
+  }), []);
 
   const fetchDoctors = useCallback(async () => {
     try {
@@ -92,7 +92,7 @@ const useDoctors = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [transformDoctorData]);
 
   const addDoctor = useCallback(async (doctorData, showToast) => {
     try {
@@ -115,7 +115,7 @@ const useDoctors = () => {
         specialization: doctorData.specialization
       };
 
-      const response = await axios.post('http://localhost:8080/api/doctors/add', requestData, {
+      await axios.post('http://localhost:8080/api/doctors/add', requestData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -180,7 +180,7 @@ const useDoctors = () => {
         return false;
       }
 
-      const response = await axios.delete(`http://localhost:8080/api/doctors/delete/${doctorId}`, {
+      await axios.delete(`http://localhost:8080/api/doctors/delete/${doctorId}`, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -248,7 +248,7 @@ const useDoctors = () => {
         specialization: doctorData.specialization
       };
 
-      const response = await axios.put(`http://localhost:8080/api/doctors/update/${doctorData.id}`, requestData, {
+      await axios.put(`http://localhost:8080/api/doctors/update/${doctorData.id}`, requestData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`

@@ -4,6 +4,7 @@ import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionRequestDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionResponseDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionItemDTO;
 import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionUpdateDTO;
+import com.HMS.HMS.DTO.PrescriptionDTO.ClinicPrescriptionRequestDTO;
 import com.HMS.HMS.model.Admission.Admission;
 import com.HMS.HMS.model.Medication.Medication;
 import com.HMS.HMS.model.Patient.Patient;
@@ -1101,6 +1102,118 @@ public class PrescriptionService {
 
         } catch (Exception e) {
             throw new RuntimeException("Error generating PDF: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Create a clinic prescription (outpatient - no admission required)
+     */
+    @Transactional
+    public PrescriptionResponseDTO createClinicPrescription(ClinicPrescriptionRequestDTO requestDTO) {
+        try {
+            // Generate unique prescription ID
+            String prescriptionId = generatePrescriptionId();
+
+            // Validate prescription items
+            if (requestDTO.getPrescriptionItems() == null || requestDTO.getPrescriptionItems().isEmpty()) {
+                throw new IllegalArgumentException("Prescription must contain at least one medication");
+            }
+
+            // Fetch patient
+            Patient patient = patientRepository.findByNationalId(requestDTO.getPatientNationalId());
+            if (patient == null) {
+                throw new IllegalArgumentException("Patient not found with National ID: " + requestDTO.getPatientNationalId());
+            }
+
+            // Create prescription container entity for clinic (no admission)
+            Prescription prescription = new Prescription();
+            prescription.setPrescriptionId(prescriptionId);
+            prescription.setPatient(patient);
+            prescription.setAdmission(null); // No admission for clinic prescriptions
+            prescription.setPrescribedBy(requestDTO.getPrescribedBy());
+            prescription.setStartDate(requestDTO.getStartDate());
+            prescription.setEndDate(requestDTO.getEndDate());
+            prescription.setPrescribedDate(LocalDateTime.now());
+
+            // Set clinic-specific fields
+            prescription.setWardName("Outpatient Clinic"); // Set as clinic
+            prescription.setBedNumber(null); // No bed for outpatient
+            prescription.setPrescriptionNotes(requestDTO.getPrescriptionNotes());
+            prescription.setStatus(PrescriptionStatus.PENDING); // Start as pending for clinic
+            prescription.setTotalMedications(requestDTO.getPrescriptionItems().size());
+            
+            // Set urgent flag if specified
+            if (requestDTO.getIsUrgent() != null && requestDTO.getIsUrgent()) {
+                prescription.setPrescriptionNotes(
+                    (prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() + " " : "") + 
+                    "[URGENT]"
+                );
+            }
+
+            // Save prescription container first
+            Prescription savedPrescription = prescriptionRepository.save(prescription);
+
+            // Create and save prescription items with medication relationships
+            for (PrescriptionItemDTO itemDTO : requestDTO.getPrescriptionItems()) {
+                // Find medication by drug name
+                Medication medication = medicationRepository.findByDrugName(itemDTO.getDrugName());
+                if (medication == null) {
+                    // Create a new medication entry if not found (for clinic flexibility)
+                    medication = new Medication();
+                    medication.setDrugName(itemDTO.getDrugName());
+                    medication.setGenericName(itemDTO.getDrugName()); // Use same name as generic
+                    medication.setCategory("General");
+                    medication.setStrength("Various");
+                    medication.setDosageForm("tablet");
+                    medication.setManufacturer("Various");
+                    medication.setBatchNumber("CLINIC-" + System.currentTimeMillis());
+                    medication.setCurrentStock(1000); // Default stock
+                    medication.setMinimumStock(10);
+                    medication.setMaximumStock(5000);
+                    medication.setUnitCost(java.math.BigDecimal.ZERO); // Will be set by pharmacy
+                    medication = medicationRepository.save(medication);
+                    
+                    System.out.println("Created new medication: " + medication.getDrugName());
+                }
+
+                // Create prescription item
+                PrescriptionItem item = new PrescriptionItem();
+                item.setPrescription(savedPrescription);
+                item.setMedication(medication);
+                item.setDose(itemDTO.getDose());
+                item.setFrequency(itemDTO.getFrequency());
+                item.setQuantity(itemDTO.getQuantity());
+                item.setQuantityUnit(itemDTO.getQuantityUnit());
+                item.setRoute(itemDTO.getRoute() != null ? itemDTO.getRoute() : "oral");
+                item.setInstructions(itemDTO.getInstructions());
+                item.setNotes("Clinic prescription");
+
+                prescriptionItemRepository.save(item);
+            }
+
+            // Convert to response DTO
+            return convertToResponseDTO(savedPrescription);
+
+        } catch (Exception e) {
+            System.err.println("Error creating clinic prescription: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    /**
+     * Get all clinic prescriptions (outpatient prescriptions)
+     */
+    public Page<PrescriptionResponseDTO> getClinicPrescriptions(Pageable pageable) {
+        try {
+            // Find prescriptions where admission is null (clinic prescriptions)
+            // or where wardName contains "clinic" or "outpatient"
+            Page<Prescription> prescriptions = prescriptionRepository.findClinicPrescriptions(pageable);
+            
+            return prescriptions.map(this::convertToResponseDTO);
+        } catch (Exception e) {
+            System.err.println("Error retrieving clinic prescriptions: " + e.getMessage());
+            throw new RuntimeException("Failed to retrieve clinic prescriptions", e);
         }
     }
 }

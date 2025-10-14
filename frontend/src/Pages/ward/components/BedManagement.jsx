@@ -21,15 +21,15 @@ const BedManagement = () => {
   const { activeAdmissions, loading, fetchActiveAdmissions } = useAdmissions();
   const [selectedWard, setSelectedWard] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [_VIEW_MODE, _SET_VIEW_MODE] = useState('grid'); // 'grid' or 'list'
 
   // Ward configuration - each ward has 20 beds
-  const wards = [
+  const wards = useMemo(() => [
     { id: 1, name: 'Ward 1 - General', type: 'general', total: 20, color: 'blue' },
     { id: 2, name: 'Ward 2 - General', type: 'general', total: 20, color: 'green' },
     { id: 3, name: 'Ward 3 - ICU', type: 'icu', total: 20, color: 'red' },
     { id: 4, name: 'Ward 4 - Dialysis', type: 'specialty', total: 20, color: 'purple' }
-  ];
+  ], []);
 
   // Generate bed numbers for each ward (1-20)
   const generateBeds = (wardId, total = 20) => {

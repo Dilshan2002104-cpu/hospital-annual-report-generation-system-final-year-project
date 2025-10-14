@@ -55,7 +55,7 @@ const usePatients = (showToast = null) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   const registerPatient = useCallback(async (patientData) => {
     try {
@@ -150,7 +150,7 @@ const usePatients = (showToast = null) => {
     } finally {
       setSubmitting(false);
     }
-  }, [fetchPatients]);
+  }, [fetchPatients, showToast]);
 
   const updatePatient = useCallback(async (nationalId, patientData) => {
     try {
@@ -204,9 +204,9 @@ const usePatients = (showToast = null) => {
     } finally {
       setSubmitting(false);
     }
-  }, [fetchPatients]);
+  }, [fetchPatients, showToast]);
 
-  const deletePatient = useCallback(async (nationalId, patientName) => {
+  const deletePatient = useCallback(async (nationalId) => {
     try {
       const jwtToken = localStorage.getItem('jwtToken');
       
@@ -253,7 +253,7 @@ const usePatients = (showToast = null) => {
       }
       return false;
     }
-  }, [fetchPatients]);
+  }, [fetchPatients, showToast]);
 
   useEffect(() => {
     fetchPatients();

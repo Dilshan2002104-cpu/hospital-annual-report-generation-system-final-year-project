@@ -863,7 +863,7 @@ const usePrescriptions = () => {
   };
 
   const wsOptions = {
-    debug: process.env.NODE_ENV === 'development',
+    debug: import.meta.env.NODE_ENV === 'development',
     reconnectDelay: 5000,
     onConnect: () => {
       console.log('✅ Ward connected to Prescription WebSocket');

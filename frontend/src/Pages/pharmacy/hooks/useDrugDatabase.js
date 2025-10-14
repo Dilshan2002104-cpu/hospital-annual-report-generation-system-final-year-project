@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import axios from 'axios';
 import useWebSocket from '../../../hooks/useWebSocket';
 
 export default function useDrugDatabase() {
-  const [drugDatabase, setDrugDatabase] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [_DRUG_DATABASE, _SET_DRUG_DATABASE] = useState([]);
+  const [_LOADING, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);

@@ -12,13 +12,12 @@ import {
 
 export default function TestProcessing({
   testOrders = [],
-  samples = [],
   equipment = [],
   loading,
   onProcessTest,
   stats
 }) {
-  const [activeTests, setActiveTests] = useState([]);
+  const [_ACTIVE_TESTS, setActiveTests] = useState([]);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
 
   const inProgressTests = testOrders.filter(test => test.status === 'in_progress');

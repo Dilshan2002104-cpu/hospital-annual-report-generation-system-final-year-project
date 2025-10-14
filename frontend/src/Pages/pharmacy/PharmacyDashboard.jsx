@@ -46,11 +46,11 @@ export default function PharmacyDashboard() {
     getStats: getPrescriptionStats,
     // WebSocket properties
     wsConnected,
-    wsError,
-    wsNotifications,
+    _WS_ERROR,
+    _WS_NOTIFICATIONS,
     wsUnreadCount,
-    markNotificationAsRead,
-    clearNotifications
+    _MARK_NOTIFICATION_AS_READ,
+    _CLEAR_NOTIFICATIONS
   } = usePrescriptions();
 
   const {

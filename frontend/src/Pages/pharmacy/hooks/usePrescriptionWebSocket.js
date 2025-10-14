@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import useWebSocket from '../../../hooks/useWebSocket';
 
 /**
@@ -91,7 +91,7 @@ export const usePrescriptionWebSocket = (onPrescriptionUpdate) => {
 
   // WebSocket configuration
   const wsOptions = {
-    debug: process.env.NODE_ENV === 'development',
+    debug: import.meta.env.NODE_ENV === 'development',
     reconnectDelay: 5000,
     onConnect: () => {
       console.log('✅ Connected to Prescription WebSocket');

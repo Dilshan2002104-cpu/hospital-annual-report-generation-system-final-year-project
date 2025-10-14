@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X, ExternalLink } from 'lucide-react';
 
 const Toast = ({ toast, onClose }) => {
@@ -19,14 +19,14 @@ const Toast = ({ toast, onClose }) => {
 
       return () => clearTimeout(timer);
     }
-  }, [toast, isExiting]);
+  }, [toast, isExiting, handleClose]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsExiting(true);
     setTimeout(() => {
       onClose(toast.id);
     }, 300);
-  };
+  }, [onClose, toast.id]);
 
   const getIcon = () => {
     switch (toast.type) {
