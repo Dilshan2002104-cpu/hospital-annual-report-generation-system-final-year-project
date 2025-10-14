@@ -39,7 +39,7 @@ export default function PharmacyDashboard() {
   const {
     prescriptions,
     loading: prescriptionsLoading,
-    processPrescription,
+    updateStatus,
     dispenseMedication,
     cancelPrescription,
     verifyInteractions,
@@ -175,7 +175,7 @@ export default function PharmacyDashboard() {
           <PrescriptionProcessing
             prescriptions={prescriptions}
             loading={prescriptionsLoading}
-            onUpdateStatus={processPrescription} // Using processPrescription for status updates
+            onUpdateStatus={updateStatus} // Using updateStatus for status updates
             onCheckInteractions={verifyInteractions}
             onDispenseMedication={dispenseMedication}
             onCancelPrescription={cancelPrescription}

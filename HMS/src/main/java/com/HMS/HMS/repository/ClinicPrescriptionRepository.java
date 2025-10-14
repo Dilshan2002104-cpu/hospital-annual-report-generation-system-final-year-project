@@ -4,6 +4,7 @@ import com.HMS.HMS.model.Prescription.ClinicPrescription;
 import com.HMS.HMS.model.Prescription.PrescriptionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +18,13 @@ import java.util.Optional;
 @Repository
 public interface ClinicPrescriptionRepository extends JpaRepository<ClinicPrescription, Long> {
     
-    // Find by prescription ID
+    // Find by prescription ID (with patient information)
+    @EntityGraph(attributePaths = {"patient", "prescriptionItems", "prescriptionItems.medication"})
     Optional<ClinicPrescription> findByPrescriptionId(String prescriptionId);
+    
+    // Find all with patient information for pharmacy
+    @EntityGraph(attributePaths = {"patient", "prescriptionItems", "prescriptionItems.medication"})
+    Page<ClinicPrescription> findAllByOrderByPrescribedDateDesc(Pageable pageable);
     
     // Find by patient national ID
     Page<ClinicPrescription> findByPatient_NationalIdOrderByPrescribedDateDesc(

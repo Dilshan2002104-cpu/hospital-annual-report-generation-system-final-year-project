@@ -12,7 +12,8 @@ import {
   FileText,
   Shield,
   Calendar,
-  Download
+  Download,
+  Building
 } from 'lucide-react';
 
 export default function PrescriptionProcessing({ 
@@ -26,6 +27,7 @@ export default function PrescriptionProcessing({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSource, setFilterSource] = useState('all'); // New filter for ward/clinic
   const [selectedPrescription, setSelectedPrescription] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [interactionResults, setInteractionResults] = useState(null);
@@ -53,7 +55,7 @@ export default function PrescriptionProcessing({
     }
   };
 
-  // Filter prescriptions based on search and status
+  // Filter prescriptions based on search, status, and source
   const filteredPrescriptions = useMemo(() => {
     return (prescriptions || []).filter(prescription => {
       const matchesSearch = !searchTerm ||
@@ -64,9 +66,13 @@ export default function PrescriptionProcessing({
       const matchesStatus = filterStatus === 'all' || 
         prescription.status?.toUpperCase() === filterStatus.toUpperCase();
       
-      return matchesSearch && matchesStatus;
+      const matchesSource = filterSource === 'all' ||
+        (filterSource === 'clinic' && prescription.isClinicPrescription) ||
+        (filterSource === 'ward' && !prescription.isClinicPrescription);
+      
+      return matchesSearch && matchesStatus && matchesSource;
     });
-  }, [prescriptions, searchTerm, filterStatus]);
+  }, [prescriptions, searchTerm, filterStatus, filterSource]);
 
   const getStatusColor = (status) => {
     switch (status?.toUpperCase()) {
@@ -238,6 +244,36 @@ export default function PrescriptionProcessing({
         </div>
       </div>
 
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              🏨
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Ward Prescriptions</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {prescriptions.filter(p => !p.isClinicPrescription).length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+              🏥
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Clinic Prescriptions</p>
+              <p className="text-2xl font-bold text-purple-600">
+                {prescriptions.filter(p => p.isClinicPrescription).length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Filters and Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -271,10 +307,47 @@ export default function PrescriptionProcessing({
                 <option value="EXPIRED">Expired</option>
               </select>
             </div>
+
+            {/* Source Filter (Ward/Clinic) */}
+            <div className="flex items-center space-x-2">
+              <Building className="w-5 h-5 text-gray-600" />
+              <select
+                value={filterSource}
+                onChange={(e) => setFilterSource(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="all">All Sources</option>
+                <option value="ward">🏨 Ward Prescriptions</option>
+                <option value="clinic">🏥 Clinic Prescriptions</option>
+              </select>
+            </div>
+
+            {/* Clear Filters Button */}
+            {(filterStatus !== 'all' || filterSource !== 'all' || searchTerm) && (
+              <button
+                onClick={() => {
+                  setFilterStatus('all');
+                  setFilterSource('all');
+                  setSearchTerm('');
+                }}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
 
           <div className="text-sm text-gray-600">
             Showing {filteredPrescriptions.length} of {prescriptions.length} prescriptions
+            {(filterStatus !== 'all' || filterSource !== 'all' || searchTerm) && (
+              <span className="ml-2">
+                (Filtered by:
+                {filterStatus !== 'all' && <span className="ml-1 font-medium">{filterStatus}</span>}
+                {filterSource !== 'all' && <span className="ml-1 font-medium">{filterSource}</span>}
+                {searchTerm && <span className="ml-1 font-medium">"{searchTerm}"</span>}
+                )
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -307,6 +380,14 @@ export default function PrescriptionProcessing({
                             {getStatusIcon(prescription?.status)}
                             <span className="capitalize">{(prescription?.status || 'active').toLowerCase().replace('_', ' ')}</span>
                           </span>
+                          {/* Location Badge - Ward vs Clinic */}
+                          <span className={`px-2 py-1 rounded text-xs font-medium border ${
+                            prescription?.isClinicPrescription 
+                              ? 'bg-purple-100 text-purple-800 border-purple-200' 
+                              : 'bg-blue-100 text-blue-800 border-blue-200'
+                          }`}>
+                            {prescription?.isClinicPrescription ? 'CLINIC' : 'WARD'}
+                          </span>
                           {prescription?.urgency && prescription.urgency !== 'normal' && (
                             <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(prescription.urgency)}`}>
                               {prescription.urgency.toUpperCase()}
@@ -326,6 +407,23 @@ export default function PrescriptionProcessing({
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4" />
                             <span>Received: {formatDate(prescription?.receivedAt || prescription?.prescribedDate)}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Location Information */}
+                        <div className="mt-2 text-sm text-gray-600">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-4 h-4 flex items-center justify-center">
+                              {prescription?.isClinicPrescription ? '🏥' : '🏨'}
+                            </span>
+                            <span>
+                              Location: {
+                                prescription?.isClinicPrescription 
+                                  ? (prescription?.clinicName || prescription?.wardName || 'Outpatient Clinic')
+                                  : (prescription?.wardName || 'Ward')
+                              }
+                              {prescription?.bedNumber && ` - Bed ${prescription.bedNumber}`}
+                            </span>
                           </div>
                         </div>
 
@@ -361,6 +459,14 @@ export default function PrescriptionProcessing({
 
                   {/* Actions */}
                   <div className="flex items-center space-x-3">
+                    {/* Debug: Show prescription status in development */}
+                    {import.meta.env.DEV && (
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        Status: {prescription?.status}
+                      </span>
+                    )}
+                    
+                    {/* View Button - Always visible */}
                     <button
                       onClick={() => handleViewPrescription(prescription)}
                       className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
@@ -369,7 +475,12 @@ export default function PrescriptionProcessing({
                       <span>View</span>
                     </button>
 
-                    {(prescription?.status === 'ACTIVE' || prescription?.status === 'received') && (
+                    {/* Dispense Button - For active prescriptions */}
+                    {(prescription?.status === 'PENDING' ||
+                      prescription?.status === 'ACTIVE' || 
+                      prescription?.status === 'received' || 
+                      prescription?.status === 'ready' || 
+                      prescription?.status === 'IN_PROGRESS') && (
                       <button
                         onClick={() => handleDispenseMedication(prescription)}
                         className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
@@ -379,6 +490,7 @@ export default function PrescriptionProcessing({
                       </button>
                     )}
 
+                    {/* Mark Ready Button - For processing prescriptions */}
                     {prescription?.status === 'processing' && (
                       <button
                         onClick={() => handleStatusUpdate(prescription?.prescriptionId, 'ready')}
@@ -389,17 +501,13 @@ export default function PrescriptionProcessing({
                       </button>
                     )}
 
-                    {(prescription?.status === 'ready' || prescription?.status === 'IN_PROGRESS') && (
-                      <button
-                        onClick={() => handleDispenseMedication(prescription)}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-                      >
-                        <Pill className="w-4 h-4" />
-                        <span>Dispense</span>
-                      </button>
-                    )}
-
-                    {(prescription?.status === 'ACTIVE' || prescription?.status === 'received' || prescription?.status === 'processing' || prescription?.status === 'IN_PROGRESS') && (
+                    {/* Cancel Button - For active prescriptions that can be cancelled */}
+                    {(prescription?.status === 'PENDING' ||
+                      prescription?.status === 'ACTIVE' || 
+                      prescription?.status === 'received' || 
+                      prescription?.status === 'processing' || 
+                      prescription?.status === 'IN_PROGRESS' ||
+                      prescription?.status === 'ready') && (
                       <button
                         onClick={() => handleCancelPrescription(prescription?.prescriptionId, 'Cancelled by pharmacist')}
                         className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
@@ -456,13 +564,26 @@ export default function PrescriptionProcessing({
                     <p><span className="font-medium">Name:</span> {selectedPrescription.patientName}</p>
                     <p><span className="font-medium">National ID:</span> {selectedPrescription.patientNationalId}</p>
                     <p><span className="font-medium">Patient ID:</span> {selectedPrescription.patientId}</p>
-                    {selectedPrescription.wardName && (
-                      <p><span className="font-medium">Ward:</span> {selectedPrescription.wardName}</p>
+                    
+                    {/* Location Information - Ward or Clinic */}
+                    {selectedPrescription.isClinicPrescription ? (
+                      <>
+                        <p><span className="font-medium">Location:</span> {selectedPrescription.wardName || selectedPrescription.clinicName || 'Outpatient Clinic'}</p>
+                        <p><span className="font-medium">Visit Type:</span> {selectedPrescription.visitType || 'Outpatient'}</p>
+                      </>
+                    ) : (
+                      <>
+                        {selectedPrescription.wardName && (
+                          <p><span className="font-medium">Ward:</span> {selectedPrescription.wardName}</p>
+                        )}
+                        {selectedPrescription.bedNumber && (
+                          <p><span className="font-medium">Bed:</span> {selectedPrescription.bedNumber}</p>
+                        )}
+                        {selectedPrescription.admissionId && (
+                          <p><span className="font-medium">Admission ID:</span> {selectedPrescription.admissionId}</p>
+                        )}
+                      </>
                     )}
-                    {selectedPrescription.bedNumber && (
-                      <p><span className="font-medium">Bed:</span> {selectedPrescription.bedNumber}</p>
-                    )}
-                    <p><span className="font-medium">Admission ID:</span> {selectedPrescription.admissionId}</p>
                   </div>
                 </div>
                 
@@ -503,63 +624,87 @@ export default function PrescriptionProcessing({
                   <Pill className="w-5 h-5 text-green-600 mr-2" />
                   Medicines Requested ({selectedPrescription?.totalMedications || (selectedPrescription?.prescriptionItems || selectedPrescription?.medications || []).length})
                 </h3>
+                
+                {/* Debug Info in Development */}
+                {import.meta.env.DEV && (
+                  <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                    <strong>Debug Info:</strong>
+                    <br />
+                    Prescription Items: {(selectedPrescription?.prescriptionItems || []).length}
+                    <br />
+                    Medications: {(selectedPrescription?.medications || []).length}
+                    <br />
+                    Total Medications: {selectedPrescription?.totalMedications}
+                    <br />
+                    Is Clinic: {selectedPrescription?.isClinicPrescription ? 'Yes' : 'No'}
+                  </div>
+                )}
+                
                 <div className="space-y-3">
-                  {(selectedPrescription.prescriptionItems || selectedPrescription.medications || []).map((medication, index) => (
-                    <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <p className="font-medium text-gray-900">{medication.drugName}</p>
-                          {medication.genericName && (
-                            <p className="text-sm text-gray-600">{medication.genericName}</p>
-                          )}
-                          {medication.dosageForm && (
-                            <p className="text-xs text-gray-500">{medication.dosageForm}</p>
-                          )}
+                  {(selectedPrescription.prescriptionItems || selectedPrescription.medications || []).length > 0 ? (
+                    (selectedPrescription.prescriptionItems || selectedPrescription.medications || []).map((medication, index) => (
+                      <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{medication.drugName}</p>
+                            {medication.genericName && (
+                              <p className="text-sm text-gray-600">{medication.genericName}</p>
+                            )}
+                            {medication.dosageForm && (
+                              <p className="text-xs text-gray-500">{medication.dosageForm}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Dosage</p>
+                            <p className="font-medium">{medication.dose || medication.dosage}</p>
+                            {medication.route && (
+                              <p className="text-xs text-gray-500">Route: {medication.route}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Frequency</p>
+                            <p className="font-medium">{medication.frequency}</p>
+                            {medication.isUrgent && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                                Urgent
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Quantity</p>
+                            <p className="font-medium">
+                              {medication.quantity} {medication.quantityUnit || medication.duration || 'units'}
+                            </p>
+                            {medication.manufacturer && (
+                              <p className="text-xs text-gray-500">Mfg: {medication.manufacturer}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Dosage</p>
-                          <p className="font-medium">{medication.dose || medication.dosage}</p>
-                          {medication.route && (
-                            <p className="text-xs text-gray-500">Route: {medication.route}</p>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Frequency</p>
-                          <p className="font-medium">{medication.frequency}</p>
-                          {medication.isUrgent && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                              Urgent
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Quantity</p>
-                          <p className="font-medium">
-                            {medication.quantity} {medication.quantityUnit || medication.duration || 'units'}
-                          </p>
-                          {medication.manufacturer && (
-                            <p className="text-xs text-gray-500">Mfg: {medication.manufacturer}</p>
-                          )}
-                        </div>
+                        {medication.instructions && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-sm">
+                              <span className="font-medium text-gray-700">Instructions:</span>{' '}
+                              <span className="text-gray-600">{medication.instructions}</span>
+                            </p>
+                          </div>
+                        )}
+                        {medication.notes && (
+                          <div className="mt-2">
+                            <p className="text-sm">
+                              <span className="font-medium text-gray-700">Notes:</span>{' '}
+                              <span className="text-gray-600">{medication.notes}</span>
+                            </p>
+                          </div>
+                        )}
                       </div>
-                      {medication.instructions && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <p className="text-sm">
-                            <span className="font-medium text-gray-700">Instructions:</span>{' '}
-                            <span className="text-gray-600">{medication.instructions}</span>
-                          </p>
-                        </div>
-                      )}
-                      {medication.notes && (
-                        <div className="mt-2">
-                          <p className="text-sm">
-                            <span className="font-medium text-gray-700">Notes:</span>{' '}
-                            <span className="text-gray-600">{medication.notes}</span>
-                          </p>
-                        </div>
-                      )}
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Pill className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No medications found for this prescription</p>
+                      <p className="text-sm mt-1">This might be a data loading issue - please refresh or contact support</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
@@ -593,7 +738,10 @@ export default function PrescriptionProcessing({
                 <div className="flex space-x-3">
                   {/* Download PDF Button */}
                   <a
-                    href={`http://localhost:8080/api/prescriptions/${selectedPrescription.prescriptionId}/pdf`}
+                    href={selectedPrescription.isClinicPrescription 
+                      ? `http://localhost:8080/api/clinic/prescriptions/${selectedPrescription.prescriptionId}/pdf`
+                      : `http://localhost:8080/api/prescriptions/${selectedPrescription.prescriptionId}/pdf`
+                    }
                     download={`Prescription_${selectedPrescription.prescriptionId}.pdf`}
                     className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
@@ -601,7 +749,8 @@ export default function PrescriptionProcessing({
                     <span>Download PDF</span>
                   </a>
 
-                  {selectedPrescription?.status === 'ACTIVE' && (
+                  {(selectedPrescription?.status === 'PENDING' || 
+                    selectedPrescription?.status === 'ACTIVE') && (
                     <button
                       onClick={() => {
                         handleDispenseMedication(selectedPrescription);
@@ -621,7 +770,9 @@ export default function PrescriptionProcessing({
                     </span>
                   )}
                   
-                  {(selectedPrescription?.status === 'ACTIVE' || selectedPrescription?.status === 'IN_PROGRESS') && (
+                  {(selectedPrescription?.status === 'PENDING' ||
+                    selectedPrescription?.status === 'ACTIVE' || 
+                    selectedPrescription?.status === 'IN_PROGRESS') && (
                     <button
                       onClick={() => {
                         handleCancelPrescription(selectedPrescription?.prescriptionId, 'Cancelled by pharmacist');

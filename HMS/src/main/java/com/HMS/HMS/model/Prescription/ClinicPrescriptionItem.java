@@ -297,6 +297,33 @@ public class ClinicPrescriptionItem {
                !isFullyDispensed();
     }
 
+    // Transient methods to expose medication information for JSON serialization
+    @com.fasterxml.jackson.annotation.JsonProperty("drugName")
+    public String getDrugName() {
+        return medication != null ? medication.getDrugName() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("genericName")
+    public String getGenericName() {
+        return medication != null ? medication.getGenericName() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("dosageForm")
+    public String getDosageForm() {
+        return medication != null ? medication.getDosageForm() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("manufacturer")
+    public String getManufacturer() {
+        return medication != null ? medication.getManufacturer() : null;
+    }
+
+    // Alias methods for compatibility with frontend expectations
+    @com.fasterxml.jackson.annotation.JsonProperty("dosage")
+    public String getDosage() {
+        return this.dose;
+    }
+
     @Override
     public String toString() {
         return "ClinicPrescriptionItem{" +

@@ -225,6 +225,22 @@ public class ClinicPrescription {
         this.totalMedications = this.prescriptionItems.size();
     }
 
+    // Transient methods to expose patient information for JSON serialization
+    @com.fasterxml.jackson.annotation.JsonProperty("patientName")
+    public String getPatientName() {
+        return patient != null ? patient.getFirstName() + " " + patient.getLastName() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("patientNationalId")
+    public String getPatientNationalId() {
+        return patient != null ? patient.getNationalId() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("patientId")
+    public String getPatientId() {
+        return patient != null ? patient.getNationalId() : null; // Using nationalId as patientId for consistency
+    }
+
     @Override
     public String toString() {
         return "ClinicPrescription{" +

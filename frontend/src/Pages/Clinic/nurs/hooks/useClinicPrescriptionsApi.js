@@ -447,17 +447,31 @@ const useClinicPrescriptions = () => {
         headers: getAuthHeaders()
       });
 
-      console.log('✅ Clinic prescription created successfully:', response.data);
+      console.log('✅ Clinic prescription created successfully. Full response:', response);
+      console.log('📋 Response data structure:', JSON.stringify(response.data, null, 2));
+      console.log('🔍 Response data keys:', Object.keys(response.data || {}));
+
+      // Validate API response
+      if (!response.data) {
+        throw new Error('Invalid API response: No data received');
+      }
 
       // Transform API response back to frontend format
-      // The new clinic prescription API returns data directly, not wrapped in a data property
-      const apiPrescription = response.data; // Changed from response.data.data
+      // The API now returns a custom response with all required fields
+      const apiPrescription = response.data;
+      
+      // Validate that we have the required fields
+      if (!apiPrescription.prescriptionId && !apiPrescription.id) {
+        console.error('❌ API response missing prescription ID:', apiPrescription);
+        throw new Error('Invalid API response: Missing prescription ID');
+      }
+
       const newPrescription = {
         id: apiPrescription.prescriptionId || apiPrescription.id,
-        prescriptionId: apiPrescription.prescriptionId,
-        patientName: apiPrescription.patient?.firstName + ' ' + apiPrescription.patient?.lastName || 'Unknown Patient',
-        patientId: apiPrescription.patient?.nationalId || apiPrescription.patientNationalId,
-        patientNationalId: apiPrescription.patient?.nationalId || apiPrescription.patientNationalId,
+        prescriptionId: apiPrescription.prescriptionId || apiPrescription.id,
+        patientName: apiPrescription.patientName || 'Unknown Patient',
+        patientId: apiPrescription.patientId || apiPrescription.patientNationalId,
+        patientNationalId: apiPrescription.patientNationalId,
         startDate: apiPrescription.startDate,
         endDate: apiPrescription.endDate,
         prescribedBy: apiPrescription.prescribedBy,
@@ -475,8 +489,8 @@ const useClinicPrescriptions = () => {
         medications: apiPrescription.prescriptionItems?.map(item => ({
           id: item.id,
           medicationId: item.medication?.id,
-          drugName: item.medication?.drugName || 'Unknown Medication',
-          genericName: item.medication?.genericName,
+          drugName: item.medication?.drugName || item.drugName || 'Unknown Medication',
+          genericName: item.medication?.genericName || item.genericName,
           dose: item.dose,
           dosage: item.dose,
           frequency: item.frequency,
@@ -494,10 +508,13 @@ const useClinicPrescriptions = () => {
       setPrescriptions(prev => [newPrescription, ...prev]);
       setError(null);
 
+      console.log('🎯 Transformed prescription for state:', newPrescription);
       return newPrescription;
 
     } catch (err) {
       console.error('Error creating clinic prescription:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
 
       let errorMessage = 'Failed to create prescription. ';
       if (err.response?.status === 400) {

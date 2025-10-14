@@ -37,7 +37,27 @@ public class ClinicPrescriptionController {
             
             System.out.println("✅ Clinic prescription created successfully: " + prescription.getPrescriptionId());
             
-            return ResponseEntity.status(HttpStatus.CREATED).body(prescription);
+            // Create a custom response with essential fields to avoid serialization issues
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", prescription.getId());
+            response.put("prescriptionId", prescription.getPrescriptionId());
+            response.put("patientName", prescription.getPatientName());
+            response.put("patientNationalId", prescription.getPatientNationalId());
+            response.put("patientId", prescription.getPatientId());
+            response.put("prescribedBy", prescription.getPrescribedBy());
+            response.put("startDate", prescription.getStartDate());
+            response.put("endDate", prescription.getEndDate());
+            response.put("prescribedDate", prescription.getPrescribedDate());
+            response.put("lastModified", prescription.getLastModified());
+            response.put("status", prescription.getStatus());
+            response.put("clinicName", prescription.getClinicName());
+            response.put("visitType", prescription.getVisitType());
+            response.put("totalMedications", prescription.getTotalMedications());
+            response.put("prescriptionNotes", prescription.getPrescriptionNotes());
+            response.put("prescriptionItems", prescription.getPrescriptionItems());
+            response.put("createdAt", prescription.getCreatedAt());
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
             System.err.println("❌ Clinic prescription creation failed - Exception: " + e.getMessage());
             e.printStackTrace();
@@ -215,7 +235,7 @@ public class ClinicPrescriptionController {
     @GetMapping("/follow-up")
     public ResponseEntity<List<ClinicPrescription>> getPrescriptionsRequiringFollowUp() {
         List<ClinicPrescription> prescriptions = 
-            clinicPrescriptionService.getPrescrip­tionsRequiringFollowUp();
+            clinicPrescriptionService.getPrescriptionsRequiringFollowUp();
         
         return ResponseEntity.ok(prescriptions);
     }
@@ -247,6 +267,63 @@ public class ClinicPrescriptionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Failed to delete clinic prescription", "message", e.getMessage()));
+        }
+    }
+
+    // Dispense clinic prescription by prescription ID
+    @PostMapping("/prescription/{prescriptionId}/dispense")
+    public ResponseEntity<?> dispenseClinicPrescription(
+            @PathVariable String prescriptionId,
+            @RequestBody(required = false) Map<String, Object> dispensingData) {
+        try {
+            ClinicPrescription prescription = 
+                clinicPrescriptionService.dispenseClinicPrescription(prescriptionId, dispensingData);
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "Clinic prescription dispensed successfully",
+                "prescription", prescription
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to dispense clinic prescription", "message", e.getMessage()));
+        }
+    }
+
+    // Cancel clinic prescription by prescription ID
+    @PutMapping("/prescription/{prescriptionId}/cancel")
+    public ResponseEntity<?> cancelClinicPrescription(
+            @PathVariable String prescriptionId,
+            @RequestBody Map<String, String> cancellationData) {
+        try {
+            String reason = cancellationData.getOrDefault("reason", "Cancelled by pharmacist");
+            ClinicPrescription prescription = 
+                clinicPrescriptionService.cancelClinicPrescription(prescriptionId, reason);
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "Clinic prescription cancelled successfully", 
+                "prescription", prescription
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to cancel clinic prescription", "message", e.getMessage()));
+        }
+    }
+
+    // Download clinic prescription as PDF
+    @GetMapping("/prescription/{prescriptionId}/pdf")
+    public ResponseEntity<byte[]> downloadClinicPrescriptionPDF(@PathVariable String prescriptionId) {
+        try {
+            byte[] pdfBytes = clinicPrescriptionService.generateClinicPrescriptionPDF(prescriptionId);
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "ClinicPrescription_" + prescriptionId + ".pdf");
+            headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+
+            return new org.springframework.http.ResponseEntity<>(pdfBytes, headers, org.springframework.http.HttpStatus.OK);
+        } catch (Exception e) {
+            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
         }
     }
 }

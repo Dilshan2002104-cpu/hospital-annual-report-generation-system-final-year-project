@@ -45,20 +45,35 @@ export const usePrescriptions = () => {
   const fetchPrescriptionsFromAPI = useCallback(async () => {
     try {
       const headers = getAuthHeaders();
-      const response = await axios.get('http://localhost:8080/api/prescriptions/all', { headers });
       
-      // Handle different response structures
-      let prescriptionsData = [];
-      if (response.data.success && Array.isArray(response.data.data)) {
-        prescriptionsData = response.data.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        prescriptionsData = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        prescriptionsData = response.data;
+      // Fetch both ward prescriptions and clinic prescriptions
+      const [wardResponse, clinicResponse] = await Promise.all([
+        axios.get('http://localhost:8080/api/prescriptions/all', { headers }),
+        axios.get('http://localhost:8080/api/clinic/prescriptions', { headers })
+      ]);
+      
+      // Handle ward prescriptions
+      let wardPrescriptions = [];
+      if (wardResponse.data.success && Array.isArray(wardResponse.data.data)) {
+        wardPrescriptions = wardResponse.data.data;
+      } else if (wardResponse.data.data && Array.isArray(wardResponse.data.data)) {
+        wardPrescriptions = wardResponse.data.data;
+      } else if (Array.isArray(wardResponse.data)) {
+        wardPrescriptions = wardResponse.data;
       }
 
-      // Transform prescriptions for pharmacy use
-      const transformedPrescriptions = prescriptionsData.map(prescription => ({
+      // Handle clinic prescriptions  
+      let clinicPrescriptions = [];
+      if (clinicResponse.data.content && Array.isArray(clinicResponse.data.content)) {
+        clinicPrescriptions = clinicResponse.data.content;
+      } else if (Array.isArray(clinicResponse.data)) {
+        clinicPrescriptions = clinicResponse.data;
+      }
+
+      console.log(`📊 Fetched ${wardPrescriptions.length} ward prescriptions and ${clinicPrescriptions.length} clinic prescriptions`);
+
+      // Transform ward prescriptions for pharmacy use
+      const transformedWardPrescriptions = wardPrescriptions.map(prescription => ({
         // Core prescription data
         id: prescription.prescriptionId || prescription.id,
         prescriptionId: prescription.prescriptionId,
@@ -96,7 +111,65 @@ export const usePrescriptions = () => {
         lastModified: prescription.lastModified
       }));
 
-      return transformedPrescriptions;
+      // Transform clinic prescriptions for pharmacy use
+      const transformedClinicPrescriptions = clinicPrescriptions.map(prescription => {
+        console.log('📋 Transforming clinic prescription:', prescription.prescriptionId, 'Items:', prescription.prescriptionItems?.length || 0);
+        
+        return {
+          // Core prescription data
+          id: prescription.prescriptionId || prescription.id,
+          prescriptionId: prescription.prescriptionId,
+          patientName: prescription.patientName || 
+                      (prescription.patient ? `${prescription.patient.firstName} ${prescription.patient.lastName}` : 'Unknown Patient'),
+          patientId: prescription.patientNationalId || prescription.patientId ||
+                    (prescription.patient ? prescription.patient.nationalId : 'Unknown'),
+          patientNationalId: prescription.patientNationalId || 
+                            (prescription.patient ? prescription.patient.nationalId : 'Unknown'),
+          doctorName: prescription.doctorName || prescription.prescribedBy,
+          clinicName: prescription.clinicName,
+          visitType: prescription.visitType,
+          
+          // No admission details for clinic prescriptions
+          admissionId: null,
+          wardName: null,
+          bedNumber: null,
+          
+          // Prescription details - map prescriptionItems to medications for compatibility
+          medications: prescription.prescriptionItems || prescription.medications || [],
+          prescriptionItems: prescription.prescriptionItems || [],
+          totalMedications: prescription.totalMedications || prescription.prescriptionItems?.length || prescription.medications?.length || 0,
+          status: prescription.status || 'ACTIVE',
+          prescribedDate: prescription.prescribedDate,
+          startDate: prescription.startDate,
+          endDate: prescription.endDate,
+          instructions: prescription.instructions,
+          notes: prescription.prescriptionNotes || prescription.notes,
+          prescriptionNotes: prescription.prescriptionNotes,
+          
+          // Pharmacy-specific fields
+          urgency: determinePrescriptionUrgency(prescription),
+          needsReview: (prescription.prescriptionItems || prescription.medications || []).some(med => med.isHighRisk) || false,
+          interactions: [],
+          
+          // Status tracking
+          receivedAt: prescription.prescribedDate || prescription.createdAt || new Date().toISOString(),
+          processedAt: null,
+          dispensedAt: null,
+          processedBy: null,
+          createdAt: prescription.createdAt,
+          lastModified: prescription.lastModified,
+          
+          // Mark as clinic prescription for UI differentiation
+          isClinicPrescription: true
+        };
+      });
+
+      // Combine both ward and clinic prescriptions
+      const allPrescriptions = [...transformedWardPrescriptions, ...transformedClinicPrescriptions];
+      
+      console.log(`📊 Total prescriptions for pharmacy: ${allPrescriptions.length} (${transformedWardPrescriptions.length} ward + ${transformedClinicPrescriptions.length} clinic)`);
+
+      return allPrescriptions;
     } catch (error) {
       console.error('Failed to fetch prescriptions from API:', error);
       throw error;
@@ -119,12 +192,127 @@ export const usePrescriptions = () => {
     }
   }, [fetchPrescriptionsFromAPI]);
 
+  // Fetch clinic prescription details when notified via WebSocket
+  const fetchClinicPrescriptionDetails = useCallback(async (prescriptionId) => {
+    try {
+      console.log('🔍 Fetching clinic prescription details:', prescriptionId);
+      
+      const response = await axios.get(`http://localhost:8080/api/clinic/prescriptions/prescription/${prescriptionId}`, {
+        headers: getAuthHeaders()
+      });
+
+      const clinicPrescription = response.data;
+      
+      // Transform to pharmacy format
+      const transformedPrescription = {
+        id: clinicPrescription.prescriptionId,
+        prescriptionId: clinicPrescription.prescriptionId,
+        patientName: `${clinicPrescription.patient.firstName} ${clinicPrescription.patient.lastName}`,
+        patientId: clinicPrescription.patient.nationalId,
+        patientNationalId: clinicPrescription.patient.nationalId,
+        doctorName: clinicPrescription.prescribedBy,
+        admissionId: null,
+        wardName: clinicPrescription.clinicName || 'Outpatient Clinic',
+        bedNumber: null,
+        medications: clinicPrescription.prescriptionItems?.map(item => ({
+          id: item.id,
+          medicationId: item.medication.id,
+          drugName: item.medication.drugName,
+          genericName: item.medication.genericName,
+          dose: item.dose,
+          frequency: item.frequency,
+          quantity: item.quantity,
+          quantityUnit: item.quantityUnit,
+          instructions: item.instructions,
+          route: item.route,
+          isUrgent: item.isUrgent || false,
+          notes: item.notes,
+          currentStock: item.medication.currentStock,
+          unitCost: item.medication.unitCost
+        })) || [],
+        prescriptionItems: clinicPrescription.prescriptionItems || [],
+        totalMedications: clinicPrescription.totalMedications || 0,
+        status: clinicPrescription.status?.toLowerCase() || 'pending',
+        prescribedDate: clinicPrescription.prescribedDate,
+        startDate: clinicPrescription.startDate,
+        endDate: clinicPrescription.endDate,
+        instructions: '',
+        notes: clinicPrescription.prescriptionNotes || '',
+        prescriptionNotes: clinicPrescription.prescriptionNotes || '',
+        urgency: 'normal',
+        needsReview: false,
+        interactions: [],
+        isClinicPrescription: true
+      };
+
+      // Update the prescription in the list with full details
+      setPrescriptions(prevPrescriptions => 
+        prevPrescriptions.map(p => 
+          p.prescriptionId === prescriptionId ? transformedPrescription : p
+        )
+      );
+
+      console.log('✅ Updated clinic prescription with full details:', prescriptionId);
+      
+    } catch (error) {
+      console.error('❌ Failed to fetch clinic prescription details:', error);
+    }
+  }, [getAuthHeaders]);
+
   // WebSocket handler for real-time prescription updates
   const handlePrescriptionWebSocketUpdate = useCallback((data) => {
     console.log('🔄 Processing WebSocket update:', data);
 
-    if (data.type === 'PRESCRIPTION_CREATED' || data.type === 'PRESCRIPTION_URGENT') {
-      // Transform the prescription data
+    if (data.type === 'PRESCRIPTION_CREATED' || data.type === 'PRESCRIPTION_URGENT' || 
+        data.type === 'CLINIC_PRESCRIPTION_CREATED') {
+      
+      // Handle clinic prescription format
+      if (data.type === 'CLINIC_PRESCRIPTION_CREATED') {
+        console.log('🏥 Processing clinic prescription:', data);
+        
+        // Transform clinic prescription data to match expected format
+        const clinicPrescription = {
+          id: data.prescriptionId,
+          prescriptionId: data.prescriptionId,
+          patientName: data.patientName,
+          patientId: data.patientNationalId,
+          patientNationalId: data.patientNationalId,
+          doctorName: data.prescribedBy,
+          admissionId: null, // Clinic prescriptions don't have admissions
+          wardName: data.clinicName || 'Outpatient Clinic',
+          bedNumber: null, // Clinic patients don't have bed numbers
+          medications: [], // Will be populated from API call
+          prescriptionItems: [],
+          totalMedications: data.totalMedications || 0,
+          status: data.status || 'PENDING',
+          prescribedDate: data.prescribedDate,
+          startDate: null, // Will be fetched from full prescription
+          endDate: null,
+          instructions: '',
+          notes: '',
+          prescriptionNotes: '',
+          urgency: 'normal', // Clinic prescriptions are typically normal priority
+          needsReview: false,
+          interactions: [],
+          isClinicPrescription: true // Flag to identify clinic prescriptions
+        };
+
+        // Add to prescriptions list
+        setPrescriptions(prevPrescriptions => {
+          const exists = prevPrescriptions.some(p => p.prescriptionId === data.prescriptionId);
+          if (!exists) {
+            console.log('✅ Added clinic prescription to pharmacy queue:', data.prescriptionId);
+            return [clinicPrescription, ...prevPrescriptions];
+          }
+          return prevPrescriptions;
+        });
+
+        // Fetch full prescription details from clinic prescription API
+        fetchClinicPrescriptionDetails(data.prescriptionId);
+        return;
+      }
+
+      // Handle regular ward prescription format
       const transformedPrescription = {
         id: data.prescription.prescriptionId || data.prescription.id,
         prescriptionId: data.prescription.prescriptionId,
@@ -184,7 +372,7 @@ export const usePrescriptions = () => {
       ));
       console.log('✅ Prescription cancelled:', data.prescriptionId);
     }
-  }, [determinePrescriptionUrgency]);
+  }, [determinePrescriptionUrgency, fetchClinicPrescriptionDetails]);
 
   // Initialize WebSocket for real-time updates
   const webSocket = usePrescriptionWebSocket(handlePrescriptionWebSocketUpdate);
@@ -211,11 +399,55 @@ export const usePrescriptions = () => {
     }
   }, [getAuthHeaders]);
 
+  // Update prescription status (works for both ward and clinic prescriptions)
+  const updateStatus = useCallback(async (prescriptionId, newStatus) => {
+    try {
+      const headers = getAuthHeaders();
+      
+      // Find the prescription to determine if it's clinic or ward prescription
+      const prescription = prescriptions.find(p => p.prescriptionId === prescriptionId);
+      const isClinicPrescription = prescription?.isClinicPrescription || false;
+      
+      // Use appropriate API endpoint based on prescription type
+      if (isClinicPrescription) {
+        // For clinic prescriptions, use the status update endpoint
+        const clinicPrescription = await axios.get(`http://localhost:8080/api/clinic/prescriptions/prescription/${prescriptionId}`, { headers });
+        await axios.put(`http://localhost:8080/api/clinic/prescriptions/${clinicPrescription.data.id}/status`, 
+          { status: newStatus }, { headers });
+      } else {
+        // For ward prescriptions, use existing process endpoint or create status endpoint
+        await axios.put(`http://localhost:8080/api/prescriptions/prescription-id/${prescriptionId}/status`, 
+          { status: newStatus }, { headers });
+      }
+      
+      // Update local state
+      setPrescriptions(prev => prev.map(p => 
+        p.prescriptionId === prescriptionId 
+          ? { ...p, status: newStatus, lastModified: new Date().toISOString() }
+          : p
+      ));
+      return { success: true };
+    } catch (err) {
+      setError('Failed to update prescription status');
+      throw err;
+    }
+  }, [getAuthHeaders, prescriptions]);
+
   // Dispense medication (complete the prescription)
   const dispenseMedication = useCallback(async (prescriptionId, dispensingData = {}) => {
     try {
       const headers = getAuthHeaders();
-      await axios.post(`http://localhost:8080/api/prescriptions/prescription-id/${prescriptionId}/dispense`, dispensingData, { headers });
+      
+      // Find the prescription to determine if it's clinic or ward prescription
+      const prescription = prescriptions.find(p => p.prescriptionId === prescriptionId);
+      const isClinicPrescription = prescription?.isClinicPrescription || false;
+      
+      // Use appropriate API endpoint based on prescription type
+      const endpoint = isClinicPrescription 
+        ? `http://localhost:8080/api/clinic/prescriptions/prescription/${prescriptionId}/dispense`
+        : `http://localhost:8080/api/prescriptions/prescription-id/${prescriptionId}/dispense`;
+      
+      await axios.post(endpoint, dispensingData, { headers });
       
       setPrescriptions(prev => prev.map(p => 
         p.prescriptionId === prescriptionId 
@@ -232,14 +464,23 @@ export const usePrescriptions = () => {
       setError('Failed to dispense medication');
       throw err;
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, prescriptions]);
 
   // Cancel prescription
   const cancelPrescription = useCallback(async (prescriptionId, cancellationReason = '') => {
     try {
       const headers = getAuthHeaders();
-      await axios.put(`http://localhost:8080/api/prescriptions/prescription-id/${prescriptionId}/cancel`, 
-        { reason: cancellationReason }, { headers });
+      
+      // Find the prescription to determine if it's clinic or ward prescription
+      const prescription = prescriptions.find(p => p.prescriptionId === prescriptionId);
+      const isClinicPrescription = prescription?.isClinicPrescription || false;
+      
+      // Use appropriate API endpoint based on prescription type
+      const endpoint = isClinicPrescription 
+        ? `http://localhost:8080/api/clinic/prescriptions/prescription/${prescriptionId}/cancel`
+        : `http://localhost:8080/api/prescriptions/prescription-id/${prescriptionId}/cancel`;
+      
+      await axios.put(endpoint, { reason: cancellationReason }, { headers });
       
       setPrescriptions(prev => prev.map(p => 
         p.prescriptionId === prescriptionId 
@@ -251,7 +492,7 @@ export const usePrescriptions = () => {
       setError('Failed to cancel prescription');
       throw err;
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, prescriptions]);
 
   // Check drug interactions
   const verifyInteractions = useCallback(async (prescriptionId) => {
@@ -315,6 +556,7 @@ export const usePrescriptions = () => {
     loading,
     error,
     processPrescription,
+    updateStatus,
     dispenseMedication,
     cancelPrescription,
     verifyInteractions,

@@ -138,9 +138,9 @@ public class ClinicPrescriptionService {
         return "CP" + timestamp + randomSuffix; // CP for Clinic Prescription
     }
 
-    // Get all clinic prescriptions with pagination
+    // Get all clinic prescriptions with pagination (includes patient information)
     public Page<ClinicPrescription> getAllClinicPrescriptions(Pageable pageable) {
-        return clinicPrescriptionRepository.findAll(pageable);
+        return clinicPrescriptionRepository.findAllByOrderByPrescribedDateDesc(pageable);
     }
 
     // Get clinic prescription by ID
@@ -200,7 +200,7 @@ public class ClinicPrescriptionService {
     }
 
     // Get prescriptions requiring follow-up
-    public List<ClinicPrescription> getPrescrip­tionsRequiringFollowUp() {
+    public List<ClinicPrescription> getPrescriptionsRequiringFollowUp() {
         LocalDate today = LocalDate.now();
         LocalDate followUpDate = today.plusDays(7); // 7 days from now
         return clinicPrescriptionRepository.findRequiringFollowUp(today, followUpDate);
@@ -226,5 +226,79 @@ public class ClinicPrescriptionService {
         
         prescription.setStatus(PrescriptionStatus.DISCONTINUED);
         clinicPrescriptionRepository.save(prescription);
+    }
+
+    // Dispense clinic prescription by prescription ID
+    public ClinicPrescription dispenseClinicPrescription(String prescriptionId, java.util.Map<String, Object> dispensingData) {
+        ClinicPrescription prescription = clinicPrescriptionRepository.findByPrescriptionId(prescriptionId)
+            .orElseThrow(() -> new RuntimeException("Clinic prescription not found with ID: " + prescriptionId));
+        
+        // Update status to completed/dispensed
+        prescription.setStatus(PrescriptionStatus.COMPLETED);
+        prescription.setLastModified(LocalDateTime.now());
+        
+        ClinicPrescription savedPrescription = clinicPrescriptionRepository.save(prescription);
+        
+        // Send WebSocket notification about status change
+        notificationService.notifyClinicPrescriptionStatusChanged(savedPrescription);
+        
+        return savedPrescription;
+    }
+
+    // Cancel clinic prescription by prescription ID
+    public ClinicPrescription cancelClinicPrescription(String prescriptionId, String reason) {
+        ClinicPrescription prescription = clinicPrescriptionRepository.findByPrescriptionId(prescriptionId)
+            .orElseThrow(() -> new RuntimeException("Clinic prescription not found with ID: " + prescriptionId));
+        
+        // Update status to discontinued
+        prescription.setStatus(PrescriptionStatus.DISCONTINUED);
+        prescription.setPrescriptionNotes(
+            (prescription.getPrescriptionNotes() != null ? prescription.getPrescriptionNotes() + "; " : "") 
+            + "Cancelled: " + reason
+        );
+        prescription.setLastModified(LocalDateTime.now());
+        
+        ClinicPrescription savedPrescription = clinicPrescriptionRepository.save(prescription);
+        
+        // Send WebSocket notification about status change
+        notificationService.notifyClinicPrescriptionStatusChanged(savedPrescription);
+        
+        return savedPrescription;
+    }
+
+    // Generate clinic prescription PDF
+    public byte[] generateClinicPrescriptionPDF(String prescriptionId) {
+        ClinicPrescription prescription = clinicPrescriptionRepository.findByPrescriptionId(prescriptionId)
+            .orElseThrow(() -> new RuntimeException("Clinic prescription not found with ID: " + prescriptionId));
+        
+        // For now, return a simple text-based PDF
+        // In a real implementation, you would use a proper PDF library like iText
+        try {
+            StringBuilder content = new StringBuilder();
+            content.append("CLINIC PRESCRIPTION\n\n");
+            content.append("Prescription ID: ").append(prescription.getPrescriptionId()).append("\n");
+            content.append("Patient: ").append(prescription.getPatientName()).append("\n");
+            content.append("National ID: ").append(prescription.getPatientNationalId()).append("\n");
+            content.append("Prescribed By: ").append(prescription.getPrescribedBy()).append("\n");
+            content.append("Clinic: ").append(prescription.getClinicName()).append("\n");
+            content.append("Date: ").append(prescription.getPrescribedDate()).append("\n");
+            content.append("Status: ").append(prescription.getStatus()).append("\n\n");
+            
+            content.append("MEDICATIONS:\n");
+            for (ClinicPrescriptionItem item : prescription.getPrescriptionItems()) {
+                content.append("- ").append(item.getMedication().getDrugName())
+                       .append(" (").append(item.getDose()).append(") ")
+                       .append("x").append(item.getQuantity()).append(" ")
+                       .append(item.getFrequency()).append("\n");
+                if (item.getInstructions() != null) {
+                    content.append("  Instructions: ").append(item.getInstructions()).append("\n");
+                }
+            }
+            
+            // Convert to PDF bytes (simplified version)
+            return content.toString().getBytes();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate clinic prescription PDF", e);
+        }
     }
 }
