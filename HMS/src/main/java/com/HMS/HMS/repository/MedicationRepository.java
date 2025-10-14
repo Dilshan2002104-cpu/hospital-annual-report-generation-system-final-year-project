@@ -76,4 +76,18 @@ public interface MedicationRepository extends JpaRepository<Medication,Long> {
     
     @Query("SELECT m FROM Medication m WHERE m.isActive = true AND m.expiryDate <= :cutoffDate")
     java.util.List<Medication> findByExpiryDateBeforeAndIsActiveTrue(@Param("cutoffDate") LocalDate cutoffDate);
+    
+    // Alerts specific queries
+    @Query("SELECT m FROM Medication m WHERE m.isActive = true AND m.expiryDate < :currentDate")
+    java.util.List<Medication> findExpiredMedications(@Param("currentDate") LocalDate currentDate);
+    
+    @Query("SELECT m FROM Medication m WHERE m.isActive = true AND m.expiryDate >= :currentDate AND m.expiryDate <= :futureDate")
+    java.util.List<Medication> findNearExpiryMedications(@Param("currentDate") LocalDate currentDate, @Param("futureDate") LocalDate futureDate);
+    
+    @Query("SELECT m FROM Medication m WHERE m.isActive = true AND m.currentStock = 0")
+    java.util.List<Medication> findOutOfStockMedications();
+    
+    @Query("SELECT m FROM Medication m WHERE m.isActive = true AND m.currentStock > 0 AND " +
+           "(m.currentStock <= m.minimumStock OR (m.minimumStock = 0 AND m.currentStock <= 10))")
+    java.util.List<Medication> findLowStockMedicationsForAlerts();
 }

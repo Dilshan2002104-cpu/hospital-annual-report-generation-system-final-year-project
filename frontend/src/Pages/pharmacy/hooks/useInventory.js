@@ -54,6 +54,7 @@ export default function useInventory(options = {}) {
       case 'STOCK_UPDATED': {
         // Handle stock updates (from add stock functionality)
         console.log('WebSocket stock update received:', data);
+        
         setInventory(prev => {
           const updated = prev.map(item => {
             if (item.id === data.medicationId) {
@@ -70,12 +71,8 @@ export default function useInventory(options = {}) {
           return updated;
         });
         
-        // Show a toast notification for stock updates
-        const stockMessage = `${data.drugName}: Stock updated (${data.previousStock} → ${data.currentStock})`;
-        if (onToast) {
-          onToast(stockMessage, 'info');
-        }
-        console.log(stockMessage);
+        // No toast notifications for stock updates - silent real-time sync only
+        console.log(`Silent update: ${data.drugName} stock changed (${data.previousStock} → ${data.currentStock})`);
         break;
       }
 
@@ -168,6 +165,7 @@ export default function useInventory(options = {}) {
 
       if (result.success) {
         console.log('Stock update successful, updating local state...', result.data);
+        
         // Update local state with the response data
         setInventory(prev => {
           const updated = prev.map(item => 

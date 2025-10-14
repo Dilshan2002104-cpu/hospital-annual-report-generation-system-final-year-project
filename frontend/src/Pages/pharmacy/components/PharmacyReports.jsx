@@ -20,11 +20,7 @@ export default function PharmacyReports() {
   // Generate years for dropdown (current year and previous 5 years)
   const availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
 
-  // Fetch report data when year changes
-  useEffect(() => {
-    fetchReportData();
-  }, [selectedYear, fetchReportData]);
-
+  // Define fetchReportData function before useEffect
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -47,6 +43,11 @@ export default function PharmacyReports() {
       setLoading(false);
     }
   }, [selectedYear]);
+
+  // Fetch report data when year changes
+  useEffect(() => {
+    fetchReportData();
+  }, [selectedYear, fetchReportData]);
 
   const handleDownloadPDF = async () => {
     try {
@@ -88,7 +89,8 @@ export default function PharmacyReports() {
     }
   };
 
-  const StatCard = ({ title, value, subtitle,color }) => (
+  // eslint-disable-next-line no-unused-vars
+  const StatCard = ({ title, value, subtitle, color, icon: Icon }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-start justify-between">
         <div>

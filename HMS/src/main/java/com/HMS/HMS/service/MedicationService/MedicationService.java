@@ -6,6 +6,7 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.StockUpdateResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
+import com.HMS.HMS.DTO.MedicationDTO.InventoryAlertsResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.ApiResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,4 +24,8 @@ public interface MedicationService {
     
     // Update stock method
     ApiResponse<StockUpdateResponseDTO> updateStock(Long medicationId, UpdateStockRequestDTO request);
+    
+    // Alerts methods
+    InventoryAlertsResponseDTO getInventoryAlerts();
+    InventoryAlertsResponseDTO getInventoryAlerts(Integer daysUntilExpiry);
 }

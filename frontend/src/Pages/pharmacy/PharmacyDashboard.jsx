@@ -15,7 +15,7 @@ import {
 import PharmacyHeader from './components/PharmacyHeader';
 import PrescriptionProcessing from './components/PrescriptionProcessing';
 import InventoryManagement from './components/InventoryManagement';
-import DispensingControl from './components/DispensingControl';
+import InventoryAlerts from './components/InventoryAlerts';
 import DrugDatabase from './components/DrugDatabase';
 import PharmacyReports from './components/PharmacyReports';
 import PharmacyAnalytics from './components/PharmacyAnalytics';
@@ -153,11 +153,11 @@ export default function PharmacyDashboard() {
       count: pharmacyStats.lowStockItems
     },
     { 
-      id: 'dispensing', 
-      label: 'Dispensing', 
-      icon: Shield, 
-      description: 'Medication Control',
-      count: pharmacyStats.readyPrescriptions
+      id: 'alerts', 
+      label: 'Alerts', 
+      icon: AlertTriangle, 
+      description: 'Stock & Expiry Alerts',
+      count: pharmacyStats.lowStockItems
     },
     { 
       id: 'database', 
@@ -205,15 +205,10 @@ export default function PharmacyDashboard() {
             wsConnected={inventoryWsConnected}
           />
         );
-      case 'dispensing':
+      case 'alerts':
         return (
-          <DispensingControl
-            prescriptions={prescriptions.filter(p => p.status === 'ready' || p.status === 'in-progress')}
-            inventory={inventory}
-            loading={prescriptionsLoading}
-            onDispenseMedication={dispenseMedication}
-            onVerifyPatient={() => {}} // Patient verification logic
-            stats={pharmacyStats}
+          <InventoryAlerts
+            loading={inventoryLoading}
           />
         );
       case 'database':

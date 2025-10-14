@@ -9,6 +9,7 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.PaginationResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.StockUpdateResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
+import com.HMS.HMS.DTO.MedicationDTO.InventoryAlertsResponseDTO;
 import com.HMS.HMS.Exception_Handler.DomainValidationException;
 import com.HMS.HMS.Exception_Handler.DuplicateBatchNumberException;
 import com.HMS.HMS.model.Medication.Medication;
@@ -23,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -302,5 +304,77 @@ public class MedicationServiceImpl implements MedicationService{
             log.error("Unexpected error updating stock for medication ID {}: {}", medicationId, e.getMessage(), e);
             return new ApiResponse<>(false, "Failed to update stock: " + e.getMessage(), null);
         }
+    }
+    
+    @Override
+    public InventoryAlertsResponseDTO getInventoryAlerts() {
+        return getInventoryAlerts(90); // Default to 90 days (3 months) for near expiry
+    }
+    
+    @Override
+    public InventoryAlertsResponseDTO getInventoryAlerts(Integer daysUntilExpiry) {
+        LocalDate currentDate = LocalDate.now();
+        LocalDate futureDate = currentDate.plusDays(daysUntilExpiry);
+        
+        // Fetch different types of alerts
+        List<Medication> expiredMedications = repository.findExpiredMedications(currentDate);
+        List<Medication> nearExpiryMedications = repository.findNearExpiryMedications(currentDate, futureDate);
+        List<Medication> outOfStockMedications = repository.findOutOfStockMedications();
+        List<Medication> lowStockMedications = repository.findLowStockMedicationsForAlerts();
+        
+        // Convert to DTOs
+        List<InventoryAlertsResponseDTO.MedicationAlertDTO> expiredDTOs = expiredMedications.stream()
+            .map(med -> createMedicationAlertDTO(med, "EXPIRED", calculateDaysUntilExpiry(med.getExpiryDate(), currentDate), "HIGH"))
+            .collect(Collectors.toList());
+            
+        List<InventoryAlertsResponseDTO.MedicationAlertDTO> nearExpiryDTOs = nearExpiryMedications.stream()
+            .map(med -> createMedicationAlertDTO(med, "NEAR_EXPIRY", calculateDaysUntilExpiry(med.getExpiryDate(), currentDate), "MEDIUM"))
+            .collect(Collectors.toList());
+            
+        List<InventoryAlertsResponseDTO.MedicationAlertDTO> outOfStockDTOs = outOfStockMedications.stream()
+            .map(med -> createMedicationAlertDTO(med, "OUT_OF_STOCK", null, "HIGH"))
+            .collect(Collectors.toList());
+            
+        List<InventoryAlertsResponseDTO.MedicationAlertDTO> lowStockDTOs = lowStockMedications.stream()
+            .map(med -> createMedicationAlertDTO(med, "LOW_STOCK", null, "MEDIUM"))
+            .collect(Collectors.toList());
+        
+        // Create summary
+        InventoryAlertsResponseDTO.AlertSummaryDTO summary = new InventoryAlertsResponseDTO.AlertSummaryDTO(
+            expiredDTOs.size() + nearExpiryDTOs.size() + outOfStockDTOs.size() + lowStockDTOs.size(),
+            expiredDTOs.size(),
+            nearExpiryDTOs.size(),
+            outOfStockDTOs.size(),
+            lowStockDTOs.size(),
+            expiredDTOs.size() + outOfStockDTOs.size(), // High priority
+            nearExpiryDTOs.size() + lowStockDTOs.size(), // Medium priority
+            0 // Low priority
+        );
+        
+        return new InventoryAlertsResponseDTO(expiredDTOs, nearExpiryDTOs, outOfStockDTOs, lowStockDTOs, summary);
+    }
+    
+    private InventoryAlertsResponseDTO.MedicationAlertDTO createMedicationAlertDTO(
+            Medication medication, String alertType, Integer daysUntilExpiry, String priority) {
+        return new InventoryAlertsResponseDTO.MedicationAlertDTO(
+            medication.getId(),
+            medication.getDrugName(),
+            medication.getGenericName(),
+            medication.getCategory(),
+            medication.getStrength(),
+            medication.getBatchNumber(),
+            medication.getCurrentStock(),
+            medication.getMinimumStock(),
+            medication.getMaximumStock(),
+            medication.getExpiryDate(),
+            alertType,
+            daysUntilExpiry,
+            priority
+        );
+    }
+    
+    private Integer calculateDaysUntilExpiry(LocalDate expiryDate, LocalDate currentDate) {
+        if (expiryDate == null) return null;
+        return (int) ChronoUnit.DAYS.between(currentDate, expiryDate);
     }
 }

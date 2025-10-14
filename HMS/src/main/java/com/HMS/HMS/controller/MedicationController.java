@@ -7,6 +7,7 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.StockUpdateResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
+import com.HMS.HMS.DTO.MedicationDTO.InventoryAlertsResponseDTO;
 import com.HMS.HMS.service.MedicationService.MedicationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -135,6 +136,35 @@ public class MedicationController {
             ApiResponse<StockUpdateResponseDTO> errorResponse = 
                 new ApiResponse<>(false, "Failed to update stock: " + e.getMessage(), null);
             return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+    
+    @GetMapping("/alerts")
+    public ResponseEntity<InventoryAlertsResponseDTO> getInventoryAlerts(
+            @RequestParam(defaultValue = "90") Integer daysUntilExpiry) {
+        try {
+            InventoryAlertsResponseDTO alerts = service.getInventoryAlerts(daysUntilExpiry);
+            return ResponseEntity.ok(alerts);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    @GetMapping("/alerts/summary")
+    public ResponseEntity<String> getAlertsSummary() {
+        try {
+            InventoryAlertsResponseDTO alerts = service.getInventoryAlerts();
+            String summary = String.format(
+                "Alert Summary: Total=%d, Expired=%d, Near Expiry=%d, Out of Stock=%d, Low Stock=%d",
+                alerts.getSummary().getTotalAlerts(),
+                alerts.getSummary().getExpiredCount(),
+                alerts.getSummary().getNearExpiryCount(),
+                alerts.getSummary().getOutOfStockCount(),
+                alerts.getSummary().getLowStockCount()
+            );
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error getting alerts summary");
         }
     }
 }
