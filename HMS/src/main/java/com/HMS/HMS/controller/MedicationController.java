@@ -5,6 +5,7 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationCompleteResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryApiResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
+import com.HMS.HMS.DTO.MedicationDTO.StockUpdateResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
 import com.HMS.HMS.service.MedicationService.MedicationService;
 import org.springframework.data.domain.Page;
@@ -119,11 +120,11 @@ public class MedicationController {
     }
 
     @PutMapping("/{id}/stock")
-    public ResponseEntity<ApiResponse<MedicationResponseDTO>> updateStock(
+    public ResponseEntity<ApiResponse<StockUpdateResponseDTO>> updateStock(
             @PathVariable Long id,
             @RequestBody UpdateStockRequestDTO request) {
         try {
-            ApiResponse<MedicationResponseDTO> result = service.updateStock(id, request);
+            ApiResponse<StockUpdateResponseDTO> result = service.updateStock(id, request);
             
             if (result.isSuccess()) {
                 return ResponseEntity.ok(result);
@@ -131,7 +132,7 @@ public class MedicationController {
                 return ResponseEntity.badRequest().body(result);
             }
         } catch (Exception e) {
-            ApiResponse<MedicationResponseDTO> errorResponse = 
+            ApiResponse<StockUpdateResponseDTO> errorResponse = 
                 new ApiResponse<>(false, "Failed to update stock: " + e.getMessage(), null);
             return ResponseEntity.internalServerError().body(errorResponse);
         }

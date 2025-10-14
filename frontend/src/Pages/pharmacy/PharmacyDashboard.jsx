@@ -35,6 +35,17 @@ export default function PharmacyDashboard() {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }
 
+  function showToast(message, type = 'success', duration = 5000) {
+    const id = Date.now();
+    const toast = { id, message, type };
+    setToasts(prev => [...prev, toast]);
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+      removeToast(id);
+    }, duration);
+  }
+
   // Custom hooks for data management
   const {
     prescriptions,
@@ -62,7 +73,7 @@ export default function PharmacyDashboard() {
     getStats: getInventoryStats,
     getReorderSuggestions,
     wsConnected: inventoryWsConnected
-  } = useInventory();
+  } = useInventory({ onToast: showToast });
 
   const {
     drugDatabase,

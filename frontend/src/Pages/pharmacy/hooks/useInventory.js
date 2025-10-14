@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import useWebSocket from '../../../hooks/useWebSocket';
 
-export default function useInventory() {
+export default function useInventory(options = {}) {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Extract options
+  const { onToast } = options;
 
   // Fetch inventory from API
   const fetchInventoryFromAPI = async () => {
@@ -45,27 +48,84 @@ export default function useInventory() {
 
   // Handle real-time inventory WebSocket updates
   const handleInventoryWebSocketUpdate = useCallback((data) => {
-    if (data.type === 'INVENTORY_UPDATED') {
-      console.log('Real-time inventory update received:', data);
+    console.log('Real-time inventory update received:', data);
 
-      setInventory(prev => prev.map(item => {
-        // Match by drug name
-        if (item.drugName === data.drugName) {
-          return {
-            ...item,
-            currentStock: data.remainingStock,
-            lastUpdated: new Date().toISOString()
-          };
+    switch (data.type) {
+      case 'STOCK_UPDATED': {
+        // Handle stock updates (from add stock functionality)
+        console.log('WebSocket stock update received:', data);
+        setInventory(prev => {
+          const updated = prev.map(item => {
+            if (item.id === data.medicationId) {
+              console.log('WebSocket updating item:', item.id, 'from', item.currentStock, 'to', data.currentStock);
+              return {
+                ...item,
+                currentStock: data.currentStock,
+                lastUpdated: data.lastUpdated || new Date().toISOString(),
+                isLowStock: data.isLowStock
+              };
+            }
+            return item;
+          });
+          return updated;
+        });
+        
+        // Show a toast notification for stock updates
+        const stockMessage = `${data.drugName}: Stock updated (${data.previousStock} → ${data.currentStock})`;
+        if (onToast) {
+          onToast(stockMessage, 'info');
         }
-        return item;
-      }));
+        console.log(stockMessage);
+        break;
+      }
+
+      case 'MEDICATION_ADDED': {
+        // Handle new medication additions
+        console.log('New medication added:', data.drugName);
+        if (onToast) {
+          onToast(`New medication added: ${data.drugName}`, 'success');
+        }
+        // Refresh inventory to include the new medication
+        refreshInventory();
+        break;
+      }
+
+      case 'LOW_STOCK_ALERT': {
+        // Handle low stock alerts
+        console.warn(`Low stock alert: ${data.drugName} (${data.currentStock}/${data.minimumStock})`);
+        if (onToast) {
+          onToast(`⚠️ Low stock: ${data.drugName} (${data.currentStock} units remaining)`, 'warning');
+        }
+        break;
+      }
+
+      case 'INVENTORY_UPDATED': {
+        // Legacy handler for other inventory updates
+        setInventory(prev => prev.map(item => {
+          if (item.drugName === data.drugName) {
+            return {
+              ...item,
+              currentStock: data.remainingStock,
+              lastUpdated: new Date().toISOString()
+            };
+          }
+          return item;
+        }));
+        break;
+      }
+
+      default:
+        console.log('Unknown inventory notification type:', data.type);
     }
-  }, []);
+  }, [refreshInventory, onToast]);
 
   // WebSocket connection for real-time inventory updates
   const { isConnected: wsConnected } = useWebSocket(
     'http://localhost:8080/ws',
-    { '/topic/inventory': handleInventoryWebSocketUpdate },
+    { 
+      '/topic/inventory': handleInventoryWebSocketUpdate,
+      '/topic/inventory/alerts': handleInventoryWebSocketUpdate
+    },
     { debug: true, reconnectDelay: 5000 }
   );
 
@@ -104,18 +164,26 @@ export default function useInventory() {
       });
 
       const result = response.data;
+      console.log('Update stock API response:', result);
 
       if (result.success) {
+        console.log('Stock update successful, updating local state...', result.data);
         // Update local state with the response data
-        setInventory(prev => prev.map(item => 
-          item.id === medicationId 
-            ? { 
-                ...item, 
-                currentStock: result.data.currentStock,
-                lastUpdated: result.data.lastUpdated
-              }
-            : item
-        ));
+        setInventory(prev => {
+          const updated = prev.map(item => 
+            item.id === medicationId 
+              ? { 
+                  ...item, 
+                  currentStock: result.data.currentStock,
+                  lastUpdated: result.data.lastUpdated,
+                  isLowStock: result.data.isLowStock,
+                  batchNumber: result.data.batchNumber
+                }
+              : item
+          );
+          console.log('Updated inventory state:', updated.find(item => item.id === medicationId));
+          return updated;
+        });
         
         return { 
           success: true, 

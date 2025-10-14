@@ -7,12 +7,14 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.PaginationResponseDTO;
+import com.HMS.HMS.DTO.MedicationDTO.StockUpdateResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
 import com.HMS.HMS.Exception_Handler.DomainValidationException;
 import com.HMS.HMS.Exception_Handler.DuplicateBatchNumberException;
 import com.HMS.HMS.model.Medication.Medication;
 import com.HMS.HMS.repository.MedicationRepository;
 import com.HMS.HMS.util.Sanitizer;
+import com.HMS.HMS.websocket.InventoryNotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,9 +33,11 @@ public class MedicationServiceImpl implements MedicationService{
 
     private static final Logger log = LoggerFactory.getLogger(MedicationServiceImpl.class);
     private final MedicationRepository repository;
+    private final InventoryNotificationService notificationService;
 
-    public MedicationServiceImpl(MedicationRepository repository) {
+    public MedicationServiceImpl(MedicationRepository repository, InventoryNotificationService notificationService) {
         this.repository = repository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -66,6 +70,10 @@ public class MedicationServiceImpl implements MedicationService{
         m.setIsActive(Boolean.TRUE);
 
         Medication saved = repository.save(m);
+        
+        // Send WebSocket notification for new medication
+        notificationService.notifyMedicationAdded(saved);
+        
         log.info("Medication created: id={}, drugName={}, batch={}, stock={}",
                 saved.getId(), saved.getDrugName(), saved.getBatchNumber(), saved.getCurrentStock());
 
@@ -192,7 +200,7 @@ public class MedicationServiceImpl implements MedicationService{
 
     @Override
     @Transactional
-    public ApiResponse<MedicationResponseDTO> updateStock(Long medicationId, UpdateStockRequestDTO request) {
+    public ApiResponse<StockUpdateResponseDTO> updateStock(Long medicationId, UpdateStockRequestDTO request) {
         try {
             log.info("Adding stock for medication ID: {} with quantity: {}", medicationId, request.getNewStock());
             
@@ -259,15 +267,26 @@ public class MedicationServiceImpl implements MedicationService{
             // Save the updated medication (updatedAt will be set automatically by @UpdateTimestamp)
             Medication savedMedication = repository.save(medication);
             
+            // Send WebSocket notification for real-time updates
+            notificationService.notifyStockUpdated(savedMedication, currentStock, newTotalStock);
+            
+            // Check for low stock and send alert if needed
+            if (newTotalStock <= savedMedication.getMinimumStock()) {
+                notificationService.notifyLowStock(savedMedication);
+            }
+            
             log.info("Successfully added {} units to medication ID: {} (from {} to {})", 
                     request.getNewStock(), medicationId, currentStock, newTotalStock);
             
-            // Convert to response DTO
-            MedicationResponseDTO responseDTO = new MedicationResponseDTO(
+            // Convert to response DTO with stock information
+            StockUpdateResponseDTO responseDTO = new StockUpdateResponseDTO(
                 savedMedication.getId(), 
                 savedMedication.getDrugName(), 
                 savedMedication.getBatchNumber(), 
-                savedMedication.getCreatedAt()
+                newTotalStock,  // currentStock
+                currentStock,   // previousStock
+                newTotalStock <= savedMedication.getMinimumStock(), // isLowStock
+                savedMedication.getUpdatedAt() // lastUpdated
             );
             
             return new ApiResponse<>(

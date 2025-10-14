@@ -4,6 +4,7 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationCompleteResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryApiResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
+import com.HMS.HMS.DTO.MedicationDTO.StockUpdateResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.ApiResponse;
 import org.springframework.data.domain.Page;
@@ -21,5 +22,5 @@ public interface MedicationService {
                                                            Pageable pageable);
     
     // Update stock method
-    ApiResponse<MedicationResponseDTO> updateStock(Long medicationId, UpdateStockRequestDTO request);
+    ApiResponse<StockUpdateResponseDTO> updateStock(Long medicationId, UpdateStockRequestDTO request);
 }
