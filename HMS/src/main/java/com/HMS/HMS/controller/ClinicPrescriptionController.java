@@ -189,11 +189,67 @@ public class ClinicPrescriptionController {
     @GetMapping("/prescription/{prescriptionId}")
     public ResponseEntity<?> getClinicPrescriptionByPrescriptionId(@PathVariable String prescriptionId) {
         try {
-            Optional<ClinicPrescription> prescription = 
+            Optional<ClinicPrescription> prescriptionOpt = 
                 clinicPrescriptionService.getClinicPrescriptionByPrescriptionId(prescriptionId);
             
-            if (prescription.isPresent()) {
-                return ResponseEntity.ok(prescription.get());
+            if (prescriptionOpt.isPresent()) {
+                ClinicPrescription prescription = prescriptionOpt.get();
+                
+                System.out.println("📋 Returning individual prescription " + prescription.getPrescriptionId() + 
+                                 " with " + prescription.getPrescriptionItems().size() + " items");
+                
+                // Transform prescription to include medication details explicitly (same as getAllClinicPrescriptions)
+                Map<String, Object> prescriptionMap = new HashMap<>();
+                prescriptionMap.put("id", prescription.getId());
+                prescriptionMap.put("prescriptionId", prescription.getPrescriptionId());
+                prescriptionMap.put("patientName", prescription.getPatientName());
+                prescriptionMap.put("patientNationalId", prescription.getPatientNationalId());
+                prescriptionMap.put("patientId", prescription.getPatientId());
+                prescriptionMap.put("prescribedBy", prescription.getPrescribedBy());
+                prescriptionMap.put("startDate", prescription.getStartDate());
+                prescriptionMap.put("endDate", prescription.getEndDate());
+                prescriptionMap.put("prescribedDate", prescription.getPrescribedDate());
+                prescriptionMap.put("lastModified", prescription.getLastModified());
+                prescriptionMap.put("status", prescription.getStatus());
+                prescriptionMap.put("clinicName", prescription.getClinicName());
+                prescriptionMap.put("visitType", prescription.getVisitType());
+                prescriptionMap.put("totalMedications", prescription.getTotalMedications());
+                prescriptionMap.put("prescriptionNotes", prescription.getPrescriptionNotes());
+                prescriptionMap.put("createdAt", prescription.getCreatedAt());
+                
+                // Transform prescription items with medication details
+                List<Map<String, Object>> itemsList = prescription.getPrescriptionItems().stream()
+                    .map(item -> {
+                        Map<String, Object> itemMap = new HashMap<>();
+                        itemMap.put("id", item.getId());
+                        itemMap.put("dose", item.getDose());
+                        itemMap.put("frequency", item.getFrequency());
+                        itemMap.put("quantity", item.getQuantity());
+                        itemMap.put("quantityUnit", item.getQuantityUnit());
+                        itemMap.put("instructions", item.getInstructions());
+                        itemMap.put("route", item.getRoute());
+                        itemMap.put("isUrgent", item.getIsUrgent());
+                        itemMap.put("notes", item.getNotes());
+                        itemMap.put("itemStatus", item.getItemStatus());
+                        
+                        // Add medication details explicitly
+                        if (item.getMedication() != null) {
+                            itemMap.put("drugName", item.getMedication().getDrugName());
+                            itemMap.put("genericName", item.getMedication().getGenericName());
+                            itemMap.put("dosageForm", item.getMedication().getDosageForm());
+                            itemMap.put("manufacturer", item.getMedication().getManufacturer());
+                            System.out.println("  💊 Added medication: " + item.getMedication().getDrugName());
+                        } else {
+                            System.out.println("  ⚠️ No medication found for item " + item.getId());
+                        }
+                        
+                        return itemMap;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+                
+                prescriptionMap.put("prescriptionItems", itemsList);
+                
+                return ResponseEntity.ok(prescriptionMap);
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "Clinic prescription not found with prescription ID: " + prescriptionId));

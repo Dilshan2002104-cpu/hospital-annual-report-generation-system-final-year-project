@@ -284,39 +284,56 @@ const useClinicPrescriptions = () => {
         headers: getAuthHeaders()
       });
 
-      // Handle paginated response
+      console.log('📋 Clinic prescriptions API response:', response.data);
+
+      // Handle paginated response - check the correct response structure
       let prescriptionsData = [];
-      if (response.data.data?.content) {
+      if (response.data.content && Array.isArray(response.data.content)) {
+        // Direct Spring Boot paginated response
+        prescriptionsData = response.data.content;
+        console.log(`✅ Loaded ${prescriptionsData.length} clinic prescriptions from paginated API response (Total: ${response.data.totalElements})`);
+      } else if (response.data.data?.content) {
+        // Nested data.content structure
         prescriptionsData = response.data.data.content;
       } else if (response.data.data && Array.isArray(response.data.data)) {
+        // Nested data array
         prescriptionsData = response.data.data;
       } else if (Array.isArray(response.data)) {
+        // Direct array response
         prescriptionsData = response.data;
+      } else {
+        console.warn('Unexpected clinic prescriptions API response structure:', response.data);
+        prescriptionsData = [];
       }
 
-      const transformedPrescriptions = prescriptionsData.map(prescription => ({
-        // Core prescription fields
-        id: prescription.prescriptionId || prescription.id,
-        prescriptionId: prescription.prescriptionId,
-        patientName: prescription.patientName,
-        patientId: prescription.patientId,
-        patientNationalId: prescription.patientNationalId,
-        startDate: prescription.startDate,
-        endDate: prescription.endDate,
-        prescribedBy: prescription.prescribedBy,
-        prescribedDate: prescription.prescribedDate,
-        lastModified: prescription.lastModified,
-        status: prescription.status?.toLowerCase() || 'active',
+      console.log('🔄 Raw clinic prescriptions data:', prescriptionsData.slice(0, 2));
+
+      const transformedPrescriptions = prescriptionsData.map(prescription => {
+        console.log('📋 Transforming prescription:', prescription.prescriptionId, 'with', prescription.prescriptionItems?.length || 0, 'items');
         
-        // Clinic-specific fields
-        wardName: prescription.wardName || 'Outpatient Clinic',
-        consultationType: prescription.consultationType || 'outpatient',
-        
-        // Prescription details
-        totalMedications: prescription.totalMedications || 0,
-        prescriptionNotes: prescription.prescriptionNotes,
-        notes: prescription.prescriptionNotes, // Alias
-        prescriptionItems: prescription.prescriptionItems || [],
+        return {
+          // Core prescription fields
+          id: prescription.prescriptionId || prescription.id,
+          prescriptionId: prescription.prescriptionId,
+          patientName: prescription.patientName,
+          patientId: prescription.patientId,
+          patientNationalId: prescription.patientNationalId,
+          startDate: prescription.startDate,
+          endDate: prescription.endDate,
+          prescribedBy: prescription.prescribedBy,
+          prescribedDate: prescription.prescribedDate,
+          lastModified: prescription.lastModified,
+          status: prescription.status?.toLowerCase() || 'active',
+          
+          // Clinic-specific fields
+          wardName: prescription.wardName || 'Outpatient Clinic',
+          consultationType: prescription.consultationType || 'outpatient',
+          
+          // Prescription details
+          totalMedications: prescription.totalMedications || prescription.prescriptionItems?.length || 0,
+          prescriptionNotes: prescription.prescriptionNotes,
+          notes: prescription.prescriptionNotes, // Alias
+          prescriptionItems: prescription.prescriptionItems || [],
         
         // Urgent flag
         isUrgent: prescription.isUrgent || prescription.prescriptionItems?.some(item => item.isUrgent) || false,
@@ -349,7 +366,11 @@ const useClinicPrescriptions = () => {
         quantityUnit: prescription.prescriptionItems?.[0]?.quantityUnit || '',
         instructions: prescription.prescriptionItems?.[0]?.instructions || '',
         route: prescription.prescriptionItems?.[0]?.route || ''
-      }));
+        };
+      });
+
+      console.log('✅ Transformed clinic prescriptions:', transformedPrescriptions.length, 'prescriptions');
+      console.log('📊 First prescription sample:', transformedPrescriptions[0]);
 
       setPrescriptions(transformedPrescriptions);
       setError(null);
@@ -600,6 +621,7 @@ const useClinicPrescriptions = () => {
 
   // Initialize data on mount
   useEffect(() => {
+    console.log('🏥 Clinic Prescriptions API Hook - Initializing data fetch...');
     fetchAllData();
   }, [fetchAllData]);
 

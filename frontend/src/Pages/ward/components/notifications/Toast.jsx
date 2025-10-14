@@ -11,6 +11,14 @@ const Toast = ({ toast, onClose }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Define handleClose before the useEffect that uses it
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => {
+      onClose(toast.id);
+    }, 300);
+  }, [onClose, toast.id]);
+
   useEffect(() => {
     if (toast.autoClose !== false && !isExiting) {
       const timer = setTimeout(() => {
@@ -20,13 +28,6 @@ const Toast = ({ toast, onClose }) => {
       return () => clearTimeout(timer);
     }
   }, [toast, isExiting, handleClose]);
-
-  const handleClose = useCallback(() => {
-    setIsExiting(true);
-    setTimeout(() => {
-      onClose(toast.id);
-    }, 300);
-  }, [onClose, toast.id]);
 
   const getIcon = () => {
     switch (toast.type) {

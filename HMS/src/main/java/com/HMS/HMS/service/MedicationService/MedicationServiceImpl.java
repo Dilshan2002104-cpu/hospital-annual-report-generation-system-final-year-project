@@ -1,11 +1,13 @@
 package com.HMS.HMS.service.MedicationService;
 
+import com.HMS.HMS.DTO.MedicationDTO.ApiResponse;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationCompleteResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryApiResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.PaginationResponseDTO;
+import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
 import com.HMS.HMS.Exception_Handler.DomainValidationException;
 import com.HMS.HMS.Exception_Handler.DuplicateBatchNumberException;
 import com.HMS.HMS.model.Medication.Medication;
@@ -20,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,7 +57,8 @@ public class MedicationServiceImpl implements MedicationService{
         m.setDosageForm(Sanitizer.clean(request.getDosageForm()));
         m.setManufacturer(Sanitizer.clean(request.getManufacturer()));
         m.setBatchNumber(Sanitizer.clean(request.getBatchNumber()));
-        m.setCurrentStock(request.getCurrentStock());
+        // Current stock can be 0 for medications added without initial inventory
+        m.setCurrentStock(request.getCurrentStock() != null ? request.getCurrentStock() : 0);
         m.setMinimumStock(request.getMinimumStock());
         m.setMaximumStock(request.getMaximumStock());
         m.setUnitCost(request.getUnitCost());
@@ -184,5 +188,100 @@ public class MedicationServiceImpl implements MedicationService{
                 medication.getUpdatedAt(),
                 medication.getIsActive()
         );
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<MedicationResponseDTO> updateStock(Long medicationId, UpdateStockRequestDTO request) {
+        try {
+            log.info("Adding stock for medication ID: {} with quantity: {}", medicationId, request.getNewStock());
+            
+            // Validate input parameters
+            if (medicationId == null) {
+                throw new DomainValidationException("Medication ID cannot be null");
+            }
+            
+            if (request.getNewStock() == null) {
+                throw new DomainValidationException("Stock quantity to add is required");
+            }
+            
+            if (request.getNewStock() < 0) {
+                throw new DomainValidationException("Stock quantity to add cannot be negative");
+            }
+            
+            if (request.getNewStock() > 999999) {
+                throw new DomainValidationException("Stock quantity to add seems too high (max: 999,999)");
+            }
+            
+            // Find the medication
+            Optional<Medication> medicationOpt = repository.findById(medicationId);
+            if (medicationOpt.isEmpty()) {
+                throw new DomainValidationException("Medication not found with ID: " + medicationId);
+            }
+            
+            Medication medication = medicationOpt.get();
+            
+            // Validate batch number if provided
+            if (request.getBatchNumber() != null && !request.getBatchNumber().trim().isEmpty()) {
+                String batchNumber = request.getBatchNumber().trim();
+                
+                if (batchNumber.length() < 3) {
+                    throw new DomainValidationException("Batch number must be at least 3 characters long");
+                }
+                
+                if (!batchNumber.matches("^[A-Z0-9]+$")) {
+                    throw new DomainValidationException("Batch number should contain only letters and numbers");
+                }
+                
+                // Check if batch number already exists for a different medication
+                if (repository.existsByBatchNumberAndIdNot(batchNumber, medicationId)) {
+                    throw new DuplicateBatchNumberException(batchNumber);
+                }
+                
+                // Update batch number if provided
+                medication.setBatchNumber(Sanitizer.clean(batchNumber));
+            }
+            
+            // Add the new stock quantity to current stock (instead of replacing)
+            Integer currentStock = medication.getCurrentStock();
+            Integer newTotalStock = currentStock + request.getNewStock();
+            
+            // Validate against medication limits after adding
+            if (newTotalStock > medication.getMaximumStock()) {
+                throw new DomainValidationException(
+                    "Adding " + request.getNewStock() + " units would exceed maximum limit (" + 
+                    medication.getMaximumStock() + "). Current stock: " + currentStock
+                );
+            }
+            
+            medication.setCurrentStock(newTotalStock);
+            
+            // Save the updated medication (updatedAt will be set automatically by @UpdateTimestamp)
+            Medication savedMedication = repository.save(medication);
+            
+            log.info("Successfully added {} units to medication ID: {} (from {} to {})", 
+                    request.getNewStock(), medicationId, currentStock, newTotalStock);
+            
+            // Convert to response DTO
+            MedicationResponseDTO responseDTO = new MedicationResponseDTO(
+                savedMedication.getId(), 
+                savedMedication.getDrugName(), 
+                savedMedication.getBatchNumber(), 
+                savedMedication.getCreatedAt()
+            );
+            
+            return new ApiResponse<>(
+                true, 
+                "Stock added successfully", 
+                responseDTO
+            );
+            
+        } catch (DomainValidationException | DuplicateBatchNumberException e) {
+            log.warn("Validation error updating stock for medication ID {}: {}", medicationId, e.getMessage());
+            return new ApiResponse<>(false, e.getMessage(), null);
+        } catch (Exception e) {
+            log.error("Unexpected error updating stock for medication ID {}: {}", medicationId, e.getMessage(), e);
+            return new ApiResponse<>(false, "Failed to update stock: " + e.getMessage(), null);
+        }
     }
 }

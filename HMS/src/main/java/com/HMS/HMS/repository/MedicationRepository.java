@@ -14,6 +14,7 @@ import java.util.Optional;
 @Repository
 public interface MedicationRepository extends JpaRepository<Medication,Long> {
     boolean existsByBatchNumber(String batchNumber);
+    boolean existsByBatchNumberAndIdNot(String batchNumber, Long id);
     Optional<Medication> findByBatchNumber(String batchNumber);
     
     // Find by exact drug name

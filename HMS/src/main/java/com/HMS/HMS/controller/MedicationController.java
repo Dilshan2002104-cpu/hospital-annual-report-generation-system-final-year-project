@@ -5,6 +5,7 @@ import com.HMS.HMS.DTO.MedicationDTO.MedicationCompleteResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationInventoryApiResponseDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationRequestDTO;
 import com.HMS.HMS.DTO.MedicationDTO.MedicationResponseDTO;
+import com.HMS.HMS.DTO.MedicationDTO.UpdateStockRequestDTO;
 import com.HMS.HMS.service.MedicationService.MedicationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -114,6 +115,25 @@ public class MedicationController {
             return ResponseEntity.internalServerError().body(
                     new MedicationInventoryApiResponseDTO(false, 
                             "Internal server error: " + e.getMessage(), null, null));
+        }
+    }
+
+    @PutMapping("/{id}/stock")
+    public ResponseEntity<ApiResponse<MedicationResponseDTO>> updateStock(
+            @PathVariable Long id,
+            @RequestBody UpdateStockRequestDTO request) {
+        try {
+            ApiResponse<MedicationResponseDTO> result = service.updateStock(id, request);
+            
+            if (result.isSuccess()) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.badRequest().body(result);
+            }
+        } catch (Exception e) {
+            ApiResponse<MedicationResponseDTO> errorResponse = 
+                new ApiResponse<>(false, "Failed to update stock: " + e.getMessage(), null);
+            return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
 }

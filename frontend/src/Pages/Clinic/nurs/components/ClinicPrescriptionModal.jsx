@@ -210,7 +210,11 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
       if (medication.currentStock !== undefined && medication.quantity) {
         const requestedQuantity = parseFloat(medication.quantity);
         if (!isNaN(requestedQuantity) && requestedQuantity > medication.currentStock) {
-          medicationErrors.quantity = `Only ${medication.currentStock} ${getQuantityUnit(medication.dosageForm)} available in stock`;
+          if (medication.currentStock === 0) {
+            medicationErrors.quantity = `${medication.drugName} is currently out of stock`;
+          } else {
+            medicationErrors.quantity = `Only ${medication.currentStock} ${getQuantityUnit(medication.dosageForm)} available in stock`;
+          }
         }
       }
 

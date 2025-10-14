@@ -61,14 +61,7 @@ const WardStatisticsReport = () => {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  useEffect(() => {
-    if (reportMode === 'hospital-wide') {
-      fetchHospitalWideStatistics();
-    } else {
-      fetchWardStatistics();
-    }
-  }, [reportMode, selectedWard, selectedYear, fetchHospitalWideStatistics, fetchWardStatistics]);
-
+  // Define callback functions before useEffect
   const fetchWardStatistics = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -141,6 +134,15 @@ const WardStatisticsReport = () => {
       setLoading(false);
     }
   }, [selectedYear]);
+
+  // Use effect after both callback functions are defined
+  useEffect(() => {
+    if (reportMode === 'hospital-wide') {
+      fetchHospitalWideStatistics();
+    } else {
+      fetchWardStatistics();
+    }
+  }, [reportMode, selectedWard, selectedYear, fetchHospitalWideStatistics, fetchWardStatistics]);
 
   const downloadPDF = async () => {
     setPdfDownloading(true);

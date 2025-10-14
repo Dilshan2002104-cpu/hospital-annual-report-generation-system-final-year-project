@@ -33,6 +33,31 @@ export default function InventoryManagement({
   const [addError, setAddError] = useState(null);
   const [addSuccess, setAddSuccess] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
+  
+  // Update stock states
+  const [updatingStock, setUpdatingStock] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
+  const [updateSuccess, setUpdateSuccess] = useState(null);
+  const [updateValidationErrors, setUpdateValidationErrors] = useState({});
+  
+  // Toast notification state
+  const [toasts, setToasts] = useState([]);
+
+  // Simple toast notification functions
+  const showToast = (message, type = 'success') => {
+    const id = Date.now();
+    const toast = { id, message, type };
+    setToasts(prev => [...prev, toast]);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Filter inventory based on search and filters
   const filteredInventory = useMemo(() => {
@@ -90,12 +115,51 @@ export default function InventoryManagement({
   };
 
   const handleStockUpdate = async (medicationId, newStock, batchNumber) => {
+    setUpdatingStock(true);
+    setUpdateError(null);
+    setUpdateSuccess(null);
+    setUpdateValidationErrors({});
+
     try {
-      await onUpdateStock(medicationId, newStock, batchNumber);
-      setShowUpdateModal(false);
-      setSelectedMedication(null);
+      // Prepare data for validation
+      const updateData = {
+        newStock: parseInt(newStock) || 0,
+        batchNumber: batchNumber?.trim() || ''
+      };
+
+      // Frontend validation
+      const errors = validateUpdateData(updateData, selectedMedication);
+      if (Object.keys(errors).length > 0) {
+        setUpdateValidationErrors(errors);
+        setUpdatingStock(false);
+        return;
+      }
+
+      // Call API to update stock
+      const result = await onUpdateStock(medicationId, {
+        newStock: updateData.newStock,
+        batchNumber: updateData.batchNumber
+      });
+      
+      if (result && result.success !== false) {
+        // Show success toast
+        showToast('Stock added successfully!', 'success');
+        
+        // Close modal and reset states
+        setShowUpdateModal(false);
+        setSelectedMedication(null);
+        setUpdateValidationErrors({});
+        setUpdateError(null);
+        setUpdateSuccess(null);
+      } else {
+        throw new Error(result?.message || 'Failed to update stock');
+      }
     } catch (error) {
       console.error('Failed to update stock:', error);
+      setUpdateError(error.message || 'Failed to update stock');
+      showToast('Failed to update stock', 'error');
+    } finally {
+      setUpdatingStock(false);
     }
   };
 
@@ -108,14 +172,38 @@ export default function InventoryManagement({
       : 'border-gray-300 focus:ring-green-500 focus:border-green-500';
   };
 
+  // Helper function to validate individual field on blur
+  const handleFieldBlur = (e) => {
+    const fieldName = e.target.name;
+    const fieldValue = e.target.value;
+    
+    // Create a temporary object with current field value for validation
+    const tempData = {
+      [fieldName]: fieldName === 'currentStock' || fieldName === 'minimumStock' || fieldName === 'maximumStock' 
+        ? parseInt(fieldValue) || 0
+        : fieldName === 'unitCost' 
+        ? parseFloat(fieldValue) || 0
+        : fieldValue?.trim() || ''
+    };
+    
+    // Validate only this field
+    const errors = validateMedicationData(tempData);
+    
+    // Update validation errors state
+    setValidationErrors(prev => ({
+      ...prev,
+      [fieldName]: errors[fieldName] || undefined
+    }));
+  };
+
   // Helper function to render field error
   const renderFieldError = (fieldName) => {
     if (validationErrors[fieldName]) {
       return (
-        <p className="mt-1 text-sm text-red-600 flex items-center">
-          <span className="w-4 h-4 mr-1">⚠️</span>
-          {validationErrors[fieldName]}
-        </p>
+        <div className="mt-2 text-sm text-red-600 flex items-start">
+          <span className="text-red-500 mr-1 mt-0.5">⚠️</span>
+          <span className="font-medium">{validationErrors[fieldName]}</span>
+        </div>
       );
     }
     return null;
@@ -160,11 +248,13 @@ export default function InventoryManagement({
       errors.batchNumber = 'Batch number should contain only letters and numbers';
     }
 
-    // Stock validation
-    if (isNaN(data.currentStock) || data.currentStock === '') {
-      errors.currentStock = 'Current stock is required';
-    } else if (data.currentStock < 0) {
-      errors.currentStock = 'Current stock cannot be negative';
+    // Stock validation - Current stock is now required
+    if (isNaN(data.currentStock) || data.currentStock === '' || data.currentStock < 0) {
+      if (isNaN(data.currentStock) || data.currentStock === '') {
+        errors.currentStock = 'Current stock is required';
+      } else if (data.currentStock < 0) {
+        errors.currentStock = 'Current stock cannot be negative';
+      }
     }
 
     if (isNaN(data.minimumStock) || data.minimumStock === '') {
@@ -222,6 +312,60 @@ export default function InventoryManagement({
     }
 
     return errors;
+  };
+
+  // Update stock validation function
+  const validateUpdateData = (data, selectedMedication) => {
+    const errors = {};
+
+    // Stock quantity to add validation
+    if (data.newStock === '' || isNaN(data.newStock)) {
+      errors.newStock = 'Stock quantity to add is required';
+    } else if (data.newStock < 0) {
+      errors.newStock = 'Stock quantity to add cannot be negative';
+    } else if (data.newStock > 999999) {
+      errors.newStock = 'Stock quantity to add seems too high (max: 999,999)';
+    }
+
+    // Batch number validation (optional but if provided, should be valid)
+    if (data.batchNumber && data.batchNumber.trim()) {
+      if (data.batchNumber.trim().length < 3) {
+        errors.batchNumber = 'Batch number must be at least 3 characters long';
+      } else if (!/^[A-Z0-9]+$/i.test(data.batchNumber.trim())) {
+        errors.batchNumber = 'Batch number should contain only letters and numbers';
+      }
+    }
+
+    // Cross-validation with medication limits (check if adding would exceed maximum)
+    if (selectedMedication && !isNaN(data.newStock)) {
+      const currentStock = selectedMedication.currentStock || 0;
+      const newTotal = currentStock + parseInt(data.newStock);
+      if (newTotal > selectedMedication.maximumStock) {
+        errors.newStock = `Adding ${data.newStock} units would exceed maximum limit (${selectedMedication.maximumStock}). Current: ${currentStock}`;
+      }
+    }
+
+    return errors;
+  };
+
+  // Helper function to render update field errors
+  const renderUpdateFieldError = (fieldName) => {
+    if (updateValidationErrors[fieldName]) {
+      return (
+        <div className="mt-2 text-sm text-red-600 flex items-start">
+          <span className="text-red-500 mr-1 mt-0.5">⚠️</span>
+          <span className="font-medium">{updateValidationErrors[fieldName]}</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Helper function to get update field error class
+  const getUpdateFieldErrorClass = (fieldName) => {
+    return updateValidationErrors[fieldName] 
+      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+      : 'border-gray-300 focus:ring-green-500 focus:border-green-500';
   };
 
   if (loading) {
@@ -391,7 +535,7 @@ export default function InventoryManagement({
                 const expiryStatus = getExpiryStatus(medication.expiryDate);
                 
                 return (
-                  <tr key={medication.drugId || medication.id || medication.batchNumber} className="hover:bg-gray-50">
+                  <tr key={medication.id} className="hover:bg-gray-50">
                     <td className="p-4">
                       <div>
                         <div className="font-medium text-gray-900">{medication.drugName}</div>
@@ -495,6 +639,7 @@ export default function InventoryManagement({
                   setAddError(null);
                   setAddSuccess(null);
                   setAddingMedication(false);
+                  setValidationErrors({});
                 }}
                 className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
               >
@@ -555,18 +700,20 @@ export default function InventoryManagement({
                   const result = await onAddMedication(medicationData);
                   
                   if (result.success) {
-                    setAddSuccess(result.message || 'Medication added successfully');
-                    setValidationErrors({});
-                    e.target.reset();
+                    // Show simple success toast
+                    showToast('Medication added successfully!', 'success');
                     
-                    // Auto-close modal after 2 seconds
-                    setTimeout(() => {
-                      setShowAddModal(false);
-                      setAddSuccess(null);
-                    }, 2000);
+                    // Clear form and close modal immediately
+                    setValidationErrors({});
+                    setAddError(null);
+                    setAddSuccess(null);
+                    e.target.reset();
+                    setShowAddModal(false);
                   }
                 } catch (error) {
                   setAddError(error.message || 'Failed to add medication');
+                  // Show simple error toast
+                  showToast('Failed to add medication', 'error');
                 } finally {
                   setAddingMedication(false);
                 }
@@ -589,6 +736,7 @@ export default function InventoryManagement({
                       type="text"
                       className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('drugName')}`}
                       placeholder="e.g., Lisinopril"
+                      onBlur={handleFieldBlur}
                     />
                     {renderFieldError('drugName')}
                   </div>
@@ -602,6 +750,7 @@ export default function InventoryManagement({
                       type="text"
                       className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('genericName')}`}
                       placeholder="e.g., Lisinopril"
+                      onBlur={handleFieldBlur}
                     />
                     {renderFieldError('genericName')}
                   </div>
@@ -636,9 +785,11 @@ export default function InventoryManagement({
                       name="strength"
                       type="text"
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('strength')}`}
                       placeholder="e.g., 10mg, 500mg"
+                      onBlur={handleFieldBlur}
                     />
+                    {renderFieldError('strength')}
                   </div>
 
                   <div>
@@ -648,7 +799,7 @@ export default function InventoryManagement({
                     <select
                       name="dosageForm"
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('dosageForm')}`}
                     >
                       <option value="">Select Form</option>
                       <option value="Tablet">Tablet</option>
@@ -660,6 +811,7 @@ export default function InventoryManagement({
                       <option value="Drops">Drops</option>
                       <option value="Powder">Powder</option>
                     </select>
+                    {renderFieldError('dosageForm')}
                   </div>
 
                   <div>
@@ -669,9 +821,10 @@ export default function InventoryManagement({
                     <input
                       name="manufacturer"
                       type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('manufacturer')}`}
                       placeholder="e.g., Pfizer, Teva"
                     />
+                    {renderFieldError('manufacturer')}
                   </div>
 
                   {/* Stock Information */}
@@ -703,9 +856,11 @@ export default function InventoryManagement({
                     <input
                       name="currentStock"
                       type="number"
+                      required
                       min="0"
                       className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('currentStock')}`}
-                      placeholder="0"
+                      placeholder="Enter current stock quantity"
+                      onBlur={handleFieldBlur}
                     />
                     {renderFieldError('currentStock')}
                   </div>
@@ -719,9 +874,10 @@ export default function InventoryManagement({
                       type="number"
                       required
                       min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('minimumStock')}`}
                       placeholder="50"
                     />
+                    {renderFieldError('minimumStock')}
                   </div>
 
                   <div>
@@ -733,9 +889,10 @@ export default function InventoryManagement({
                       type="number"
                       required
                       min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('maximumStock')}`}
                       placeholder="500"
                     />
+                    {renderFieldError('maximumStock')}
                   </div>
 
                   <div>
@@ -748,9 +905,11 @@ export default function InventoryManagement({
                       step="0.01"
                       required
                       min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getFieldErrorClass('unitCost')}`}
                       placeholder="0.00"
+                      onBlur={handleFieldBlur}
                     />
+                    {renderFieldError('unitCost')}
                   </div>
 
                   <div>
@@ -776,6 +935,7 @@ export default function InventoryManagement({
                       setAddError(null);
                       setAddSuccess(null);
                       setAddingMedication(false);
+                      setValidationErrors({});
                     }}
                     className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
@@ -807,7 +967,14 @@ export default function InventoryManagement({
             <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">Update Stock</h2>
               <button
-                onClick={() => setShowUpdateModal(false)}
+                onClick={() => {
+                  setShowUpdateModal(false);
+                  setSelectedMedication(null);
+                  setUpdateError(null);
+                  setUpdateSuccess(null);
+                  setUpdateValidationErrors({});
+                  setUpdatingStock(false);
+                }}
                 className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
               >
                 ×
@@ -815,34 +982,59 @@ export default function InventoryManagement({
             </div>
             
             <div className="p-6">
-              <div className="mb-4">
+              {/* Medication Info */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-semibold text-gray-900">{selectedMedication.drugName}</h3>
                 <p className="text-sm text-gray-600">{selectedMedication.genericName}</p>
-                <p className="text-sm text-gray-500">Current Stock: {selectedMedication.currentStock}</p>
+                <div className="mt-2 flex justify-between text-sm">
+                  <span className="text-gray-500">Current Stock: <span className="font-medium">{selectedMedication.currentStock}</span></span>
+                  <span className="text-gray-500">Max Limit: <span className="font-medium">{selectedMedication.maximumStock}</span></span>
+                </div>
               </div>
+
+              {/* Error Message */}
+              {updateError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg flex items-center">
+                  <div className="w-4 h-4 bg-red-600 rounded-full mr-3"></div>
+                  {updateError}
+                </div>
+              )}
+
+              {/* Success Message */}
+              {updateSuccess && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded-lg flex items-center">
+                  <div className="w-4 h-4 bg-green-600 rounded-full mr-3"></div>
+                  {updateSuccess}
+                </div>
+              )}
               
-              <form onSubmit={(e) => {
+              <form noValidate onSubmit={async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
-                handleStockUpdate(
-                  selectedMedication.medicationId,
-                  parseInt(formData.get('newStock')),
+                await handleStockUpdate(
+                  selectedMedication.id,
+                  formData.get('newStock'),
                   formData.get('batchNumber')
                 );
               }}>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      New Stock Quantity
+                      Add Stock Quantity *
                     </label>
+                    <div className="mb-1 text-xs text-gray-500">
+                      Current stock: {selectedMedication?.currentStock || 0} units
+                    </div>
                     <input
                       name="newStock"
                       type="number"
                       min="0"
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="Enter new stock quantity"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getUpdateFieldErrorClass('newStock')}`}
+                      placeholder="Enter quantity to add"
+                      defaultValue=""
                     />
+                    {renderUpdateFieldError('newStock')}
                   </div>
                   
                   <div>
@@ -852,30 +1044,82 @@ export default function InventoryManagement({
                     <input
                       name="batchNumber"
                       type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${getUpdateFieldErrorClass('batchNumber')}`}
                       placeholder="Enter batch number if new stock"
                     />
+                    {renderUpdateFieldError('batchNumber')}
+                    <p className="text-xs text-gray-500 mt-1">Only required when adding new batch of medication</p>
                   </div>
                 </div>
                 
-                <div className="flex justify-end space-x-4 mt-6">
+                <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
                   <button
                     type="button"
-                    onClick={() => setShowUpdateModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    onClick={() => {
+                      setShowUpdateModal(false);
+                      setSelectedMedication(null);
+                      setUpdateError(null);
+                      setUpdateSuccess(null);
+                      setUpdateValidationErrors({});
+                      setUpdatingStock(false);
+                    }}
+                    className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    disabled={updatingStock || updateSuccess}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
                   >
-                    Update Stock
+                    {updatingStock && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    )}
+                    <span>
+                      {updatingStock ? 'Updating...' : updateSuccess ? 'Updated Successfully!' : 'Update Stock'}
+                    </span>
                   </button>
                 </div>
               </form>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Simple Toast Notifications */}
+      {toasts.length > 0 && (
+        <div className="fixed top-5 right-5 z-[9999]">
+          {toasts.map(toast => (
+            <div
+              key={toast.id}
+              className={`
+                flex items-center justify-between p-4 mb-3 rounded-lg shadow-xl
+                ${toast.type === 'success' 
+                  ? 'bg-green-600 text-white border-l-4 border-green-400' 
+                  : 'bg-red-600 text-white border-l-4 border-red-400'
+                }
+                min-w-[350px] transition-all duration-300 ease-in-out
+              `}
+              style={{ 
+                boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                transform: 'translateX(0)',
+                animation: 'slideInFromRight 0.3s ease-out'
+              }}
+            >
+              <div className="flex items-center">
+                <div className="mr-3 text-2xl">
+                  {toast.type === 'success' ? '✅' : '❌'}
+                </div>
+                <span className="text-lg font-medium">{toast.message}</span>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="ml-4 text-white hover:text-gray-200 text-2xl font-bold hover:bg-white hover:bg-opacity-20 rounded px-2"
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

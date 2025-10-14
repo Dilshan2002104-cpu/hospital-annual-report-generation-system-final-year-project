@@ -134,10 +134,24 @@ export const usePrescriptions = () => {
           wardName: null,
           bedNumber: null,
           
-          // Prescription details - map prescriptionItems to medications for compatibility
-          medications: prescription.prescriptionItems || prescription.medications || [],
+          // Prescription details - transform prescriptionItems to extract medication details
+          medications: prescription.prescriptionItems?.map(item => ({
+            id: item.id,
+            drugName: item.drugName,
+            genericName: item.genericName,
+            dosageForm: item.dosageForm,
+            manufacturer: item.manufacturer,
+            dose: item.dose,
+            frequency: item.frequency,
+            quantity: item.quantity,
+            quantityUnit: item.quantityUnit,
+            instructions: item.instructions,
+            route: item.route,
+            isUrgent: item.isUrgent || false,
+            notes: item.notes
+          })) || [],
           prescriptionItems: prescription.prescriptionItems || [],
-          totalMedications: prescription.totalMedications || prescription.prescriptionItems?.length || prescription.medications?.length || 0,
+          totalMedications: prescription.totalMedications || prescription.prescriptionItems?.length || 0,
           status: prescription.status || 'ACTIVE',
           prescribedDate: prescription.prescribedDate,
           startDate: prescription.startDate,
@@ -202,23 +216,36 @@ export const usePrescriptions = () => {
       });
 
       const clinicPrescription = response.data;
+      console.log('📋 Received clinic prescription data:', {
+        prescriptionId: clinicPrescription.prescriptionId,
+        itemsCount: clinicPrescription.prescriptionItems?.length || 0,
+        hasPatient: !!clinicPrescription.patient,
+        hasMedicationDetails: clinicPrescription.prescriptionItems?.[0]?.drugName ? 'YES' : 'NO'
+      });
       
-      // Transform to pharmacy format
+      // Transform to pharmacy format - handle both old and new response structures
       const transformedPrescription = {
         id: clinicPrescription.prescriptionId,
         prescriptionId: clinicPrescription.prescriptionId,
-        patientName: `${clinicPrescription.patient.firstName} ${clinicPrescription.patient.lastName}`,
-        patientId: clinicPrescription.patient.nationalId,
-        patientNationalId: clinicPrescription.patient.nationalId,
+        patientName: clinicPrescription.patientName || 
+                    (clinicPrescription.patient ? `${clinicPrescription.patient.firstName} ${clinicPrescription.patient.lastName}` : 'Unknown Patient'),
+        patientId: clinicPrescription.patientNationalId || clinicPrescription.patientId ||
+                  (clinicPrescription.patient ? clinicPrescription.patient.nationalId : 'Unknown'),
+        patientNationalId: clinicPrescription.patientNationalId || 
+                          (clinicPrescription.patient ? clinicPrescription.patient.nationalId : 'Unknown'),
         doctorName: clinicPrescription.prescribedBy,
         admissionId: null,
         wardName: clinicPrescription.clinicName || 'Outpatient Clinic',
         bedNumber: null,
+        
+        // Handle both old structure (item.medication.drugName) and new structure (item.drugName)
         medications: clinicPrescription.prescriptionItems?.map(item => ({
           id: item.id,
-          medicationId: item.medication.id,
-          drugName: item.medication.drugName,
-          genericName: item.medication.genericName,
+          medicationId: item.medication?.id || item.medicationId,
+          drugName: item.drugName || item.medication?.drugName,
+          genericName: item.genericName || item.medication?.genericName,
+          dosageForm: item.dosageForm || item.medication?.dosageForm,
+          manufacturer: item.manufacturer || item.medication?.manufacturer,
           dose: item.dose,
           frequency: item.frequency,
           quantity: item.quantity,
@@ -227,12 +254,12 @@ export const usePrescriptions = () => {
           route: item.route,
           isUrgent: item.isUrgent || false,
           notes: item.notes,
-          currentStock: item.medication.currentStock,
-          unitCost: item.medication.unitCost
+          currentStock: item.medication?.currentStock,
+          unitCost: item.medication?.unitCost
         })) || [],
         prescriptionItems: clinicPrescription.prescriptionItems || [],
-        totalMedications: clinicPrescription.totalMedications || 0,
-        status: clinicPrescription.status?.toLowerCase() || 'pending',
+        totalMedications: clinicPrescription.totalMedications || clinicPrescription.prescriptionItems?.length || 0,
+        status: clinicPrescription.status || 'ACTIVE',
         prescribedDate: clinicPrescription.prescribedDate,
         startDate: clinicPrescription.startDate,
         endDate: clinicPrescription.endDate,
@@ -244,6 +271,12 @@ export const usePrescriptions = () => {
         interactions: [],
         isClinicPrescription: true
       };
+
+      console.log('🔄 Transformed clinic prescription:', {
+        prescriptionId: transformedPrescription.prescriptionId,
+        medicationsCount: transformedPrescription.medications.length,
+        firstMedication: transformedPrescription.medications[0]?.drugName || 'None'
+      });
 
       // Update the prescription in the list with full details
       setPrescriptions(prevPrescriptions => 

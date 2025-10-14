@@ -173,7 +173,11 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
       if (medication.currentStock !== undefined && medication.quantity) {
         const requestedQuantity = parseFloat(medication.quantity);
         if (!isNaN(requestedQuantity) && requestedQuantity > medication.currentStock) {
-          medicationErrors.quantity = `Only ${medication.currentStock} ${getQuantityUnit(medication.dosageForm)} available in stock`;
+          if (medication.currentStock === 0) {
+            medicationErrors.quantity = `${medication.drugName} is currently out of stock`;
+          } else {
+            medicationErrors.quantity = `Only ${medication.currentStock} ${getQuantityUnit(medication.dosageForm)} available in stock`;
+          }
         }
       }
 
@@ -417,9 +421,9 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
           commonInstructions: getInstructionsForCategory(med.category || med.drugCategory, med.genericName)
         }));
 
-        // Filter only active medications with stock
+        // Filter active medications (include those with 0 stock but mark them)
         const activeMedications = transformedMedications.filter(med =>
-          med.isActive && med.currentStock > 0 && med.name
+          med.isActive && med.name
         );
 
         if (activeMedications.length > 0) {

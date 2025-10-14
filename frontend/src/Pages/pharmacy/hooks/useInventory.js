@@ -90,22 +90,73 @@ export default function useInventory() {
   }, []);
 
   // Update stock
-  const updateStock = useCallback(async (drugId, newStock) => {
+  const updateStock = useCallback(async (medicationId, updateData) => {
     try {
-      setInventory(prev => prev.map(item => 
-        item.drugId === drugId 
-          ? { 
-              ...item, 
-              currentStock: newStock,
-              lastUpdated: new Date().toISOString()
-            }
-          : item
-      ));
+      setError(null);
       
-      return { success: true };
+      const response = await axios.put(`http://localhost:8080/api/pharmacy/medications/${medicationId}/stock`, {
+        newStock: updateData.newStock,
+        batchNumber: updateData.batchNumber
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = response.data;
+
+      if (result.success) {
+        // Update local state with the response data
+        setInventory(prev => prev.map(item => 
+          item.id === medicationId 
+            ? { 
+                ...item, 
+                currentStock: result.data.currentStock,
+                lastUpdated: result.data.lastUpdated
+              }
+            : item
+        ));
+        
+        return { 
+          success: true, 
+          message: result.message,
+          data: result.data 
+        };
+      } else {
+        throw new Error(result.message || 'Failed to update stock');
+      }
     } catch (err) {
-      setError('Failed to update stock');
-      throw err;
+      let errorMessage = 'Failed to update stock';
+
+      // Handle axios errors
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        switch (status) {
+          case 400:
+            errorMessage = data.message || 'Invalid stock update data';
+            break;
+          case 404:
+            errorMessage = 'Medication not found';
+            break;
+          case 409:
+            errorMessage = data.message || 'Batch number conflict';
+            break;
+          case 422:
+            errorMessage = data.message || 'Validation failed';
+            break;
+          default:
+            errorMessage = data.message || `Server error (${status})`;
+        }
+      } else if (err.request) {
+        errorMessage = 'Network error - please check your connection';
+      } else {
+        errorMessage = err.message || 'An unexpected error occurred';
+      }
+
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   }, []);
 
