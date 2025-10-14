@@ -16,6 +16,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// iText PDF imports
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.kernel.colors.ColorConstants;
+
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -271,32 +282,83 @@ public class ClinicPrescriptionService {
         ClinicPrescription prescription = clinicPrescriptionRepository.findByPrescriptionId(prescriptionId)
             .orElseThrow(() -> new RuntimeException("Clinic prescription not found with ID: " + prescriptionId));
         
-        // For now, return a simple text-based PDF
-        // In a real implementation, you would use a proper PDF library like iText
         try {
-            StringBuilder content = new StringBuilder();
-            content.append("CLINIC PRESCRIPTION\n\n");
-            content.append("Prescription ID: ").append(prescription.getPrescriptionId()).append("\n");
-            content.append("Patient: ").append(prescription.getPatientName()).append("\n");
-            content.append("National ID: ").append(prescription.getPatientNationalId()).append("\n");
-            content.append("Prescribed By: ").append(prescription.getPrescribedBy()).append("\n");
-            content.append("Clinic: ").append(prescription.getClinicName()).append("\n");
-            content.append("Date: ").append(prescription.getPrescribedDate()).append("\n");
-            content.append("Status: ").append(prescription.getStatus()).append("\n\n");
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document document = new Document(pdfDoc);
+
+            // Hospital Header
+            Paragraph header = new Paragraph("National Institute of Nephrology,\nDialysis and Transplantation")
+                    .setFontSize(16)
+                    .setBold()
+                    .setTextAlignment(TextAlignment.CENTER);
+            document.add(header);
+
+            Paragraph title = new Paragraph("CLINIC PRESCRIPTION")
+                    .setFontSize(20)
+                    .setBold()
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(20);
+            document.add(title);
+
+            // Prescription Details
+            document.add(new Paragraph("Prescription ID: " + prescription.getPrescriptionId()).setBold());
+            document.add(new Paragraph("Patient Name: " + prescription.getPatientName()));
+            document.add(new Paragraph("National ID: " + prescription.getPatientNationalId()));
+            document.add(new Paragraph("Prescribed By: " + prescription.getPrescribedBy()));
+            document.add(new Paragraph("Clinic: " + prescription.getClinicName()));
+            document.add(new Paragraph("Visit Type: " + (prescription.getVisitType() != null ? prescription.getVisitType() : "Consultation")));
+            document.add(new Paragraph("Date: " + prescription.getPrescribedDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+            document.add(new Paragraph("Status: " + prescription.getStatus()));
             
-            content.append("MEDICATIONS:\n");
-            for (ClinicPrescriptionItem item : prescription.getPrescriptionItems()) {
-                content.append("- ").append(item.getMedication().getDrugName())
-                       .append(" (").append(item.getDose()).append(") ")
-                       .append("x").append(item.getQuantity()).append(" ")
-                       .append(item.getFrequency()).append("\n");
-                if (item.getInstructions() != null) {
-                    content.append("  Instructions: ").append(item.getInstructions()).append("\n");
-                }
+            if (prescription.getPrescriptionNotes() != null) {
+                document.add(new Paragraph("Notes: " + prescription.getPrescriptionNotes()));
             }
             
-            // Convert to PDF bytes (simplified version)
-            return content.toString().getBytes();
+            document.add(new Paragraph("\n"));
+
+            // Medications Table
+            Paragraph medicationsTitle = new Paragraph("PRESCRIBED MEDICATIONS")
+                    .setFontSize(14)
+                    .setBold()
+                    .setMarginTop(20);
+            document.add(medicationsTitle);
+
+            // Create table with headers
+            Table table = new Table(new float[]{3, 2, 2, 1, 3});
+            table.setWidth(500);
+
+            // Table headers
+            table.addHeaderCell(new Cell().add(new Paragraph("Medication").setBold()).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+            table.addHeaderCell(new Cell().add(new Paragraph("Dose").setBold()).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+            table.addHeaderCell(new Cell().add(new Paragraph("Frequency").setBold()).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+            table.addHeaderCell(new Cell().add(new Paragraph("Qty").setBold()).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+            table.addHeaderCell(new Cell().add(new Paragraph("Instructions").setBold()).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+
+            // Add medication rows
+            for (ClinicPrescriptionItem item : prescription.getPrescriptionItems()) {
+                String drugName = item.getMedication() != null ? item.getMedication().getDrugName() : "Unknown Medication";
+                String genericName = item.getMedication() != null && item.getMedication().getGenericName() != null ? 
+                    " (" + item.getMedication().getGenericName() + ")" : "";
+                
+                table.addCell(new Cell().add(new Paragraph(drugName + genericName)));
+                table.addCell(new Cell().add(new Paragraph(item.getDose())));
+                table.addCell(new Cell().add(new Paragraph(item.getFrequency())));
+                table.addCell(new Cell().add(new Paragraph(item.getQuantity() + " " + (item.getQuantityUnit() != null ? item.getQuantityUnit() : ""))));
+                table.addCell(new Cell().add(new Paragraph(item.getInstructions() != null ? item.getInstructions() : "")));
+            }
+
+            document.add(table);
+
+            // Footer
+            document.add(new Paragraph("\n\nGenerated on: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    .setFontSize(10)
+                    .setTextAlignment(TextAlignment.RIGHT));
+
+            document.close();
+            return baos.toByteArray();
+            
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate clinic prescription PDF", e);
         }

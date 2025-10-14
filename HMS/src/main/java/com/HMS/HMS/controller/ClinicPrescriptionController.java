@@ -37,25 +37,32 @@ public class ClinicPrescriptionController {
             
             System.out.println("✅ Clinic prescription created successfully: " + prescription.getPrescriptionId());
             
+            // Reload the prescription with all related data to ensure prescription items and medications are loaded
+            ClinicPrescription reloadedPrescription = clinicPrescriptionService
+                .getClinicPrescriptionByPrescriptionId(prescription.getPrescriptionId())
+                .orElse(prescription);
+            
             // Create a custom response with essential fields to avoid serialization issues
             Map<String, Object> response = new HashMap<>();
-            response.put("id", prescription.getId());
-            response.put("prescriptionId", prescription.getPrescriptionId());
-            response.put("patientName", prescription.getPatientName());
-            response.put("patientNationalId", prescription.getPatientNationalId());
-            response.put("patientId", prescription.getPatientId());
-            response.put("prescribedBy", prescription.getPrescribedBy());
-            response.put("startDate", prescription.getStartDate());
-            response.put("endDate", prescription.getEndDate());
-            response.put("prescribedDate", prescription.getPrescribedDate());
-            response.put("lastModified", prescription.getLastModified());
-            response.put("status", prescription.getStatus());
-            response.put("clinicName", prescription.getClinicName());
-            response.put("visitType", prescription.getVisitType());
-            response.put("totalMedications", prescription.getTotalMedications());
-            response.put("prescriptionNotes", prescription.getPrescriptionNotes());
-            response.put("prescriptionItems", prescription.getPrescriptionItems());
-            response.put("createdAt", prescription.getCreatedAt());
+            response.put("id", reloadedPrescription.getId());
+            response.put("prescriptionId", reloadedPrescription.getPrescriptionId());
+            response.put("patientName", reloadedPrescription.getPatientName());
+            response.put("patientNationalId", reloadedPrescription.getPatientNationalId());
+            response.put("patientId", reloadedPrescription.getPatientId());
+            response.put("prescribedBy", reloadedPrescription.getPrescribedBy());
+            response.put("startDate", reloadedPrescription.getStartDate());
+            response.put("endDate", reloadedPrescription.getEndDate());
+            response.put("prescribedDate", reloadedPrescription.getPrescribedDate());
+            response.put("lastModified", reloadedPrescription.getLastModified());
+            response.put("status", reloadedPrescription.getStatus());
+            response.put("clinicName", reloadedPrescription.getClinicName());
+            response.put("visitType", reloadedPrescription.getVisitType());
+            response.put("totalMedications", reloadedPrescription.getTotalMedications());
+            response.put("prescriptionNotes", reloadedPrescription.getPrescriptionNotes());
+            response.put("prescriptionItems", reloadedPrescription.getPrescriptionItems());
+            response.put("createdAt", reloadedPrescription.getCreatedAt());
+            
+            System.out.println("📋 Prescription items count: " + reloadedPrescription.getPrescriptionItems().size());
             
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
@@ -73,7 +80,7 @@ public class ClinicPrescriptionController {
 
     // Get all clinic prescriptions with pagination
     @GetMapping
-    public ResponseEntity<Page<ClinicPrescription>> getAllClinicPrescriptions(
+    public ResponseEntity<?> getAllClinicPrescriptions(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "prescribedDate") String sortBy,
@@ -85,7 +92,79 @@ public class ClinicPrescriptionController {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<ClinicPrescription> prescriptions = clinicPrescriptionService.getAllClinicPrescriptions(pageable);
         
-        return ResponseEntity.ok(prescriptions);
+        // Debug logging
+        System.out.println("🔍 Returning " + prescriptions.getTotalElements() + " clinic prescriptions");
+        
+        // Transform prescriptions to include medication details explicitly
+        List<Map<String, Object>> transformedPrescriptions = prescriptions.getContent().stream()
+            .map(prescription -> {
+                System.out.println("📋 Processing prescription " + prescription.getPrescriptionId() + 
+                                 " with " + prescription.getPrescriptionItems().size() + " items");
+                
+                Map<String, Object> prescriptionMap = new HashMap<>();
+                prescriptionMap.put("id", prescription.getId());
+                prescriptionMap.put("prescriptionId", prescription.getPrescriptionId());
+                prescriptionMap.put("patientName", prescription.getPatientName());
+                prescriptionMap.put("patientNationalId", prescription.getPatientNationalId());
+                prescriptionMap.put("patientId", prescription.getPatientId());
+                prescriptionMap.put("prescribedBy", prescription.getPrescribedBy());
+                prescriptionMap.put("startDate", prescription.getStartDate());
+                prescriptionMap.put("endDate", prescription.getEndDate());
+                prescriptionMap.put("prescribedDate", prescription.getPrescribedDate());
+                prescriptionMap.put("lastModified", prescription.getLastModified());
+                prescriptionMap.put("status", prescription.getStatus());
+                prescriptionMap.put("clinicName", prescription.getClinicName());
+                prescriptionMap.put("visitType", prescription.getVisitType());
+                prescriptionMap.put("totalMedications", prescription.getTotalMedications());
+                prescriptionMap.put("prescriptionNotes", prescription.getPrescriptionNotes());
+                prescriptionMap.put("createdAt", prescription.getCreatedAt());
+                
+                // Transform prescription items with medication details
+                List<Map<String, Object>> itemsList = prescription.getPrescriptionItems().stream()
+                    .map(item -> {
+                        Map<String, Object> itemMap = new HashMap<>();
+                        itemMap.put("id", item.getId());
+                        itemMap.put("dose", item.getDose());
+                        itemMap.put("frequency", item.getFrequency());
+                        itemMap.put("quantity", item.getQuantity());
+                        itemMap.put("quantityUnit", item.getQuantityUnit());
+                        itemMap.put("instructions", item.getInstructions());
+                        itemMap.put("route", item.getRoute());
+                        itemMap.put("isUrgent", item.getIsUrgent());
+                        itemMap.put("notes", item.getNotes());
+                        itemMap.put("itemStatus", item.getItemStatus());
+                        
+                        // Add medication details explicitly
+                        if (item.getMedication() != null) {
+                            itemMap.put("drugName", item.getMedication().getDrugName());
+                            itemMap.put("genericName", item.getMedication().getGenericName());
+                            itemMap.put("dosageForm", item.getMedication().getDosageForm());
+                            itemMap.put("manufacturer", item.getMedication().getManufacturer());
+                            System.out.println("  💊 Added medication: " + item.getMedication().getDrugName());
+                        } else {
+                            System.out.println("  ⚠️ No medication found for item " + item.getId());
+                        }
+                        
+                        return itemMap;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+                
+                prescriptionMap.put("prescriptionItems", itemsList);
+                return prescriptionMap;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        // Create response with pagination info
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", transformedPrescriptions);
+        response.put("totalElements", prescriptions.getTotalElements());
+        response.put("totalPages", prescriptions.getTotalPages());
+        response.put("size", prescriptions.getSize());
+        response.put("number", prescriptions.getNumber());
+        response.put("first", prescriptions.isFirst());
+        response.put("last", prescriptions.isLast());
+        
+        return ResponseEntity.ok(response);
     }
 
     // Get clinic prescription by ID
@@ -307,6 +386,12 @@ public class ClinicPrescriptionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Failed to cancel clinic prescription", "message", e.getMessage()));
         }
+    }
+
+    // Download clinic prescription as PDF (alternative direct route)
+    @GetMapping("/{prescriptionId}/pdf")
+    public ResponseEntity<byte[]> downloadClinicPrescriptionPDFDirect(@PathVariable String prescriptionId) {
+        return downloadClinicPrescriptionPDF(prescriptionId);
     }
 
     // Download clinic prescription as PDF
