@@ -1192,7 +1192,26 @@ public class PrescriptionService {
             }
 
             // Convert to response DTO
-            return convertToResponseDTO(savedPrescription);
+            PrescriptionResponseDTO responseDTO = convertToResponseDTO(savedPrescription);
+
+            // Send WebSocket notification to pharmacy (SAME AS WARD MANAGEMENT)
+            try {
+                // Check if clinic prescription is urgent
+                boolean hasUrgentMeds = requestDTO.getIsUrgent() != null && requestDTO.getIsUrgent();
+
+                if (hasUrgentMeds) {
+                    notificationService.notifyUrgentPrescription(responseDTO);
+                } else {
+                    notificationService.notifyPrescriptionCreated(responseDTO);
+                }
+                
+                System.out.println("✅ WebSocket notification sent for clinic prescription: " + responseDTO.getPrescriptionId());
+            } catch (Exception e) {
+                // Log but don't fail prescription creation if WebSocket fails
+                System.err.println("Failed to send WebSocket notification for clinic prescription: " + e.getMessage());
+            }
+
+            return responseDTO;
 
         } catch (Exception e) {
             System.err.println("Error creating clinic prescription: " + e.getMessage());

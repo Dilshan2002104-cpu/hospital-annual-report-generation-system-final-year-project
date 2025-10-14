@@ -518,19 +518,30 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
     try {
       setIsSubmitting(true);
 
+      // Create prescription payload in the SAME FORMAT as Ward Management
       const prescriptionPayload = {
-        patientId: selectedPatient.nationalId || selectedPatient.id,
+        // Patient and prescription metadata (same as Ward)
+        patientNationalId: selectedPatient.nationalId || selectedPatient.id,
         patientName: selectedPatient.name,
+        prescribedBy: "Clinic Doctor", // Clinic doctor
         startDate: prescriptionData.startDate,
-        medications: selectedMedications.map(med => ({
-          id: med.id,
-          medicationId: med.id,
-          name: med.name || med.drugName,
-          drugName: med.name || med.drugName,
-          dosage: med.dosage,
-          frequency: med.frequency,
-          quantity: parseInt(med.quantity),
-          instructions: med.instructions
+        endDate: null, // Optional - can be set later
+        prescriptionNotes: `Clinic prescription for ${selectedMedications.length} medication(s) - Patient: ${selectedPatient.name}`,
+        consultationType: "outpatient",
+        isUrgent: selectedMedications.some(med => med.isUrgent) || false,
+
+        // Convert selected medications to prescriptionItems format (SAME as Ward)
+        medications: selectedMedications.map(medication => ({
+          medicationId: medication.id, // Use medication entity ID (required relationship field)
+          drugName: medication.name || medication.drugName,
+          dose: medication.dosage,
+          frequency: medication.frequency,
+          quantity: parseInt(medication.quantity) || 1,
+          quantityUnit: medication.quantityUnit || getQuantityUnit(medication.dosageForm || medication.form),
+          instructions: medication.instructions || '',
+          route: medication.route || 'Oral',
+          isUrgent: medication.isUrgent || false,
+          notes: medication.notes || 'Clinic prescription'
         }))
       };
 
