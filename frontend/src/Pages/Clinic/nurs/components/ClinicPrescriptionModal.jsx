@@ -311,6 +311,41 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
     });
   };
 
+  // Generate dosage options based on medication
+  const generateDosageOptions = (medication) => {
+    const strength = medication?.strength;
+    const dosageForm = medication?.dosageForm || medication?.form;
+    
+    if (!strength || typeof strength !== 'string') return ['Standard dose'];
+    
+    const baseStrength = parseFloat(strength.replace(/[^0-9.]/g, ''));
+    const unit = strength.replace(/[0-9.]/g, '');
+    
+    if (isNaN(baseStrength)) return [strength];
+    
+    // Generate common dosage multiples based on form
+    const multipliers = dosageForm?.toLowerCase().includes('tablet') || dosageForm?.toLowerCase().includes('capsule')
+      ? [0.5, 1, 2] // Half, full, double dose for tablets/capsules
+      : [1]; // Standard dose for liquids/injectables
+    
+    return multipliers.map(mult => `${baseStrength * mult}${unit}`);
+  };
+
+  // Get standard frequencies based on medication category
+  const getStandardFrequencies = (category) => {
+    const frequencyMap = {
+      'Analgesic': ['Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)', 'As needed (PRN)'],
+      'Antibiotic': ['Twice daily (BD)', 'Three times daily (TDS)', 'Four times daily (QDS)'],
+      'Antidiabetic': ['Once daily (OD)', 'Twice daily (BD)', 'Before meals', 'With meals'],
+      'Antihypertensive': ['Once daily (OD)', 'Twice daily (BD)'],
+      'Diuretic': ['Once daily (OD)', 'In the morning'],
+      'Proton Pump Inhibitor': ['Once daily (OD)', 'Twice daily (BD)', 'Before meals'],
+      default: ['Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)', 'Four times daily (QDS)']
+    };
+    
+    return frequencyMap[category] || frequencyMap.default;
+  };
+
   // Filter functions - search by fullName, firstName, lastName, and nationalId
   const filteredPatients = (apiPatients || []).filter(patient => {
     const searchTerm = patientSearchTerm.toLowerCase();
@@ -350,7 +385,10 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
       dosage: '',
       frequency: '',
       quantity: '',
-      instructions: medication.commonInstructions || ''
+      instructions: medication.commonInstructions || '',
+      dosageOptions: generateDosageOptions(medication),
+      frequencyOptions: getStandardFrequencies(),
+      quantityUnit: getQuantityUnit(medication.dosageForm || medication.form)
     };
     
     setSelectedMedications(prev => [...prev, medicationWithDefaults]);
@@ -530,9 +568,9 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white p-6 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white p-6 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="bg-white bg-opacity-20 rounded-lg p-2">
               <Pill size={24} />
@@ -551,7 +589,7 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-6 overflow-y-auto flex-1">
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Global validation error */}
             {validationErrors.submit && (
@@ -886,164 +924,216 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
 
             {/* Step 3: Selected Medications with Dosage Configuration */}
             {selectedMedications.length > 0 && (
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100">
+              <div className={`bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border ${validationErrors.duplicates || Object.keys(validationErrors).some(key => key.startsWith('medication_')) ? 'border-red-300 bg-red-50' : 'border-amber-100'}`}>
                 <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-                  <FileText size={20} className="mr-3 text-purple-600" />
+                  <FileText size={20} className="mr-3 text-amber-600" />
                   Step 3: Configure Selected Medications ({selectedMedications.length})
+                  {(validationErrors.duplicates || Object.keys(validationErrors).some(key => key.startsWith('medication_'))) && (
+                    <span className="ml-2 text-red-600">
+                      <AlertCircle size={16} />
+                    </span>
+                  )}
                 </h3>
+                {validationErrors.duplicates && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                    <div className="text-red-700 text-sm flex items-center">
+                      <AlertCircle size={14} className="mr-2" />
+                      {validationErrors.duplicates}
+                    </div>
+                  </div>
+                )}
 
-                <div className="space-y-6">
-                  {selectedMedications.map((medication, index) => (
-                    <div key={medication.id} className="bg-white rounded-xl p-6 border-2 border-gray-200">
-                      <div className="flex items-center justify-between mb-4">
+                <div className="space-y-4">
+                {selectedMedications.map((medication, index) => {
+                  const medicationErrors = validationErrors[`medication_${index}`] || {};
+                  const hasErrors = Object.keys(medicationErrors).length > 0;
+
+                  return (
+                    <div key={medication.id} className={`bg-white rounded-xl p-4 border ${hasErrors ? 'border-red-300 bg-red-50' : 'border-amber-200'}`}>
+                      <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-3">
-                          <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                            <Pill size={16} className="text-purple-600" />
-                          </div>
+                          <Pill size={20} className="text-amber-600" />
                           <div>
-                            <div className="font-semibold text-gray-900">
-                              {medication.name || medication.drugName}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {medication.strength} {medication.dosageForm}
-                            </div>
+                            <h4 className="font-medium text-gray-900">{medication.name || medication.drugName}</h4>
+                            <p className="text-sm text-gray-500">
+                              {medication.category} • {medication.strength} {medication.dosageForm}
+                            </p>
+                            {medication.genericName && (
+                              <p className="text-xs text-gray-400">Generic: {medication.genericName}</p>
+                            )}
+                            <p className="text-xs text-gray-400">
+                              Stock: {medication.currentStock} • {medication.manufacturer}
+                            </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeMedication(medication.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors duration-200"
+                          className="text-red-600 hover:text-red-800 transition-colors"
                         >
                           <Minus size={20} />
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Dosage */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Dosage *
                           </label>
-                          <input
-                            type="text"
-                            placeholder="e.g., 500mg, 2tabs"
+                          <select
                             value={medication.dosage || ''}
                             onChange={(e) => updateMedicationField(medication.id, 'dosage', e.target.value)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                              validationErrors[`medication_${index}`]?.dosage ? 'border-red-300' : 'border-gray-300'
-                            }`}
-                          />
-                          {validationErrors[`medication_${index}`]?.dosage && (
-                            <p className="text-red-600 text-xs mt-1">
-                              {validationErrors[`medication_${index}`].dosage}
-                            </p>
+                            className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 ${medicationErrors.dosage ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                          >
+                            <option value="">Select dosage</option>
+                            {medication.dosageOptions && medication.dosageOptions.map((dosage) => (
+                              <option key={dosage} value={dosage}>{dosage}</option>
+                            ))}
+                          </select>
+                          {medicationErrors.dosage && (
+                            <div className="mt-1 text-red-600 text-xs flex items-center">
+                              <AlertCircle size={12} className="mr-1" />
+                              {medicationErrors.dosage}
+                            </div>
                           )}
                         </div>
 
-                        {/* Frequency */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Frequency *
                           </label>
                           <select
                             value={medication.frequency || ''}
                             onChange={(e) => updateMedicationField(medication.id, 'frequency', e.target.value)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                              validationErrors[`medication_${index}`]?.frequency ? 'border-red-300' : 'border-gray-300'
-                            }`}
+                            className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 ${medicationErrors.frequency ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
                           >
                             <option value="">Select frequency</option>
-                            <option value="once daily">Once daily</option>
-                            <option value="twice daily">Twice daily</option>
-                            <option value="three times daily">Three times daily</option>
-                            <option value="four times daily">Four times daily</option>
-                            <option value="every 4 hours">Every 4 hours</option>
-                            <option value="every 6 hours">Every 6 hours</option>
-                            <option value="every 8 hours">Every 8 hours</option>
-                            <option value="every 12 hours">Every 12 hours</option>
-                            <option value="as needed">As needed</option>
-                            <option value="before meals">Before meals</option>
-                            <option value="after meals">After meals</option>
-                            <option value="with meals">With meals</option>
-                            <option value="at bedtime">At bedtime</option>
+                            {medication.frequencyOptions && medication.frequencyOptions.map((frequency) => (
+                              <option key={frequency} value={frequency}>{frequency}</option>
+                            ))}
                           </select>
-                          {validationErrors[`medication_${index}`]?.frequency && (
-                            <p className="text-red-600 text-xs mt-1">
-                              {validationErrors[`medication_${index}`].frequency}
-                            </p>
+                          {medicationErrors.frequency && (
+                            <div className="mt-1 text-red-600 text-xs flex items-center">
+                              <AlertCircle size={12} className="mr-1" />
+                              {medicationErrors.frequency}
+                            </div>
                           )}
                         </div>
 
-                        {/* Quantity */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Quantity *
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Quantity to Issue *
                           </label>
-                          <input
-                            type="number"
-                            placeholder="30"
-                            min="1"
-                            max="1000"
-                            value={medication.quantity || ''}
-                            onChange={(e) => updateMedicationField(medication.id, 'quantity', e.target.value)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                              validationErrors[`medication_${index}`]?.quantity ? 'border-red-300' : 'border-gray-300'
-                            }`}
-                          />
-                          {validationErrors[`medication_${index}`]?.quantity && (
-                            <p className="text-red-600 text-xs mt-1">
-                              {validationErrors[`medication_${index}`].quantity}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Start Date */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Start Date *
-                          </label>
-                          <input
-                            type="date"
-                            value={prescriptionData.startDate}
-                            onChange={(e) => setPrescriptionData(prev => ({ ...prev, startDate: e.target.value }))}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                              validationErrors.startDate ? 'border-red-300' : 'border-gray-300'
-                            }`}
-                          />
-                          {validationErrors.startDate && (
-                            <p className="text-red-600 text-xs mt-1">
-                              {validationErrors.startDate}
-                            </p>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={medication.quantity || ''}
+                              onChange={(e) => updateMedicationField(medication.id, 'quantity', e.target.value)}
+                              className={`flex-1 px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 ${medicationErrors.quantity ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                              placeholder="Enter quantity"
+                            />
+                            <span className="text-sm text-gray-500 min-w-[60px]">
+                              {medication.quantityUnit}
+                            </span>
+                          </div>
+                          {medicationErrors.quantity && (
+                            <div className="mt-1 text-red-600 text-xs flex items-center">
+                              <AlertCircle size={12} className="mr-1" />
+                              {medicationErrors.quantity}
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Instructions */}
                       <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Special Instructions
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Instructions
                         </label>
                         <textarea
-                          placeholder="Additional instructions (optional)"
+                          rows="2"
                           value={medication.instructions || ''}
                           onChange={(e) => updateMedicationField(medication.id, 'instructions', e.target.value)}
-                          rows="2"
+                          className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 transition-all duration-200 resize-none ${medicationErrors.instructions ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-amber-500 focus:border-amber-500'}`}
+                          placeholder="Type instructions or click suggestions below..."
                           maxLength="500"
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none ${
-                            validationErrors[`medication_${index}`]?.instructions ? 'border-red-300' : 'border-gray-300'
-                          }`}
                         />
-                        {validationErrors[`medication_${index}`]?.instructions && (
-                          <p className="text-red-600 text-xs mt-1">
-                            {validationErrors[`medication_${index}`].instructions}
-                          </p>
+                        
+                        {/* Quick Suggestion Buttons */}
+                        <div className="mt-2 mb-2">
+                          <p className="text-xs text-gray-500 mb-2">💡 Quick suggestions (click to fill):</p>
+                          <div className="flex flex-wrap gap-1">
+                            {[
+                              'Take as directed',
+                              'Take with food',
+                              'Take on empty stomach',
+                              'Take before meals',
+                              'Take after meals',
+                              'Take at bedtime',
+                              'Take in morning',
+                              'Complete full course',
+                              'Take as needed for pain',
+                              'Do not crush or chew',
+                              'Shake well before use',
+                              'Take twice daily'
+                            ].map((suggestion) => (
+                              <button
+                                key={suggestion}
+                                type="button"
+                                onClick={() => updateMedicationField(medication.id, 'instructions', suggestion)}
+                                className="px-2 py-1 text-xs bg-amber-100 text-amber-800 rounded-md hover:bg-amber-200 transition-colors duration-200 border border-amber-200 hover:border-amber-300"
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {medicationErrors.instructions && (
+                          <div className="mt-1 text-red-600 text-xs flex items-center">
+                            <AlertCircle size={12} className="mr-1" />
+                            {medicationErrors.instructions}
+                          </div>
                         )}
                         <div className="text-xs text-gray-400 mt-1">
-                          {(medication.instructions || '').length}/500 characters
+                          {medication.instructions ? medication.instructions.length : 0}/500 characters
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
+                </div>
+              </div>
+            )}
+
+            {/* Start Date Section */}
+            {selectedMedications.length > 0 && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <FileText size={20} className="mr-3 text-blue-600" />
+                  Prescription Start Date
+                </h3>
+                <div className="max-w-md">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={prescriptionData.startDate}
+                    onChange={(e) => setPrescriptionData(prev => ({ ...prev, startDate: e.target.value }))}
+                    className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
+                      validationErrors.startDate ? 'border-red-300' : 'border-gray-200'
+                    }`}
+                  />
+                  {validationErrors.startDate && (
+                    <div className="mt-1 text-red-600 text-xs flex items-center">
+                      <AlertCircle size={12} className="mr-1" />
+                      {validationErrors.startDate}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    📅 Select when the prescription should begin
+                  </p>
                 </div>
               </div>
             )}
@@ -1051,7 +1141,7 @@ const ClinicPrescriptionModal = ({ isOpen, onClose, onPrescriptionAdded }) => {
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 p-6 border-t border-gray-200 flex items-center justify-between">
+        <div className="bg-gray-50 p-6 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center space-x-2 text-sm">
             {Object.keys(validationErrors).length > 0 ? (
               <>
