@@ -50,6 +50,9 @@ public class DialysisReportService {
             // Generate machine performance data
             List<MachinePerformanceDataDTO> machinePerformance = generateMachinePerformanceData(year);
 
+            // Generate machine-wise patient trends
+            List<MachineWisePatientTrendDTO> machineWisePatientTrends = generateMachineWisePatientTrends(year);
+
             // Generate patient outcomes
             List<PatientOutcomeDataDTO> patientOutcomes = generatePatientOutcomes(year);
 
@@ -107,6 +110,7 @@ public class DialysisReportService {
                     .monthlyPatients(monthlyPatients)
                     .monthlyMachineUtilization(monthlyMachineUtilization)
                     .machinePerformance(machinePerformance)
+                    .machineWisePatientTrends(machineWisePatientTrends)
                     .patientOutcomes(patientOutcomes)
                     .qualityMetrics(qualityMetrics)
                     .introductionText(generateIntroductionText(year, totalSessions, uniquePatients))
@@ -310,6 +314,100 @@ public class DialysisReportService {
         } catch (Exception e) {
             System.err.println("Error generating machine performance data: " + e.getMessage());
             // Fallback to empty list
+            return List.of();
+        }
+    }
+
+    private List<MachineWisePatientTrendDTO> generateMachineWisePatientTrends(int year) {
+        try {
+            // Get all machine-wise monthly patient counts
+            List<Object[]> allMachineData = sessionRepository.getMachineWiseMonthlyPatientCounts(year);
+            
+            // Group data by machine ID
+            java.util.Map<String, List<Object[]>> machineDataMap = allMachineData.stream()
+                    .collect(Collectors.groupingBy(row -> (String) row[0]));
+            
+            return machineDataMap.entrySet().stream()
+                    .map(entry -> {
+                        String machineId = entry.getKey();
+                        List<Object[]> machineMonthlyData = entry.getValue();
+                        
+                        // Get machine name from machine repository
+                        String machineName = machineRepository.findById(machineId)
+                                .map(machine -> machine.getMachineName())
+                                .orElse("Machine " + machineId);
+                        
+                        String location = machineRepository.findById(machineId)
+                                .map(machine -> machine.getLocation())
+                                .orElse("Main Ward");
+                        
+                        // Create monthly patient data list
+                        List<MachineWisePatientTrendDTO.MonthlyPatientDataDTO> monthlyPatientData = IntStream.rangeClosed(1, 12)
+                                .mapToObj(month -> {
+                                    // Find data for this month
+                                    int patientCount = machineMonthlyData.stream()
+                                            .filter(row -> ((Integer) row[1]).equals(month))
+                                            .mapToInt(row -> ((Long) row[2]).intValue())
+                                            .findFirst()
+                                            .orElse(0);
+                                    
+                                    return new MachineWisePatientTrendDTO.MonthlyPatientDataDTO(
+                                            month,
+                                            Month.of(month).name(),
+                                            patientCount,
+                                            0 // We can set totalSessions to 0 for now, or get from another query
+                                    );
+                                })
+                                .collect(Collectors.toList());
+                        
+                        // Calculate total unique patients and average
+                        int totalUniquePatients = monthlyPatientData.stream()
+                                .mapToInt(MachineWisePatientTrendDTO.MonthlyPatientDataDTO::getUniquePatients)
+                                .sum();
+                        
+                        double averagePatientsPerMonth = totalUniquePatients / 12.0;
+                        
+                        // Calculate trend direction (simple comparison of first half vs second half)
+                        int firstHalfTotal = monthlyPatientData.stream()
+                                .limit(6)
+                                .mapToInt(MachineWisePatientTrendDTO.MonthlyPatientDataDTO::getUniquePatients)
+                                .sum();
+                        
+                        int secondHalfTotal = monthlyPatientData.stream()
+                                .skip(6)
+                                .mapToInt(MachineWisePatientTrendDTO.MonthlyPatientDataDTO::getUniquePatients)
+                                .sum();
+                        
+                        String trendDirection;
+                        double growthRate;
+                        if (firstHalfTotal == 0) {
+                            trendDirection = secondHalfTotal > 0 ? "INCREASING" : "STABLE";
+                            growthRate = secondHalfTotal > 0 ? 100.0 : 0.0;
+                        } else {
+                            growthRate = ((secondHalfTotal - firstHalfTotal) * 100.0) / firstHalfTotal;
+                            if (growthRate > 5) {
+                                trendDirection = "INCREASING";
+                            } else if (growthRate < -5) {
+                                trendDirection = "DECREASING";
+                            } else {
+                                trendDirection = "STABLE";
+                            }
+                        }
+                        
+                        MachineWisePatientTrendDTO dto = new MachineWisePatientTrendDTO(machineId, machineName, location);
+                        dto.setMonthlyPatientData(monthlyPatientData);
+                        dto.setTotalUniquePatients(totalUniquePatients);
+                        dto.setAveragePatientsPerMonth(averagePatientsPerMonth);
+                        dto.setTrendDirection(trendDirection);
+                        dto.setGrowthRate(growthRate);
+                        
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error generating machine-wise patient trends: " + e.getMessage());
+            e.printStackTrace();
+            // Return empty list as fallback
             return List.of();
         }
     }

@@ -115,4 +115,14 @@ public interface DialysisSessionRepository extends JpaRepository<DialysisSession
     
     @Query("SELECT MONTH(s.scheduledDate), COUNT(DISTINCT s.patientNationalId) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year GROUP BY MONTH(s.scheduledDate) ORDER BY MONTH(s.scheduledDate)")
     List<Object[]> getMonthlyPatientCounts(@Param("year") int year);
+    
+    // Machine-wise patient trends queries
+    @Query("SELECT s.machineId, MONTH(s.scheduledDate), COUNT(DISTINCT s.patientNationalId) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year AND s.machineId IS NOT NULL GROUP BY s.machineId, MONTH(s.scheduledDate) ORDER BY s.machineId, MONTH(s.scheduledDate)")
+    List<Object[]> getMachineWiseMonthlyPatientCounts(@Param("year") int year);
+    
+    @Query("SELECT s.machineId, MONTH(s.scheduledDate), COUNT(s) FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year AND s.machineId IS NOT NULL GROUP BY s.machineId, MONTH(s.scheduledDate) ORDER BY s.machineId, MONTH(s.scheduledDate)")
+    List<Object[]> getMachineWiseMonthlySessionCounts(@Param("year") int year);
+    
+    @Query("SELECT DISTINCT s.machineId FROM DialysisSession s WHERE YEAR(s.scheduledDate) = :year AND s.machineId IS NOT NULL ORDER BY s.machineId")
+    List<String> getActiveMachinesByYear(@Param("year") int year);
 }

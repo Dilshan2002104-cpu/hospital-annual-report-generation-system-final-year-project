@@ -3,6 +3,7 @@ package com.HMS.HMS.service.reports;
 import com.HMS.HMS.DTO.reports.ClinicStatisticsReportDTO;
 import com.HMS.HMS.DTO.reports.DialysisAnnualReportDTO;
 import com.HMS.HMS.DTO.reports.MachinePerformanceDataDTO;
+import com.HMS.HMS.DTO.reports.MachineWisePatientTrendDTO;
 import com.HMS.HMS.DTO.reports.MonthlyDialysisDataDTO;
 import com.HMS.HMS.DTO.reports.MonthlyVisitDataDTO;
 import com.HMS.HMS.DTO.reports.SpecializationDataDTO;
@@ -1786,6 +1787,162 @@ public class PDFReportGeneratorService {
                 }
 
                 document.add(machineTable);
+            }
+
+            // Machine-wise patient trends section
+            if (reportData.getMachineWisePatientTrends() != null && !reportData.getMachineWisePatientTrends().isEmpty()) {
+                Paragraph machineTrendsHeader = new Paragraph("Machine-Wise Patient Trends Analysis")
+                        .setFont(headerFont)
+                        .setFontSize(14)
+                        .setBold()
+                        .setFontColor(primaryBlue)
+                        .setMarginBottom(15)
+                        .setMarginTop(20);
+                document.add(machineTrendsHeader);
+
+                // Overview chart with all machines
+                try {
+                    byte[] overviewChart = chartGenerationService.generateMachineWisePatientTrendChart(
+                        reportData.getMachineWisePatientTrends(), 
+                        "Machine-Wise Patient Trends Overview - " + reportData.getYear()
+                    );
+                    
+                    com.itextpdf.layout.element.Image overviewImage = new com.itextpdf.layout.element.Image(ImageDataFactory.create(overviewChart))
+                            .setWidth(UnitValue.createPercentValue(90))
+                            .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER)
+                            .setMarginBottom(20);
+                    document.add(overviewImage);
+                } catch (Exception e) {
+                    System.err.println("Error generating overview chart: " + e.getMessage());
+                }
+
+                // Individual charts for each machine
+                Paragraph individualChartsHeader = new Paragraph("Individual Machine Trend Analysis")
+                        .setFont(headerFont)
+                        .setFontSize(12)
+                        .setBold()
+                        .setFontColor(primaryBlue)
+                        .setMarginBottom(10)
+                        .setMarginTop(15);
+                document.add(individualChartsHeader);
+
+                // Create a grid layout for individual machine charts
+                int chartsPerRow = 2; // 2 charts per row
+                int chartCount = 0;
+                Table chartGrid = null;
+
+                for (MachineWisePatientTrendDTO machine : reportData.getMachineWisePatientTrends()) {
+                    // Create new row every 2 charts
+                    if (chartCount % chartsPerRow == 0) {
+                        if (chartGrid != null) {
+                            document.add(chartGrid);
+                        }
+                        chartGrid = new Table(UnitValue.createPercentArray(new float[]{1f, 1f}))
+                                .setWidth(UnitValue.createPercentValue(100))
+                                .setMarginBottom(15);
+                    }
+
+                    try {
+                        // Generate individual chart for this machine
+                        byte[] machineChart = chartGenerationService.generateSingleMachinePatientTrendChart(
+                            machine, 
+                            machine.getMachineName() + " - Patient Trends"
+                        );
+                        
+                        com.itextpdf.layout.element.Image machineImage = new com.itextpdf.layout.element.Image(ImageDataFactory.create(machineChart))
+                                .setWidth(UnitValue.createPercentValue(95))
+                                .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+
+                        // Create a cell with the chart and machine info
+                        Cell chartCell = new Cell();
+                        chartCell.add(machineImage);
+                        
+                        // Add machine statistics below the chart
+                        Paragraph machineStats = new Paragraph()
+                                .setFontSize(8)
+                                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                                .setMarginTop(5);
+                        
+                        machineStats.add(new Text("Location: " + (machine.getLocation() != null ? machine.getLocation() : "N/A")).setFont(bodyFont));
+                        machineStats.add(new Text("\nTotal Patients: " + machine.getTotalUniquePatients()).setFont(bodyFont));
+                        machineStats.add(new Text("\nAverage/Month: " + String.format("%.1f", machine.getAveragePatientsPerMonth())).setFont(bodyFont));
+                        
+                        // Color-coded trend
+                        DeviceRgb trendColor = "INCREASING".equals(machine.getTrendDirection()) ? 
+                            new DeviceRgb(16, 185, 129) : 
+                            "DECREASING".equals(machine.getTrendDirection()) ? new DeviceRgb(239, 68, 68) : new DeviceRgb(245, 158, 11);
+                        machineStats.add(new Text("\nTrend: " + machine.getTrendDirection()).setFont(bodyFont).setFontColor(trendColor));
+                        
+                        chartCell.add(machineStats);
+                        chartGrid.addCell(chartCell);
+                        
+                        chartCount++;
+                        
+                    } catch (Exception e) {
+                        System.err.println("Error generating chart for machine " + machine.getMachineName() + ": " + e.getMessage());
+                        
+                        // Add empty cell if chart generation fails
+                        Cell emptyCell = new Cell();
+                        emptyCell.add(new Paragraph("Chart unavailable for " + machine.getMachineName())
+                                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                                .setFontColor(new DeviceRgb(239, 68, 68)));
+                        chartGrid.addCell(emptyCell);
+                        chartCount++;
+                    }
+                }
+
+                // Add the last row if it exists
+                if (chartGrid != null) {
+                    // Fill remaining cells if odd number of machines
+                    if (chartCount % chartsPerRow != 0) {
+                        chartGrid.addCell(new Cell()); // Empty cell
+                    }
+                    document.add(chartGrid);
+                }
+
+                // Summary table for machine trends
+                Paragraph summaryHeader = new Paragraph("Machine Performance Summary")
+                        .setFont(headerFont)
+                        .setFontSize(12)
+                        .setBold()
+                        .setFontColor(primaryBlue)
+                        .setMarginBottom(10)
+                        .setMarginTop(20);
+                document.add(summaryHeader);
+
+                float[] trendTableWidths = {2f, 1.5f, 1.5f, 1.5f, 1.5f};
+                Table trendTable = new Table(UnitValue.createPercentArray(trendTableWidths))
+                        .setWidth(UnitValue.createPercentValue(100))
+                        .setMarginBottom(20);
+
+                // Table headers
+                trendTable.addHeaderCell(createStyledCell("Machine", headerFont, 9, primaryBlue, true));
+                trendTable.addHeaderCell(createStyledCell("Total Patients", headerFont, 9, primaryBlue, true));
+                trendTable.addHeaderCell(createStyledCell("Monthly Average", headerFont, 9, primaryBlue, true));
+                trendTable.addHeaderCell(createStyledCell("Trend Direction", headerFont, 9, primaryBlue, true));
+                trendTable.addHeaderCell(createStyledCell("Growth Rate", headerFont, 9, primaryBlue, true));
+
+                // Table data
+                for (MachineWisePatientTrendDTO machine : reportData.getMachineWisePatientTrends()) {
+                    DeviceRgb blackColor = new DeviceRgb(0, 0, 0);
+                    trendTable.addCell(createStyledCell(machine.getMachineName(), bodyFont, 9, blackColor, false));
+                    trendTable.addCell(createStyledCell(String.valueOf(machine.getTotalUniquePatients()), bodyFont, 9, blackColor, false));
+                    trendTable.addCell(createStyledCell(String.format("%.1f", machine.getAveragePatientsPerMonth()), bodyFont, 9, blackColor, false));
+                    
+                    // Color-coded trend direction
+                    DeviceRgb trendColor = "INCREASING".equals(machine.getTrendDirection()) ? 
+                        new DeviceRgb(16, 185, 129) : 
+                        "DECREASING".equals(machine.getTrendDirection()) ? new DeviceRgb(239, 68, 68) : new DeviceRgb(245, 158, 11);
+                    trendTable.addCell(createStyledCell(machine.getTrendDirection(), bodyFont, 9, trendColor, false));
+                    
+                    // Color-coded growth rate
+                    DeviceRgb growthColor = machine.getGrowthRate() > 0 ? 
+                        new DeviceRgb(16, 185, 129) : 
+                        machine.getGrowthRate() < 0 ? new DeviceRgb(239, 68, 68) : new DeviceRgb(107, 114, 128);
+                    trendTable.addCell(createStyledCell(String.format("%.1f%%", machine.getGrowthRate()), bodyFont, 9, growthColor, false));
+                }
+
+                document.add(trendTable);
             }
 
             // New page for conclusions and recommendations

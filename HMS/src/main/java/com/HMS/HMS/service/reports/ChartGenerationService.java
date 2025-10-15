@@ -1003,4 +1003,154 @@ public class ChartGenerationService {
 
         return chartToByteArray(chart);
     }
+
+    /**
+     * Generate individual chart for a single machine's patient trend
+     */
+    public byte[] generateSingleMachinePatientTrendChart(MachineWisePatientTrendDTO machineData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        
+        // Month names for x-axis
+        String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+        
+        // Add data for this machine
+        List<MachineWisePatientTrendDTO.MonthlyPatientDataDTO> monthlyData = machineData.getMonthlyPatientData();
+        String seriesName = machineData.getMachineName();
+        
+        for (int i = 0; i < monthlyData.size() && i < 12; i++) {
+            MachineWisePatientTrendDTO.MonthlyPatientDataDTO monthData = monthlyData.get(i);
+            dataset.addValue(monthData.getUniquePatients(), seriesName, months[i]);
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            "Number of Patients",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        // Professional styling
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.getTitle().setFont(new Font("Arial", Font.BOLD, 14));
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+        plot.setDomainGridlinesVisible(true);
+        plot.setRangeGridlinesVisible(true);
+        plot.setDomainGridlinePaint(Color.LIGHT_GRAY);
+        plot.setRangeGridlinePaint(Color.LIGHT_GRAY);
+
+        // Style axes
+        CategoryAxis domainAxis = plot.getDomainAxis();
+        domainAxis.setLabelFont(new Font("Arial", Font.BOLD, 11));
+        domainAxis.setTickLabelFont(new Font("Arial", Font.PLAIN, 9));
+
+        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+        rangeAxis.setLabelFont(new Font("Arial", Font.BOLD, 11));
+        rangeAxis.setTickLabelFont(new Font("Arial", Font.PLAIN, 9));
+        rangeAxis.setAutoRangeIncludesZero(true);
+
+        // Style the line renderer
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        renderer.setDefaultShapesVisible(true);
+        renderer.setDefaultStroke(new BasicStroke(3.0f));
+        
+        // Color based on trend direction
+        Color lineColor;
+        if ("INCREASING".equals(machineData.getTrendDirection())) {
+            lineColor = new Color(34, 197, 94);  // Green for increasing
+        } else if ("DECREASING".equals(machineData.getTrendDirection())) {
+            lineColor = new Color(239, 68, 68);  // Red for decreasing
+        } else {
+            lineColor = new Color(59, 130, 246); // Blue for stable
+        }
+        
+        renderer.setSeriesPaint(0, lineColor);
+
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate machine-wise patient trend line chart (combined - for overview)
+     */
+    public byte[] generateMachineWisePatientTrendChart(List<MachineWisePatientTrendDTO> machineData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        
+        // Month names for x-axis
+        String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+        
+        // Add data for each machine
+        for (MachineWisePatientTrendDTO machine : machineData) {
+            List<MachineWisePatientTrendDTO.MonthlyPatientDataDTO> monthlyData = machine.getMonthlyPatientData();
+            String seriesName = machine.getMachineName();
+            
+            for (int i = 0; i < monthlyData.size() && i < 12; i++) {
+                MachineWisePatientTrendDTO.MonthlyPatientDataDTO monthData = monthlyData.get(i);
+                dataset.addValue(monthData.getUniquePatients(), seriesName, months[i]);
+            }
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            "Number of Patients",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        // Professional styling
+        chart.setBackgroundPaint(CHART_BACKGROUND_COLOR);
+        chart.getTitle().setFont(new Font("Arial", Font.BOLD, 16));
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PLOT_BACKGROUND_COLOR);
+        plot.setDomainGridlinesVisible(true);
+        plot.setRangeGridlinesVisible(true);
+        plot.setDomainGridlinePaint(Color.LIGHT_GRAY);
+        plot.setRangeGridlinePaint(Color.LIGHT_GRAY);
+
+        // Style axes
+        CategoryAxis domainAxis = plot.getDomainAxis();
+        domainAxis.setLabelFont(new Font("Arial", Font.BOLD, 12));
+        domainAxis.setTickLabelFont(new Font("Arial", Font.PLAIN, 10));
+
+        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+        rangeAxis.setLabelFont(new Font("Arial", Font.BOLD, 12));
+        rangeAxis.setTickLabelFont(new Font("Arial", Font.PLAIN, 10));
+        rangeAxis.setAutoRangeIncludesZero(true);
+
+        // Style the line renderer
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        renderer.setDefaultShapesVisible(true);
+        renderer.setDefaultStroke(new BasicStroke(2.0f));
+        
+        // Set different colors for each machine line
+        Color[] colors = {
+            new Color(59, 130, 246),    // Blue
+            new Color(34, 197, 94),     // Green
+            new Color(239, 68, 68),     // Red
+            new Color(245, 158, 11),    // Orange
+            new Color(168, 85, 247),    // Purple
+            new Color(236, 72, 153),    // Pink
+            new Color(14, 165, 233),    // Sky Blue
+            new Color(34, 197, 94),     // Emerald
+            new Color(251, 146, 60),    // Orange
+            new Color(139, 69, 19)      // Brown
+        };
+        
+        for (int i = 0; i < Math.min(machineData.size(), colors.length); i++) {
+            renderer.setSeriesPaint(i, colors[i]);
+        }
+
+        return chartToByteArray(chart);
+    }
 }

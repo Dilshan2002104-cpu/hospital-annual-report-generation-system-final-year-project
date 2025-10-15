@@ -60,6 +60,7 @@ export default function ReportsModule({ sessions }) {
   const [reportMode, setReportMode] = useState('annual-report'); // 'annual-report', 'comprehensive', 'machine-specific', 'patient-analytics'
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMachine, setSelectedMachine] = useState('all');
+  const [machineSubTab, setMachineSubTab] = useState('performance'); // 'performance', 'patient-trends'
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -575,7 +576,13 @@ export default function ReportsModule({ sessions }) {
               return (
                 <button
                   key={type.id}
-                  onClick={() => setReportMode(type.id)}
+                  onClick={() => {
+                    setReportMode(type.id);
+                    // Reset to performance tab when switching to machine-specific
+                    if (type.id === 'machine-specific') {
+                      setMachineSubTab('performance');
+                    }
+                  }}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${
                     reportMode === type.id
                       ? `border-${type.color}-500 bg-${type.color}-50`
@@ -703,9 +710,36 @@ export default function ReportsModule({ sessions }) {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <Monitor className="w-5 h-5 mr-2 text-blue-600" />
-                  Machine Performance Details
+                  Machine Performance Analysis
                 </h3>
               </div>
+
+              {/* Sub-tabs for Machine-Specific Reports */}
+              <div className="mb-6">
+                <div className="border-b border-gray-200">
+                  <nav className="-mb-px flex space-x-8">
+                    <button
+                      onClick={() => setMachineSubTab('performance')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        machineSubTab === 'performance'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <Settings className="w-4 h-4 inline mr-1" />
+                      Machine Performance
+                    </button>
+                  </nav>
+                </div>
+              </div>
+
+              {/* Machine Performance Sub-tab Content */}
+              {machineSubTab === 'performance' && (
+                <div>
+                  <div className="mb-4">
+                    <h4 className="text-md font-semibold text-gray-800 mb-2">Machine Performance Details</h4>
+                    <p className="text-sm text-gray-600">Detailed performance metrics for each dialysis machine</p>
+                  </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -762,6 +796,8 @@ export default function ReportsModule({ sessions }) {
                   </tbody>
                 </table>
               </div>
+                </div>
+              )}
             </div>
           )}
 

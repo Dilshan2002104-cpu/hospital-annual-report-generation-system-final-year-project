@@ -189,4 +189,18 @@ public class DialysisReportController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * Get machine-wise patient trends data
+     */
+    @GetMapping("/machine-trends/{year}")
+    public ResponseEntity<?> getMachineWisePatientTrends(@PathVariable int year) {
+        try {
+            DialysisAnnualReportDTO report = dialysisReportService.generateAnnualReport(year);
+            return ResponseEntity.ok(report.getMachineWisePatientTrends());
+        } catch (Exception e) {
+            System.err.println("Error getting machine-wise patient trends: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

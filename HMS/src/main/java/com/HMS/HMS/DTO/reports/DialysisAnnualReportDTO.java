@@ -27,6 +27,9 @@ public class DialysisAnnualReportDTO {
     // Machine performance
     private List<MachinePerformanceDataDTO> machinePerformance;
     
+    // Machine-wise patient trends
+    private List<MachineWisePatientTrendDTO> machineWisePatientTrends;
+    
     // Patient outcomes
     private List<PatientOutcomeDataDTO> patientOutcomes;
     
@@ -124,6 +127,11 @@ public class DialysisAnnualReportDTO {
 
         public DialysisAnnualReportBuilder machinePerformance(List<MachinePerformanceDataDTO> machinePerformance) {
             report.machinePerformance = machinePerformance;
+            return this;
+        }
+
+        public DialysisAnnualReportBuilder machineWisePatientTrends(List<MachineWisePatientTrendDTO> machineWisePatientTrends) {
+            report.machineWisePatientTrends = machineWisePatientTrends;
             return this;
         }
 
@@ -252,4 +260,7 @@ public class DialysisAnnualReportDTO {
 
     public double getYearOverYearChange() { return yearOverYearChange; }
     public void setYearOverYearChange(double yearOverYearChange) { this.yearOverYearChange = yearOverYearChange; }
+
+    public List<MachineWisePatientTrendDTO> getMachineWisePatientTrends() { return machineWisePatientTrends; }
+    public void setMachineWisePatientTrends(List<MachineWisePatientTrendDTO> machineWisePatientTrends) { this.machineWisePatientTrends = machineWisePatientTrends; }
 }
