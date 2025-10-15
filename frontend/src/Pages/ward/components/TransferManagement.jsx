@@ -14,9 +14,12 @@ import {
   Activity,
   Users,
   List,
-  Eye
+  Eye,
+  Download,
+  FileText
 } from 'lucide-react';
 import useTransfers from '../hooks/useTransfers';
+import useTransferReports from '../hooks/useTransferReports';
 
 const TransferManagement = ({ showToast }) => {
   const [activeTab, setActiveTab] = useState('all');
@@ -34,6 +37,11 @@ const TransferManagement = ({ showToast }) => {
     fetchAllTransfers, 
     lastError 
   } = useTransfers(showToast);
+
+  const { 
+    isGenerating, 
+    generateTransferReport 
+  } = useTransferReports(showToast);
 
   // Load all transfers on component mount
   useEffect(() => {
@@ -469,12 +477,31 @@ const TransferManagement = ({ showToast }) => {
                         </div>
                         
                         <div className="border-t border-gray-200 pt-3">
-                          <div className="flex items-start">
-                            <span className="text-sm font-medium text-gray-600 mr-2">Reason:</span>
-                            <span className="text-sm text-gray-800 flex-1">{transfer.transferReason}</span>
-                          </div>
-                          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                            <span>Admission ID: {transfer.oldAdmissionId} → {transfer.newAdmissionId}</span>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-start">
+                                <span className="text-sm font-medium text-gray-600 mr-2">Reason:</span>
+                                <span className="text-sm text-gray-800 flex-1">{transfer.transferReason}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                                <span>Admission ID: {transfer.oldAdmissionId} → {transfer.newAdmissionId}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Report Button for Individual Transfer */}
+                            <button
+                              onClick={() => generateTransferReport(transfer.patientNationalId, transfer.patientName, false)}
+                              disabled={isGenerating}
+                              className="ml-4 flex items-center space-x-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors duration-200 disabled:opacity-50"
+                              title="Download Professional PDF Report"
+                            >
+                              {isGenerating ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-700"></div>
+                              ) : (
+                                <FileText className="h-3 w-3" />
+                              )}
+                              <span>PDF</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -499,10 +526,42 @@ const TransferManagement = ({ showToast }) => {
                       {transferHistory.length > 0 && ` - ${transferHistory[0].patientName}`}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-4 text-sm">
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
+                  <div className="flex items-center space-x-3">
+                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium text-sm">
                       {transferHistory.length} Transfer{transferHistory.length !== 1 ? 's' : ''}
                     </span>
+                    
+                    {/* Report Generation Buttons */}
+                    {transferHistory.length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium">
+                          <FileText className="h-3 w-3" />
+                          <span>Professional PDF Reports</span>
+                        </div>
+                        <button
+                          onClick={() => generateTransferReport(selectedPatientId, transferHistory[0].patientName, true)}
+                          disabled={isGenerating}
+                          className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                          title="Preview Professional PDF Report"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span>Preview PDF</span>
+                        </button>
+                        <button
+                          onClick={() => generateTransferReport(selectedPatientId, transferHistory[0].patientName, false)}
+                          disabled={isGenerating}
+                          className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                          title="Download Professional PDF Report"
+                        >
+                          {isGenerating ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-700"></div>
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                          <span>Download PDF</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
