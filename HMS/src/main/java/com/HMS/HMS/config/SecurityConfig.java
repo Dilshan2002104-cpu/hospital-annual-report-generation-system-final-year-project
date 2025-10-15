@@ -80,6 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/prescriptions/**").permitAll()
                         .requestMatchers("/api/dialysis/**").permitAll()
                         .requestMatchers("/api/clinic/**").permitAll()
+                        .requestMatchers("/api/lab-requests/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )

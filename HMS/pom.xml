@@ -50,11 +50,11 @@
 			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
 
-        <dependency>
+        <!-- <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
             <version>6.21.3</version>
-        </dependency>
+        </dependency> -->
 
         <!-- JFreeChart for generating charts in reports -->
         <dependency>
