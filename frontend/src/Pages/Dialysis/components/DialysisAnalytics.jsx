@@ -213,11 +213,12 @@ export default function DialysisAnalytics() {
           !monthlyPatientsResponse.ok || !machineUtilizationResponse.ok || 
           !yearComparisonResponse.ok) {
         
-        // Generate mock data if API calls fail
-        console.warn('API calls failed, generating mock annual data');
-        const mockData = generateMockAnnualData(year);
-        setAnnualData(mockData);
-        return;
+        // Handle different error scenarios
+        if (annualStatsResponse.status === 404 || monthlySessionsResponse.status === 404) {
+          throw new Error(`No dialysis data found for year ${year}`);
+        } else {
+          throw new Error(`Server error: Failed to fetch annual data (HTTP ${annualStatsResponse.status})`);
+        }
       }
 
       const [annualStats, monthlySessions, monthlyPatients, machineUtilization, yearComparison] = 
@@ -244,9 +245,8 @@ export default function DialysisAnalytics() {
       
     } catch (error) {
       console.error('Annual data fetch error:', error);
-      // Generate mock data on error
-      const mockData = generateMockAnnualData(year);
-      setAnnualData(mockData);
+      setError(`Failed to load annual data: ${error.message}`);
+      setAnnualData(null);
     } finally {
       setAnnualLoading(false);
     }
@@ -306,68 +306,6 @@ export default function DialysisAnalytics() {
       setPatientTrendsLoading(false);
     }
   }, []);
-
-  // Generate mock annual data
-  const generateMockAnnualData = (year) => {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    const monthlySessions = months.map((month, index) => ({
-      month: index + 1,
-      monthName: month,
-      sessionCount: Math.floor(Math.random() * 200) + 150, // 150-350 sessions
-      completedSessions: Math.floor(Math.random() * 180) + 140,
-      emergencyCount: Math.floor(Math.random() * 20) + 5,
-      averageDuration: Math.random() * 1 + 3.5, // 3.5-4.5 hours
-    }));
-
-    const monthlyPatients = months.map((month, index) => ({
-      month: index + 1,
-      monthName: month,
-      patientCount: Math.floor(Math.random() * 80) + 60, // 60-140 patients
-      newPatients: Math.floor(Math.random() * 15) + 5,
-      regularPatients: Math.floor(Math.random() * 70) + 50,
-      dischargedPatients: Math.floor(Math.random() * 10) + 2,
-    }));
-
-    const machineUtilization = months.map((month, index) => ({
-      month: index + 1,
-      monthName: month,
-      utilizationPercentage: Math.random() * 30 + 65, // 65-95%
-      activeMachines: Math.floor(Math.random() * 3) + 8, // 8-11 machines
-      totalMachines: 12,
-      downtime: Math.random() * 20 + 5, // 5-25 hours
-      maintenanceHours: Math.random() * 15 + 10, // 10-25 hours
-    }));
-
-    const totalSessions = monthlySessions.reduce((sum, month) => sum + month.sessionCount, 0);
-    const totalPatients = Math.max(...monthlyPatients.map(m => m.patientCount));
-    const avgUtilization = machineUtilization.reduce((sum, month) => sum + month.utilizationPercentage, 0) / 12;
-    const completionRate = monthlySessions.reduce((sum, month) => sum + (month.completedSessions / month.sessionCount * 100), 0) / 12;
-
-    return {
-      year,
-      summary: {
-        totalSessions,
-        totalPatients,
-        averageUtilization: avgUtilization,
-        completionRate,
-        totalDowntime: machineUtilization.reduce((sum, month) => sum + month.downtime, 0),
-        yearOverYearGrowth: Math.random() * 20 + 5, // 5-25% growth
-      },
-      monthlySessions,
-      monthlyPatients,
-      machineUtilization,
-      yearComparison: {
-        sessionsGrowth: Math.random() * 25 + 5,
-        patientsGrowth: Math.random() * 20 + 2,
-        utilizationImprovement: Math.random() * 10 + 2,
-      },
-      lastUpdated: new Date().toISOString()
-    };
-  };
 
   // Handle refresh
   const handleRefresh = async () => {

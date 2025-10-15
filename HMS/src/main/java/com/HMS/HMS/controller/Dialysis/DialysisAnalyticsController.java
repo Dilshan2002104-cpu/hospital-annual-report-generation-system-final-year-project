@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -120,5 +121,61 @@ public class DialysisAnalyticsController {
         
         Map<String, Object> trends = analyticsService.getMachineWiseTrends(days);
         return ResponseEntity.ok(trends);
+    }
+
+    /**
+     * Get annual statistics summary
+     */
+    @GetMapping("/annual-statistics")
+    public ResponseEntity<Map<String, Object>> getAnnualStatistics(
+            @RequestParam int year) {
+        
+        Map<String, Object> statistics = analyticsService.getAnnualStatistics(year);
+        return ResponseEntity.ok(statistics);
+    }
+
+    /**
+     * Get monthly sessions data for a specific year
+     */
+    @GetMapping("/monthly-sessions")
+    public ResponseEntity<List<Map<String, Object>>> getMonthlySessions(
+            @RequestParam int year) {
+        
+        List<Map<String, Object>> monthlySessions = analyticsService.getMonthlySessions(year);
+        return ResponseEntity.ok(monthlySessions);
+    }
+
+    /**
+     * Get monthly patients data for a specific year
+     */
+    @GetMapping("/monthly-patients")
+    public ResponseEntity<List<Map<String, Object>>> getMonthlyPatients(
+            @RequestParam int year) {
+        
+        List<Map<String, Object>> monthlyPatients = analyticsService.getMonthlyPatients(year);
+        return ResponseEntity.ok(monthlyPatients);
+    }
+
+    /**
+     * Get monthly machine utilization data for a specific year
+     */
+    @GetMapping("/monthly-machine-utilization")
+    public ResponseEntity<List<Map<String, Object>>> getMonthlyMachineUtilization(
+            @RequestParam int year) {
+        
+        List<Map<String, Object>> monthlyUtilization = analyticsService.getMonthlyMachineUtilization(year);
+        return ResponseEntity.ok(monthlyUtilization);
+    }
+
+    /**
+     * Get year-over-year comparison data
+     */
+    @GetMapping("/year-comparison")
+    public ResponseEntity<Map<String, Object>> getYearComparison(
+            @RequestParam int currentYear,
+            @RequestParam int previousYear) {
+        
+        Map<String, Object> comparison = analyticsService.getYearComparison(currentYear, previousYear);
+        return ResponseEntity.ok(comparison);
     }
 }

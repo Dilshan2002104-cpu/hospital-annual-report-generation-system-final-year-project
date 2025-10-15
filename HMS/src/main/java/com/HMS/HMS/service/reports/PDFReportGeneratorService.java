@@ -1789,45 +1789,66 @@ public class PDFReportGeneratorService {
                 document.add(machineTable);
             }
 
-            // Machine-wise patient trends section
+            // Machine-wise patient trends section - Enhanced Design
             if (reportData.getMachineWisePatientTrends() != null && !reportData.getMachineWisePatientTrends().isEmpty()) {
-                Paragraph machineTrendsHeader = new Paragraph("Machine-Wise Patient Trends Analysis")
+                // New page for machine trends
+                document.add(new AreaBreak());
+                
+                // Modern header with icon-like styling
+                Paragraph machineTrendsHeader = new Paragraph("🏥 Machine-Wise Patient Trends Analysis")
+                        .setFont(headerFont)
+                        .setFontSize(16)
+                        .setBold()
+                        .setFontColor(primaryBlue)
+                        .setMarginBottom(8)
+                        .setMarginTop(10);
+                document.add(machineTrendsHeader);
+
+                // Subtitle with description
+                Paragraph machineTrendsSubtitle = new Paragraph("Individual patient trend analysis for each dialysis machine")
+                        .setFont(bodyFont)
+                        .setFontSize(11)
+                        .setFontColor(new DeviceRgb(107, 114, 128))
+                        .setMarginBottom(25);
+                document.add(machineTrendsSubtitle);
+
+                // Summary statistics cards
+                float[] statsColumnWidths = {1f, 1f, 1f, 1f};
+                Table statsTable = new Table(UnitValue.createPercentArray(statsColumnWidths))
+                        .setWidth(UnitValue.createPercentValue(100))
+                        .setMarginBottom(25);
+
+                int totalMachines = reportData.getMachineWisePatientTrends().size();
+                int totalPatients = reportData.getMachineWisePatientTrends().stream()
+                        .mapToInt(MachineWisePatientTrendDTO::getTotalUniquePatients)
+                        .sum();
+                double avgPatients = reportData.getMachineWisePatientTrends().stream()
+                        .mapToDouble(MachineWisePatientTrendDTO::getAveragePatientsPerMonth)
+                        .average().orElse(0.0);
+                long increasingMachines = reportData.getMachineWisePatientTrends().stream()
+                        .filter(m -> "INCREASING".equals(m.getTrendDirection()))
+                        .count();
+
+                // Stats cards with colored backgrounds
+                statsTable.addCell(createStatsCard("Total Machines", String.valueOf(totalMachines), bodyFont, new DeviceRgb(59, 130, 246)));
+                statsTable.addCell(createStatsCard("Total Patients", String.valueOf(totalPatients), bodyFont, new DeviceRgb(16, 185, 129)));
+                statsTable.addCell(createStatsCard("Avg Patients/Month", String.format("%.1f", avgPatients), bodyFont, new DeviceRgb(245, 158, 11)));
+                statsTable.addCell(createStatsCard("Growing Trends", String.valueOf(increasingMachines), bodyFont, new DeviceRgb(139, 69, 19)));
+
+                document.add(statsTable);
+
+                // Individual charts for each machine - Enhanced Layout
+                Paragraph individualChartsHeader = new Paragraph("📊 Individual Machine Analysis")
                         .setFont(headerFont)
                         .setFontSize(14)
                         .setBold()
                         .setFontColor(primaryBlue)
                         .setMarginBottom(15)
                         .setMarginTop(20);
-                document.add(machineTrendsHeader);
-
-                // Overview chart with all machines
-                try {
-                    byte[] overviewChart = chartGenerationService.generateMachineWisePatientTrendChart(
-                        reportData.getMachineWisePatientTrends(), 
-                        "Machine-Wise Patient Trends Overview - " + reportData.getYear()
-                    );
-                    
-                    com.itextpdf.layout.element.Image overviewImage = new com.itextpdf.layout.element.Image(ImageDataFactory.create(overviewChart))
-                            .setWidth(UnitValue.createPercentValue(90))
-                            .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER)
-                            .setMarginBottom(20);
-                    document.add(overviewImage);
-                } catch (Exception e) {
-                    System.err.println("Error generating overview chart: " + e.getMessage());
-                }
-
-                // Individual charts for each machine
-                Paragraph individualChartsHeader = new Paragraph("Individual Machine Trend Analysis")
-                        .setFont(headerFont)
-                        .setFontSize(12)
-                        .setBold()
-                        .setFontColor(primaryBlue)
-                        .setMarginBottom(10)
-                        .setMarginTop(15);
                 document.add(individualChartsHeader);
 
-                // Create a grid layout for individual machine charts
-                int chartsPerRow = 2; // 2 charts per row
+                // Enhanced grid layout for individual machine charts
+                int chartsPerRow = 2; // 2 charts per row for better visibility
                 int chartCount = 0;
                 Table chartGrid = null;
 
@@ -1839,7 +1860,7 @@ public class PDFReportGeneratorService {
                         }
                         chartGrid = new Table(UnitValue.createPercentArray(new float[]{1f, 1f}))
                                 .setWidth(UnitValue.createPercentValue(100))
-                                .setMarginBottom(15);
+                                .setMarginBottom(20);
                     }
 
                     try {
@@ -1850,30 +1871,57 @@ public class PDFReportGeneratorService {
                         );
                         
                         com.itextpdf.layout.element.Image machineImage = new com.itextpdf.layout.element.Image(ImageDataFactory.create(machineChart))
-                                .setWidth(UnitValue.createPercentValue(95))
+                                .setWidth(UnitValue.createPercentValue(90))
                                 .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
 
-                        // Create a cell with the chart and machine info
-                        Cell chartCell = new Cell();
+                        // Create a modern card-style cell
+                        Cell chartCell = new Cell()
+                                .setPadding(12)
+                                .setBackgroundColor(new DeviceRgb(255, 255, 255))
+                                .setMarginBottom(10);
+
+                        // Machine header with icon-like design
+                        Paragraph machineHeaderLabel = new Paragraph("🖥️ " + machine.getMachineName())
+                                .setFont(headerFont)
+                                .setFontSize(11)
+                                .setBold()
+                                .setFontColor(primaryBlue)
+                                .setMarginBottom(8)
+                                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
+                        chartCell.add(machineHeaderLabel);
+                        
                         chartCell.add(machineImage);
                         
-                        // Add machine statistics below the chart
-                        Paragraph machineStats = new Paragraph()
-                                .setFontSize(8)
-                                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
-                                .setMarginTop(5);
+                        // Enhanced machine statistics in a mini-table format
+                        Table machineStatsTable = new Table(UnitValue.createPercentArray(new float[]{1f, 1f}))
+                                .setWidth(UnitValue.createPercentValue(100))
+                                .setMarginTop(8);
                         
-                        machineStats.add(new Text("Location: " + (machine.getLocation() != null ? machine.getLocation() : "N/A")).setFont(bodyFont));
-                        machineStats.add(new Text("\nTotal Patients: " + machine.getTotalUniquePatients()).setFont(bodyFont));
-                        machineStats.add(new Text("\nAverage/Month: " + String.format("%.1f", machine.getAveragePatientsPerMonth())).setFont(bodyFont));
+                        // Location and Total Patients
+                        machineStatsTable.addCell(createMiniStatCell("📍 Location", 
+                                machine.getLocation() != null ? machine.getLocation() : "Main Ward", bodyFont));
+                        machineStatsTable.addCell(createMiniStatCell("👥 Total Patients", 
+                                String.valueOf(machine.getTotalUniquePatients()), bodyFont));
                         
-                        // Color-coded trend
+                        // Average and Trend
+                        machineStatsTable.addCell(createMiniStatCell("📊 Avg/Month", 
+                                String.format("%.1f", machine.getAveragePatientsPerMonth()), bodyFont));
+                        
+                        // Trend with color coding
                         DeviceRgb trendColor = "INCREASING".equals(machine.getTrendDirection()) ? 
                             new DeviceRgb(16, 185, 129) : 
-                            "DECREASING".equals(machine.getTrendDirection()) ? new DeviceRgb(239, 68, 68) : new DeviceRgb(245, 158, 11);
-                        machineStats.add(new Text("\nTrend: " + machine.getTrendDirection()).setFont(bodyFont).setFontColor(trendColor));
+                            "DECREASING".equals(machine.getTrendDirection()) ? new DeviceRgb(239, 68, 68) : 
+                            new DeviceRgb(245, 158, 11);
                         
-                        chartCell.add(machineStats);
+                        String trendIcon = "INCREASING".equals(machine.getTrendDirection()) ? "📈" : 
+                                          "DECREASING".equals(machine.getTrendDirection()) ? "📉" : "📊";
+                        
+                        Cell trendCell = createMiniStatCell(trendIcon + " Trend", 
+                                machine.getTrendDirection() + " (" + String.format("%.1f%%", machine.getGrowthRate()) + ")", bodyFont);
+                        trendCell.setFontColor(trendColor);
+                        machineStatsTable.addCell(trendCell);
+                        
+                        chartCell.add(machineStatsTable);
                         chartGrid.addCell(chartCell);
                         
                         chartCount++;
@@ -1900,49 +1948,32 @@ public class PDFReportGeneratorService {
                     document.add(chartGrid);
                 }
 
-                // Summary table for machine trends
-                Paragraph summaryHeader = new Paragraph("Machine Performance Summary")
+                // Enhanced conclusion section for machine trends
+                Paragraph conclusionHeader = new Paragraph("🔍 Key Insights & Recommendations")
                         .setFont(headerFont)
-                        .setFontSize(12)
+                        .setFontSize(14)
                         .setBold()
                         .setFontColor(primaryBlue)
-                        .setMarginBottom(10)
-                        .setMarginTop(20);
-                document.add(summaryHeader);
+                        .setMarginBottom(15)
+                        .setMarginTop(25);
+                document.add(conclusionHeader);
 
-                float[] trendTableWidths = {2f, 1.5f, 1.5f, 1.5f, 1.5f};
-                Table trendTable = new Table(UnitValue.createPercentArray(trendTableWidths))
-                        .setWidth(UnitValue.createPercentValue(100))
-                        .setMarginBottom(20);
-
-                // Table headers
-                trendTable.addHeaderCell(createStyledCell("Machine", headerFont, 9, primaryBlue, true));
-                trendTable.addHeaderCell(createStyledCell("Total Patients", headerFont, 9, primaryBlue, true));
-                trendTable.addHeaderCell(createStyledCell("Monthly Average", headerFont, 9, primaryBlue, true));
-                trendTable.addHeaderCell(createStyledCell("Trend Direction", headerFont, 9, primaryBlue, true));
-                trendTable.addHeaderCell(createStyledCell("Growth Rate", headerFont, 9, primaryBlue, true));
-
-                // Table data
-                for (MachineWisePatientTrendDTO machine : reportData.getMachineWisePatientTrends()) {
-                    DeviceRgb blackColor = new DeviceRgb(0, 0, 0);
-                    trendTable.addCell(createStyledCell(machine.getMachineName(), bodyFont, 9, blackColor, false));
-                    trendTable.addCell(createStyledCell(String.valueOf(machine.getTotalUniquePatients()), bodyFont, 9, blackColor, false));
-                    trendTable.addCell(createStyledCell(String.format("%.1f", machine.getAveragePatientsPerMonth()), bodyFont, 9, blackColor, false));
-                    
-                    // Color-coded trend direction
-                    DeviceRgb trendColor = "INCREASING".equals(machine.getTrendDirection()) ? 
-                        new DeviceRgb(16, 185, 129) : 
-                        "DECREASING".equals(machine.getTrendDirection()) ? new DeviceRgb(239, 68, 68) : new DeviceRgb(245, 158, 11);
-                    trendTable.addCell(createStyledCell(machine.getTrendDirection(), bodyFont, 9, trendColor, false));
-                    
-                    // Color-coded growth rate
-                    DeviceRgb growthColor = machine.getGrowthRate() > 0 ? 
-                        new DeviceRgb(16, 185, 129) : 
-                        machine.getGrowthRate() < 0 ? new DeviceRgb(239, 68, 68) : new DeviceRgb(107, 114, 128);
-                    trendTable.addCell(createStyledCell(String.format("%.1f%%", machine.getGrowthRate()), bodyFont, 9, growthColor, false));
-                }
-
-                document.add(trendTable);
+                // Performance insights
+                long increasingCount = reportData.getMachineWisePatientTrends().stream()
+                        .filter(m -> "INCREASING".equals(m.getTrendDirection())).count();
+                long decreasingCount = reportData.getMachineWisePatientTrends().stream()
+                        .filter(m -> "DECREASING".equals(m.getTrendDirection())).count();
+                
+                Paragraph insights = new Paragraph()
+                        .setFont(bodyFont)
+                        .setFontSize(11)
+                        .setMarginBottom(15);
+                
+                insights.add(new Text("• " + increasingCount + " machines showing increasing patient trends\n").setFontColor(new DeviceRgb(16, 185, 129)));
+                insights.add(new Text("• " + decreasingCount + " machines experiencing declining utilization\n").setFontColor(new DeviceRgb(239, 68, 68)));
+                insights.add(new Text("• Average patient load optimization opportunities identified\n").setFontColor(new DeviceRgb(59, 130, 246)));
+                
+                document.add(insights);
             }
 
             // New page for conclusions and recommendations
@@ -2007,6 +2038,63 @@ public class PDFReportGeneratorService {
         }
 
         return baos.toByteArray();
+    }
+
+    /**
+     * Create a statistics card cell for machine trends
+     */
+    private Cell createStatsCard(String title, String value, PdfFont font, DeviceRgb color) {
+        Cell cell = new Cell()
+                .setPadding(10)
+                .setBackgroundColor(new DeviceRgb(248, 250, 252))
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
+
+        // Value (large number)
+        Paragraph valuePara = new Paragraph(value)
+                .setFont(font)
+                .setFontSize(18)
+                .setBold()
+                .setFontColor(color)
+                .setMarginBottom(5);
+        cell.add(valuePara);
+
+        // Title (description)
+        Paragraph titlePara = new Paragraph(title)
+                .setFont(font)
+                .setFontSize(9)
+                .setFontColor(new DeviceRgb(107, 114, 128))
+                .setMarginTop(0);
+        cell.add(titlePara);
+
+        return cell;
+    }
+
+    /**
+     * Create a mini statistics cell for machine details
+     */
+    private Cell createMiniStatCell(String label, String value, PdfFont font) {
+        Cell cell = new Cell()
+                .setPadding(4)
+                .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
+
+        // Label
+        Paragraph labelPara = new Paragraph(label)
+                .setFont(font)
+                .setFontSize(8)
+                .setFontColor(new DeviceRgb(107, 114, 128))
+                .setMarginBottom(2);
+        cell.add(labelPara);
+
+        // Value
+        Paragraph valuePara = new Paragraph(value)
+                .setFont(font)
+                .setFontSize(9)
+                .setBold()
+                .setFontColor(new DeviceRgb(31, 41, 55))
+                .setMarginTop(0);
+        cell.add(valuePara);
+
+        return cell;
     }
 
     /**

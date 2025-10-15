@@ -57,7 +57,7 @@ ChartJS.register(
 );
 
 export default function ReportsModule({ sessions }) {
-  const [reportMode, setReportMode] = useState('annual-report'); // 'annual-report', 'comprehensive', 'machine-specific', 'patient-analytics'
+  const reportMode = 'annual-report'; // Fixed to annual report only
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMachine, setSelectedMachine] = useState('all');
   const [machineSubTab, setMachineSubTab] = useState('performance'); // 'performance', 'patient-trends'
@@ -65,45 +65,20 @@ export default function ReportsModule({ sessions }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [toast, setToast] = useState(null); // Toast notification state
+
+  // Toast notification function
+  const showToast = (message, type = 'error') => {
+    setToast({ message, type });
+    // Auto-hide toast after 4 seconds
+    setTimeout(() => setToast(null), 4000);
+  };
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   // Available years (last 10 years)
   const availableYears = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
   
-  // Report types configuration
-  const reportTypes = [
-    {
-      id: 'annual-report',
-      name: 'Annual Dialysis Report',
-      description: 'Comprehensive yearly analysis with monthly trends, machine utilization, and patient outcomes',
-      icon: TrendingUp,
-      color: 'emerald',
-      featured: true
-    },
-    {
-      id: 'comprehensive',
-      name: 'Comprehensive Dialysis Report',
-      description: 'Complete analysis of dialysis operations, patient outcomes, and facility performance',
-      icon: FileText,
-      color: 'blue'
-    },
-    {
-      id: 'machine-specific',
-      name: 'Machine Performance Report',
-      description: 'Detailed equipment utilization, maintenance, and efficiency analysis',
-      icon: Monitor,
-      color: 'purple'
-    },
-    {
-      id: 'patient-analytics',
-      name: 'Patient Treatment Analytics',
-      description: 'Patient care outcomes, treatment effectiveness, and quality metrics',
-      icon: Heart,
-      color: 'green'
-    }
-  ];
-
   // Machine list for selection
   const machines = useMemo(() => [
     { id: 'all', name: 'All Machines', location: 'All Locations' },
@@ -314,20 +289,38 @@ export default function ReportsModule({ sessions }) {
           throw new Error('Dialysis reporting endpoint not found. Using fallback analytics data.');
         } else if (response.status === 401) {
           throw new Error('Authentication required. Please log in again.');
+        } else if (response.status === 204) {
+          // No content - no data for selected year
+          throw new Error(`NO_DATA_FOR_YEAR:${selectedYear}`);
         } else {
           throw new Error(`Failed to fetch report data (HTTP ${response.status})`);
         }
       }
 
       const data = await response.json();
+      
+      // Check if data is empty or indicates no data for the year
+      if (!data || (Array.isArray(data) && data.length === 0) || 
+          (data.totalSessions === 0 && data.totalPatients === 0) ||
+          (data.message && data.message.includes('No data'))) {
+        throw new Error(`NO_DATA_FOR_YEAR:${selectedYear}`);
+      }
+      
       setReportData(data);
       console.log('✅ Report data loaded successfully from API');
 
     } catch (err) {
       // Handle different types of errors gracefully
       let errorMessage = 'Using fallback data';
+      let isNoDataError = false;
       
-      if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+      if (err.message.startsWith('NO_DATA_FOR_YEAR:')) {
+        const year = err.message.split(':')[1];
+        errorMessage = `No dialysis data found for year ${year}. Please select a different year or check if data has been recorded for this period.`;
+        isNoDataError = true;
+        setError(errorMessage);
+        setReportData(null); // Clear any existing data
+      } else if (err.name === 'AbortError' || err.name === 'TimeoutError') {
         errorMessage = 'Connection timeout - using fallback data';
       } else if (err.message.includes('Failed to fetch') || err.message.includes('Network request failed')) {
         errorMessage = 'Backend service offline - using fallback data';
@@ -339,14 +332,16 @@ export default function ReportsModule({ sessions }) {
       
       console.warn('⚠️ API unavailable, using fallback data:', errorMessage);
       
-      // Generate fallback data from sessions
-      const fallbackData = generateFallbackReportData();
-      setReportData(fallbackData);
-      
-      // Show user-friendly message that we're using demo data
-      setError(null); // Clear error since we have fallback data
-      setSuccess('📊 Demo data loaded successfully. Connect to backend for real-time reports.');
-      console.log('✅ Fallback report data generated successfully');
+      if (!isNoDataError) {
+        // Generate fallback data from sessions only if it's not a "no data" error
+        const fallbackData = generateFallbackReportData();
+        setReportData(fallbackData);
+        
+        // Show user-friendly message that we're using demo data
+        setError(null); // Clear error since we have fallback data
+        setSuccess('📊 Demo data loaded successfully. Connect to backend for real-time reports.');
+        console.log('✅ Fallback report data generated successfully');
+      }
     } finally {
       setLoading(false);
     }
@@ -358,6 +353,12 @@ export default function ReportsModule({ sessions }) {
 
   // Download PDF report with enhanced error handling
   const downloadPDFReport = async () => {
+    // Check if we have data for the selected year first
+    if (!reportData || (reportData.totalSessions === 0 && reportData.totalPatients === 0)) {
+      setError(`Cannot generate PDF report: No dialysis data available for year ${selectedYear}. Please select a different year or ensure data has been recorded for this period.`);
+      return;
+    }
+
     setIsGenerating(true);
     setDownloadingPDF(true);
     setError(null);
@@ -410,6 +411,8 @@ export default function ReportsModule({ sessions }) {
           throw new Error('PDF generation service not available. Please ensure the backend server is running.');
         } else if (response.status === 401) {
           throw new Error('Authentication required. Please log in again.');
+        } else if (response.status === 204) {
+          throw new Error(`Cannot generate PDF: No dialysis data found for year ${selectedYear}. Please select a different year.`);
         } else if (response.status === 500) {
           throw new Error('Server error occurred while generating the PDF. Please try again later.');
         } else {
@@ -445,10 +448,14 @@ export default function ReportsModule({ sessions }) {
     } catch (err) {
       console.error('❌ PDF download error:', err);
       
+      // Use toast for specific "empty PDF" error
+      if (err.message.includes('Received empty PDF file')) {
+        showToast('No data available for the selected year. Please choose a different year.', 'warning');
+        return; // Don't set error state, just show toast
+      }
+      
       let errorMessage = 'Failed to download PDF report';
-      if (err.message.includes('Failed to fetch') || err.message.includes('Network request failed')) {
-        errorMessage = 'Network error: Please check your connection and ensure the backend server is running.';
-      } else if (err.message.includes('Server error')) {
+      if (err.message.includes('Server error')) {
         errorMessage = 'Server error: Please try again later or contact system administrator.';
       } else {
         errorMessage = err.message;
@@ -500,6 +507,32 @@ export default function ReportsModule({ sessions }) {
         </div>
       )}
 
+      {/* Toast Notification */}
+      {toast && (
+        <div 
+          className={`fixed top-4 right-4 z-50 max-w-sm w-full shadow-lg rounded-lg p-4 flex items-center transition-all duration-300 transform ${
+            toast.type === 'error' ? 'bg-red-500 text-white' :
+            toast.type === 'warning' ? 'bg-amber-500 text-white' :
+            'bg-green-500 text-white'
+          }`}
+        >
+          <div className="flex items-center">
+            {toast.type === 'error' && <AlertTriangle className="w-5 h-5 mr-3" />}
+            {toast.type === 'warning' && <AlertTriangle className="w-5 h-5 mr-3" />}
+            {toast.type === 'success' && <CheckCircle className="w-5 h-5 mr-3" />}
+            <div>
+              <p className="font-medium">{toast.message}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-4 text-white hover:text-gray-200 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Report Type Selection */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
@@ -522,16 +555,6 @@ export default function ReportsModule({ sessions }) {
                 <p className="text-emerald-700">Primary annual report for comprehensive dialysis operations analysis</p>
               </div>
             </div>
-            <button
-              onClick={() => setReportMode('annual-report')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                reportMode === 'annual-report'
-                  ? 'bg-emerald-600 text-white shadow-lg'
-                  : 'bg-white text-emerald-600 border-2 border-emerald-600 hover:bg-emerald-50'
-              }`}
-            >
-              {reportMode === 'annual-report' ? '✓ Selected' : 'Select Report'}
-            </button>
           </div>
           
           {reportMode === 'annual-report' && (
@@ -567,49 +590,6 @@ export default function ReportsModule({ sessions }) {
           )}
         </div>
 
-        {/* Other Report Types */}
-        <div className="mb-6">
-          <h4 className="text-md font-semibold text-gray-700 mb-3">Additional Report Types</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {reportTypes.filter(type => type.id !== 'annual-report').map((type) => {
-              const IconComponent = type.icon;
-              return (
-                <button
-                  key={type.id}
-                  onClick={() => {
-                    setReportMode(type.id);
-                    // Reset to performance tab when switching to machine-specific
-                    if (type.id === 'machine-specific') {
-                      setMachineSubTab('performance');
-                    }
-                  }}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    reportMode === type.id
-                      ? `border-${type.color}-500 bg-${type.color}-50`
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center mb-2">
-                    <IconComponent className={`w-5 h-5 mr-2 ${
-                      reportMode === type.id ? `text-${type.color}-600` : 'text-gray-600'
-                    }`} />
-                    <h4 className={`font-medium ${
-                      reportMode === type.id ? `text-${type.color}-900` : 'text-gray-900'
-                    }`}>
-                      {type.name}
-                    </h4>
-                  </div>
-                  <p className={`text-sm ${
-                    reportMode === type.id ? `text-${type.color}-700` : 'text-gray-600'
-                  }`}>
-                    {type.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Report Controls */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -626,6 +606,14 @@ export default function ReportsModule({ sessions }) {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
+            
+            {/* No Data Warning for Selected Year */}
+            {!reportData && !loading && error && error.includes('No dialysis data found for year') && (
+              <div className="mt-2 flex items-center text-amber-600 text-xs">
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                No data for {selectedYear}
+              </div>
+            )}
           </div>
 
           {reportMode === 'machine-specific' && (
@@ -799,150 +787,6 @@ export default function ReportsModule({ sessions }) {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Annual Report Summary Dashboard */}
-          {reportMode === 'annual-report' && reportData && (
-            <>
-              {/* Key Performance Indicators */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                  <Activity className="w-5 h-5 mr-2 text-blue-600" />
-                  {selectedYear} Annual Performance Overview
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">{reportData.totalSessions || '1,847'}</div>
-                    <div className="text-sm text-blue-800">Total Sessions</div>
-                  </div>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">{reportData.completionRate || '94.2'}%</div>
-                    <div className="text-sm text-green-800">Completion Rate</div>
-                  </div>
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-600">{reportData.totalPatients || '127'}</div>
-                    <div className="text-sm text-purple-800">Patients Served</div>
-                  </div>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-yellow-600">{reportData.averageUtilization || '78.5'}%</div>
-                    <div className="text-sm text-yellow-800">Equipment Efficiency</div>
-                  </div>
-                </div>
-
-                {/* Monthly Trends Chart */}
-                {reportData.monthlyData && (
-                  <div className="mb-8">
-                    <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center">
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Monthly Session Trends
-                    </h4>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <Line
-                        data={{
-                          labels: reportData.monthlyData.map(d => d.month),
-                          datasets: [
-                            {
-                              label: 'Total Sessions',
-                              data: reportData.monthlyData.map(d => d.totalSessions),
-                              borderColor: 'rgb(59, 130, 246)',
-                              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                              tension: 0.4,
-                              fill: true
-                            },
-                            {
-                              label: 'Completed Sessions',
-                              data: reportData.monthlyData.map(d => d.completedSessions),
-                              borderColor: 'rgb(16, 185, 129)',
-                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                              tension: 0.4
-                            }
-                          ]
-                        }}
-                        options={{
-                          responsive: true,
-                          plugins: {
-                            title: {
-                              display: true,
-                              text: `${selectedYear} Monthly Dialysis Session Performance`
-                            },
-                            legend: {
-                              position: 'top',
-                            }
-                          },
-                          scales: {
-                            y: {
-                              beginAtZero: true,
-                              title: {
-                                display: true,
-                                text: 'Number of Sessions'
-                              }
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Detailed Statistics Table */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                  <Database className="w-5 h-5 mr-2 text-blue-600" />
-                  Monthly Performance Statistics
-                </h3>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="text-left p-4 font-semibold text-gray-900 border-b">Month</th>
-                        <th className="text-center p-4 font-semibold text-gray-900 border-b">Total Sessions</th>
-                        <th className="text-center p-4 font-semibold text-gray-900 border-b">Completed</th>
-                        <th className="text-center p-4 font-semibold text-gray-900 border-b">Emergency</th>
-                        <th className="text-center p-4 font-semibold text-gray-900 border-b">Utilization</th>
-                        <th className="text-center p-4 font-semibold text-gray-900 border-b">Patients</th>
-                        <th className="text-center p-4 font-semibold text-gray-900 border-b">Performance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportData.monthlyData?.map((month, index) => (
-                        <tr key={index} className="hover:bg-gray-50 transition-colors">
-                          <td className="p-4 border-b font-medium text-gray-900">{month.month}</td>
-                          <td className="p-4 border-b text-center">{month.totalSessions}</td>
-                          <td className="p-4 border-b text-center">
-                            <span className="text-green-600 font-medium">{month.completedSessions}</span>
-                          </td>
-                          <td className="p-4 border-b text-center">
-                            <span className="text-red-600">{month.emergencySessions || 0}</span>
-                          </td>
-                          <td className="p-4 border-b text-center">
-                            <span className={`font-medium ${
-                              month.averageUtilization >= 80 ? 'text-green-600' :
-                              month.averageUtilization >= 60 ? 'text-yellow-600' : 'text-red-600'
-                            }`}>
-                              {month.averageUtilization}%
-                            </span>
-                          </td>
-                          <td className="p-4 border-b text-center">{month.patientCount}</td>
-                          <td className="p-4 border-b text-center">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              month.averageUtilization >= 80 ? 'bg-green-100 text-green-800' :
-                              month.averageUtilization >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {month.averageUtilization >= 80 ? 'Excellent' :
-                               month.averageUtilization >= 60 ? 'Good' : 'Needs Improvement'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
           )}
 
           {/* Key Insights and Recommendations */}

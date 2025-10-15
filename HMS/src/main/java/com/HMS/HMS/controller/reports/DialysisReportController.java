@@ -30,8 +30,17 @@ public class DialysisReportController {
     public ResponseEntity<DialysisAnnualReportDTO> getAnnualReport(@PathVariable int year) {
         try {
             DialysisAnnualReportDTO report = dialysisReportService.generateAnnualReport(year);
+            
+            // Check if there's no data for the year
+            if (report == null || (report.getTotalSessions() == 0 && report.getTotalPatients() == 0)) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .header("X-Message", "No dialysis data found for year " + year)
+                    .build();
+            }
+            
             return ResponseEntity.ok(report);
         } catch (Exception e) {
+            System.err.println("Error generating annual report for year " + year + ": " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -44,6 +53,13 @@ public class DialysisReportController {
         try {
             // Generate the report data
             DialysisAnnualReportDTO report = dialysisReportService.generateAnnualReport(year);
+            
+            // Check if there's no data for the year
+            if (report == null || (report.getTotalSessions() == 0 && report.getTotalPatients() == 0)) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .header("X-Message", "No dialysis data found for year " + year + ". Cannot generate PDF.")
+                    .build();
+            }
             
             // Generate PDF
             byte[] pdfBytes = pdfGeneratorService.generateDialysisAnnualReportPDF(report);
@@ -197,6 +213,15 @@ public class DialysisReportController {
     public ResponseEntity<?> getMachineWisePatientTrends(@PathVariable int year) {
         try {
             DialysisAnnualReportDTO report = dialysisReportService.generateAnnualReport(year);
+            
+            // Check if there's no data for the year
+            if (report == null || (report.getTotalSessions() == 0 && report.getTotalPatients() == 0) || 
+                report.getMachineWisePatientTrends() == null || report.getMachineWisePatientTrends().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                    .header("X-Message", "No machine-wise patient trend data found for year " + year)
+                    .build();
+            }
+            
             return ResponseEntity.ok(report.getMachineWisePatientTrends());
         } catch (Exception e) {
             System.err.println("Error getting machine-wise patient trends: " + e.getMessage());

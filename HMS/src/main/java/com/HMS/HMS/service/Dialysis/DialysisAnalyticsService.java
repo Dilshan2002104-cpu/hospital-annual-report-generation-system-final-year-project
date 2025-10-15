@@ -561,4 +561,193 @@ public class DialysisAnalyticsService {
     private Map<String, Object> calculateDurationOutcomes(List<DialysisSession> sessions) {
         return new HashMap<>();
     }
+
+    /**
+     * Get annual statistics summary
+     */
+    public Map<String, Object> getAnnualStatistics(int year) {
+        LocalDate startDate = LocalDate.of(year, 1, 1);
+        LocalDate endDate = LocalDate.of(year, 12, 31);
+        
+        List<DialysisSession> yearSessions = sessionRepository.findByScheduledDateBetween(startDate, endDate);
+        List<DialysisMachine> machines = machineRepository.findAll();
+        
+        Map<String, Object> statistics = new HashMap<>();
+        
+        // Basic statistics
+        long totalSessions = yearSessions.size();
+        long completedSessions = yearSessions.stream()
+                .filter(s -> DialysisSession.SessionStatus.COMPLETED.equals(s.getStatus()))
+                .count();
+        long totalPatients = yearSessions.stream()
+                .map(DialysisSession::getPatientNationalId)
+                .distinct()
+                .count();
+        
+        // Calculate averages
+        double completionRate = totalSessions > 0 ? (double) completedSessions / totalSessions * 100 : 0;
+        double averageUtilization = calculateAverageUtilization(machines, yearSessions);
+        
+        statistics.put("totalSessions", totalSessions);
+        statistics.put("totalPatients", totalPatients);
+        statistics.put("completionRate", completionRate);
+        statistics.put("averageUtilization", averageUtilization);
+        statistics.put("year", year);
+        
+        return statistics;
+    }
+
+    /**
+     * Get monthly sessions data for a specific year
+     */
+    public List<Map<String, Object>> getMonthlySessions(int year) {
+        LocalDate startDate = LocalDate.of(year, 1, 1);
+        LocalDate endDate = LocalDate.of(year, 12, 31);
+        
+        List<DialysisSession> yearSessions = sessionRepository.findByScheduledDateBetween(startDate, endDate);
+        List<Map<String, Object>> monthlySessions = new ArrayList<>();
+        
+        for (int month = 1; month <= 12; month++) {
+            final int currentMonth = month;
+            List<DialysisSession> monthSessions = yearSessions.stream()
+                    .filter(s -> s.getScheduledDate().getMonthValue() == currentMonth)
+                    .collect(Collectors.toList());
+            
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", month);
+            monthData.put("monthName", getMonthName(month));
+            monthData.put("sessionCount", monthSessions.size());
+            monthData.put("completedSessions", monthSessions.stream()
+                    .filter(s -> DialysisSession.SessionStatus.COMPLETED.equals(s.getStatus()))
+                    .count());
+            monthData.put("emergencyCount", monthSessions.stream()
+                    .filter(s -> s.getSessionType() != null && 
+                               DialysisSession.SessionType.CONTINUOUS_RENAL_REPLACEMENT.equals(s.getSessionType()))
+                    .count());
+            
+            monthlySessions.add(monthData);
+        }
+        
+        return monthlySessions;
+    }
+
+    /**
+     * Get monthly patients data for a specific year
+     */
+    public List<Map<String, Object>> getMonthlyPatients(int year) {
+        LocalDate startDate = LocalDate.of(year, 1, 1);
+        LocalDate endDate = LocalDate.of(year, 12, 31);
+        
+        List<DialysisSession> yearSessions = sessionRepository.findByScheduledDateBetween(startDate, endDate);
+        List<Map<String, Object>> monthlyPatients = new ArrayList<>();
+        
+        for (int month = 1; month <= 12; month++) {
+            final int currentMonth = month;
+            List<DialysisSession> monthSessions = yearSessions.stream()
+                    .filter(s -> s.getScheduledDate().getMonthValue() == currentMonth)
+                    .collect(Collectors.toList());
+            
+            Set<String> uniquePatients = monthSessions.stream()
+                    .map(DialysisSession::getPatientNationalId)
+                    .collect(Collectors.toSet());
+            
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", month);
+            monthData.put("monthName", getMonthName(month));
+            monthData.put("patientCount", uniquePatients.size());
+            monthData.put("sessionCount", monthSessions.size());
+            
+            monthlyPatients.add(monthData);
+        }
+        
+        return monthlyPatients;
+    }
+
+    /**
+     * Get monthly machine utilization data for a specific year
+     */
+    public List<Map<String, Object>> getMonthlyMachineUtilization(int year) {
+        List<DialysisMachine> machines = machineRepository.findAll();
+        List<Map<String, Object>> monthlyUtilization = new ArrayList<>();
+        
+        for (int month = 1; month <= 12; month++) {
+            LocalDate monthStart = LocalDate.of(year, month, 1);
+            LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+            
+            List<DialysisSession> monthSessions = sessionRepository.findByScheduledDateBetween(monthStart, monthEnd);
+            
+            // Calculate utilization metrics
+            double avgUtilization = calculateAverageUtilization(machines, monthSessions);
+            int activeMachines = (int) machines.stream()
+                    .filter(m -> DialysisMachine.MachineStatus.ACTIVE.equals(m.getStatus()))
+                    .count();
+            
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", month);
+            monthData.put("monthName", getMonthName(month));
+            monthData.put("utilizationPercentage", avgUtilization);
+            monthData.put("activeMachines", activeMachines);
+            monthData.put("totalMachines", machines.size());
+            
+            monthlyUtilization.add(monthData);
+        }
+        
+        return monthlyUtilization;
+    }
+
+    /**
+     * Get year-over-year comparison data
+     */
+    public Map<String, Object> getYearComparison(int currentYear, int previousYear) {
+        Map<String, Object> currentYearStats = getAnnualStatistics(currentYear);
+        Map<String, Object> previousYearStats = getAnnualStatistics(previousYear);
+        
+        Map<String, Object> comparison = new HashMap<>();
+        
+        // Calculate growth percentages
+        long currentSessions = (Long) currentYearStats.get("totalSessions");
+        long previousSessions = (Long) previousYearStats.get("totalSessions");
+        long currentPatients = (Long) currentYearStats.get("totalPatients");
+        long previousPatients = (Long) previousYearStats.get("totalPatients");
+        
+        double sessionsGrowth = previousSessions > 0 ? 
+                ((double)(currentSessions - previousSessions) / previousSessions * 100) : 0;
+        double patientsGrowth = previousPatients > 0 ? 
+                ((double)(currentPatients - previousPatients) / previousPatients * 100) : 0;
+        
+        comparison.put("sessionsGrowth", sessionsGrowth);
+        comparison.put("patientsGrowth", patientsGrowth);
+        comparison.put("currentYear", currentYear);
+        comparison.put("previousYear", previousYear);
+        comparison.put("currentYearStats", currentYearStats);
+        comparison.put("previousYearStats", previousYearStats);
+        
+        return comparison;
+    }
+
+    /**
+     * Helper method to calculate average utilization
+     */
+    private double calculateAverageUtilization(List<DialysisMachine> machines, List<DialysisSession> sessions) {
+        if (machines.isEmpty() || sessions.isEmpty()) {
+            return 0.0;
+        }
+        
+        // Simple utilization calculation based on sessions per machine
+        double totalPossibleSessions = machines.size() * 30; // Assume 30 sessions per month per machine
+        double actualSessions = sessions.size();
+        
+        return Math.min(100.0, (actualSessions / totalPossibleSessions) * 100);
+    }
+
+    /**
+     * Helper method to get month name
+     */
+    private String getMonthName(int month) {
+        String[] months = {
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        };
+        return months[month - 1];
+    }
 }
