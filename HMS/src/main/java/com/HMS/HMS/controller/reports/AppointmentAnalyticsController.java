@@ -204,9 +204,6 @@ public class AppointmentAnalyticsController {
         }
     }
 
-    /**
-     * Get doctor performance comparison chart
-     */
     @GetMapping("/charts/doctor-performance/{year}")
     public ResponseEntity<byte[]> getDoctorPerformanceChart(
             @PathVariable int year,

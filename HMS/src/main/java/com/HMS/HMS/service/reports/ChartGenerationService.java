@@ -23,6 +23,7 @@ import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ChartGenerationService {
@@ -1151,6 +1152,96 @@ public class ChartGenerationService {
             renderer.setSeriesPaint(i, colors[i]);
         }
 
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate pharmacy monthly prescription dispensing trends line chart
+     */
+    public byte[] generatePharmacyPrescriptionTrendsLineChart(List<Map<String, Object>> monthlyData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (Map<String, Object> data : monthlyData) {
+            String month = (String) data.get("month");
+            Integer prescriptions = (Integer) data.get("prescriptions");
+            Double revenue = (Double) data.get("revenue");
+            
+            // Add prescription count
+            dataset.addValue(prescriptions, "Prescriptions Dispensed", month.substring(0, 3));
+            
+            // Add revenue (scaled down for better visualization)
+            dataset.addValue(revenue / 100, "Revenue (x100)", month.substring(0, 3));
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            "Count / Revenue",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeLineChart(chart);
+        
+        // Custom styling for pharmacy chart
+        CategoryPlot plot = chart.getCategoryPlot();
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        
+        // Set colors for different series
+        renderer.setSeriesPaint(0, new Color(59, 130, 246));  // Blue for prescriptions
+        renderer.setSeriesPaint(1, new Color(16, 185, 129));  // Green for revenue
+        
+        // Make lines thicker and add shapes
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesStroke(1, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+        renderer.setSeriesShapesVisible(1, true);
+        
+        return chartToByteArray(chart);
+    }
+
+    /**
+     * Generate pharmacy prescription trends line chart (simplified version)
+     */
+    public byte[] generateSimplePharmacyTrendsLineChart(List<Map<String, Object>> monthlyData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (Map<String, Object> data : monthlyData) {
+            String month = (String) data.get("month");
+            Integer prescriptions = (Integer) data.get("prescriptions");
+            
+            // Only show prescription count for cleaner visualization
+            dataset.addValue(prescriptions, "Monthly Prescriptions", month.substring(0, 3));
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            "Number of Prescriptions",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeLineChart(chart);
+        
+        // Custom styling for simple chart
+        CategoryPlot plot = chart.getCategoryPlot();
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        
+        // Blue color scheme for prescriptions
+        renderer.setSeriesPaint(0, new Color(59, 130, 246));
+        renderer.setSeriesStroke(0, new BasicStroke(4.0f));
+        renderer.setSeriesShapesVisible(0, true);
+        
+        // Customize shapes
+        renderer.setSeriesShape(0, new java.awt.geom.Ellipse2D.Double(-4, -4, 8, 8));
+        
         return chartToByteArray(chart);
     }
 }

@@ -184,34 +184,39 @@ const PharmacyAnalytics = () => {
 
 // Overview Tab Component
 const OverviewTab = ({ data }) => {
+  // Calculate today's prescriptions (simulated based on daily volume)
+  const todaysPrescriptions = data?.prescriptionAnalytics?.dailyVolume?.length > 0 
+    ? data.prescriptionAnalytics.dailyVolume[data.prescriptionAnalytics.dailyVolume.length - 1]?.totalPrescriptions || 0
+    : data?.prescriptionAnalytics?.totalPrescriptions || 0;
+  
   const kpiCards = [
     {
-      title: 'Total Prescriptions',
-      value: data.prescriptionAnalytics?.totalPrescriptions || 0,
+      title: "Today's Prescriptions",
+      value: todaysPrescriptions,
       change: '+12%',
       changeType: 'increase',
       icon: '📋'
     },
     {
-      title: 'Active Prescriptions',
-      value: data.prescriptionAnalytics?.activePrescriptions || 0,
-      change: '+5%',
-      changeType: 'increase',
-      icon: '🔄'
-    },
-    {
-      title: 'Low Stock Items',
-      value: data.inventoryAnalytics?.lowStockCount || 0,
+      title: 'Low Stock Alerts',
+      value: data?.inventoryAnalytics?.lowStockCount || 0,
       change: '-8%',
       changeType: 'decrease',
       icon: '⚠️'
     },
     {
-      title: 'Revenue',
-      value: `$${data.revenueAnalytics?.totalRevenue?.toFixed(2) || '0.00'}`,
-      change: '+15%',
+      title: 'Processing Rate',
+      value: `${data?.prescriptionAnalytics?.processingRate?.toFixed(1) || '0.0'}%`,
+      change: '+2%',
       changeType: 'increase',
-      icon: '💰'
+      icon: '⚡'
+    },
+    {
+      title: 'Efficiency',
+      value: `${data?.performanceMetrics?.dispensingEfficiency?.toFixed(1) || '0.0'}%`,
+      change: '+1.5%',
+      changeType: 'increase',
+      icon: '�'
     }
   ];
 

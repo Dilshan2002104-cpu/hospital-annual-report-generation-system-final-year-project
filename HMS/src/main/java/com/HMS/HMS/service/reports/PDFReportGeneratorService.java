@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream;
 import java.text.DecimalFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PDFReportGeneratorService {
@@ -2115,5 +2116,287 @@ public class PDFReportGeneratorService {
             .setPadding(8);
             
         return cell;
+    }
+
+    /**
+     * Generate pharmacy annual report PDF
+     */
+    @SuppressWarnings("unchecked")
+    public byte[] generatePharmacyAnnualReportPDF(Map<String, Object> reportData, int year) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try {
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf, PageSize.A4);
+
+            // Set up fonts
+            PdfFont titleFont = PdfFontFactory.createFont();
+            PdfFont headerFont = PdfFontFactory.createFont();
+            PdfFont normalFont = PdfFontFactory.createFont();
+
+            // Title
+            Paragraph title = new Paragraph("Hospital Management System")
+                    .setFont(titleFont)
+                    .setFontSize(24)
+                    .setFontColor(new DeviceRgb(31, 81, 255))
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(10);
+            document.add(title);
+
+            Paragraph subtitle = new Paragraph("Pharmacy Annual Report - " + year)
+                    .setFont(headerFont)
+                    .setFontSize(18)
+                    .setFontColor(new DeviceRgb(71, 85, 105))
+                    .setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(20);
+            document.add(subtitle);
+
+            // Executive Summary
+            Map<String, Object> summary = (Map<String, Object>) reportData.get("summary");
+            if (summary != null) {
+                addSectionHeader(document, "Executive Summary", headerFont);
+                
+                Table summaryTable = new Table(4);
+                summaryTable.setWidth(UnitValue.createPercentValue(100));
+                
+                summaryTable.addHeaderCell(createStyledCell("Total Prescriptions", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                summaryTable.addHeaderCell(createStyledCell("Total Medications", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                summaryTable.addHeaderCell(createStyledCell("Total Revenue", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                summaryTable.addHeaderCell(createStyledCell("Avg Processing Time", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                
+                summaryTable.addCell(createStyledCell(formatNumber(summary.get("totalPrescriptions")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                summaryTable.addCell(createStyledCell(formatNumber(summary.get("totalMedications")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                summaryTable.addCell(createStyledCell(formatCurrency(summary.get("totalRevenue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                summaryTable.addCell(createStyledCell(formatNumber(summary.get("averageProcessingTime")) + " hrs", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                document.add(summaryTable);
+                document.add(new Paragraph("\n"));
+            }
+
+            // Monthly Prescription Trends
+            Map<String, Object> monthlyTrends = (Map<String, Object>) reportData.get("monthlyTrends");
+            if (monthlyTrends != null) {
+                addSectionHeader(document, "Monthly Prescription Dispensing Trends", headerFont);
+                
+                List<Map<String, Object>> monthlyData = (List<Map<String, Object>>) monthlyTrends.get("monthlyData");
+                if (monthlyData != null && !monthlyData.isEmpty()) {
+                    
+                    // Add line chart
+                    try {
+                        byte[] chartBytes = chartGenerationService.generateSimplePharmacyTrendsLineChart(
+                            monthlyData, 
+                            "Monthly Prescription Dispensing Trends - " + year
+                        );
+                        
+                        if (chartBytes != null && chartBytes.length > 0) {
+                            com.itextpdf.layout.element.Image chartImage = new com.itextpdf.layout.element.Image(
+                                ImageDataFactory.create(chartBytes)
+                            );
+                            chartImage.setWidth(UnitValue.createPercentValue(90));
+                            chartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                            chartImage.setMarginBottom(15);
+                            document.add(chartImage);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error adding prescription trends chart: " + e.getMessage());
+                        // Continue without chart if there's an error
+                    }
+                    
+                    // Add detailed table below the chart
+                    Table trendsTable = new Table(3);
+                    trendsTable.setWidth(UnitValue.createPercentValue(100));
+                    
+                    trendsTable.addHeaderCell(createStyledCell("Month", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    trendsTable.addHeaderCell(createStyledCell("Prescriptions", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    trendsTable.addHeaderCell(createStyledCell("Revenue", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    
+                    for (Map<String, Object> monthData : monthlyData) {
+                        trendsTable.addCell(createStyledCell((String) monthData.get("month"), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                        trendsTable.addCell(createStyledCell(formatNumber(monthData.get("prescriptions")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                        trendsTable.addCell(createStyledCell(formatCurrency(monthData.get("revenue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                    }
+                    
+                    document.add(trendsTable);
+                    document.add(new Paragraph("\n"));
+                    
+                    // Trends Summary with Analysis
+                    Paragraph trendsAnalysis = new Paragraph()
+                        .add("Annual Prescription Trends Analysis:\n")
+                        .setFont(headerFont)
+                        .setFontSize(13)
+                        .setFontColor(new DeviceRgb(51, 65, 85))
+                        .setMarginBottom(8);
+                    document.add(trendsAnalysis);
+                    
+                    Paragraph trendsSummary = new Paragraph()
+                        .add("• Total Annual Prescriptions: " + formatNumber(monthlyTrends.get("totalPrescriptions")) + "\n")
+                        .add("• Total Annual Revenue: " + formatCurrency(monthlyTrends.get("totalRevenue")) + "\n")
+                        .add("• Average Monthly Prescriptions: " + formatNumber(monthlyTrends.get("averageMonthlyPrescriptions")) + "\n")
+                        .add("• The line chart above shows the monthly dispensing pattern throughout the year\n")
+                        .add("• Peak and seasonal variations in prescription volumes are clearly visible\n")
+                        .add("• This data helps identify busy periods and plan staffing accordingly")
+                        .setFont(normalFont)
+                        .setFontSize(11)
+                        .setMarginBottom(15);
+                    document.add(trendsSummary);
+                }
+            }
+
+            // Top Dispensed Medications
+            Map<String, Object> topMedications = (Map<String, Object>) reportData.get("topMedications");
+            if (topMedications != null) {
+                addSectionHeader(document, "Top Dispensed Medications", headerFont);
+                
+                List<Map<String, Object>> medicationsList = (List<Map<String, Object>>) topMedications.get("topMedications");
+                if (medicationsList != null && !medicationsList.isEmpty()) {
+                    Table medicationsTable = new Table(4);
+                    medicationsTable.setWidth(UnitValue.createPercentValue(100));
+                    
+                    medicationsTable.addHeaderCell(createStyledCell("Medication", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    medicationsTable.addHeaderCell(createStyledCell("Category", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    medicationsTable.addHeaderCell(createStyledCell("Quantity", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    medicationsTable.addHeaderCell(createStyledCell("Total Value", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                    
+                    for (Map<String, Object> medication : medicationsList) {
+                        medicationsTable.addCell(createStyledCell((String) medication.get("medicationName"), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                        medicationsTable.addCell(createStyledCell((String) medication.get("category"), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                        medicationsTable.addCell(createStyledCell(formatNumber(medication.get("quantity")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                        medicationsTable.addCell(createStyledCell(formatCurrency(medication.get("totalValue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                    }
+                    
+                    document.add(medicationsTable);
+                    document.add(new Paragraph("\n"));
+                }
+            }
+
+            // Performance Metrics
+            Map<String, Object> performance = (Map<String, Object>) reportData.get("performance");
+            if (performance != null) {
+                addSectionHeader(document, "Performance Metrics", headerFont);
+                
+                Table performanceTable = new Table(2);
+                performanceTable.setWidth(UnitValue.createPercentValue(70));
+                
+                performanceTable.addHeaderCell(createStyledCell("Metric", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                performanceTable.addHeaderCell(createStyledCell("Value", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                
+                performanceTable.addCell(createStyledCell("Dispensing Efficiency", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                performanceTable.addCell(createStyledCell(formatPercentage(performance.get("dispensingEfficiency")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                performanceTable.addCell(createStyledCell("Average Wait Time", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                performanceTable.addCell(createStyledCell(formatNumber(performance.get("averageWaitTime")) + " min", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                performanceTable.addCell(createStyledCell("Total Patients Served", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                performanceTable.addCell(createStyledCell(formatNumber(performance.get("totalPatientsServed")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                performanceTable.addCell(createStyledCell("Customer Satisfaction", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                performanceTable.addCell(createStyledCell(formatPercentage(performance.get("customerSatisfaction")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                document.add(performanceTable);
+                document.add(new Paragraph("\n"));
+            }
+
+            // Revenue Analysis
+            Map<String, Object> revenue = (Map<String, Object>) reportData.get("revenue");
+            if (revenue != null) {
+                addSectionHeader(document, "Revenue Analysis", headerFont);
+                
+                Table revenueTable = new Table(2);
+                revenueTable.setWidth(UnitValue.createPercentValue(70));
+                
+                revenueTable.addHeaderCell(createStyledCell("Revenue Metric", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                revenueTable.addHeaderCell(createStyledCell("Amount", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                
+                revenueTable.addCell(createStyledCell("Total Annual Revenue", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                revenueTable.addCell(createStyledCell(formatCurrency(revenue.get("totalRevenue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                revenueTable.addCell(createStyledCell("Monthly Revenue", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                revenueTable.addCell(createStyledCell(formatCurrency(revenue.get("monthlyRevenue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                revenueTable.addCell(createStyledCell("Average Transaction Value", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                revenueTable.addCell(createStyledCell(formatCurrency(revenue.get("averageTransactionValue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                document.add(revenueTable);
+                document.add(new Paragraph("\n"));
+            }
+
+            // Inventory Summary
+            Map<String, Object> inventory = (Map<String, Object>) reportData.get("inventory");
+            if (inventory != null) {
+                addSectionHeader(document, "Inventory Summary", headerFont);
+                
+                Table inventoryTable = new Table(2);
+                inventoryTable.setWidth(UnitValue.createPercentValue(70));
+                
+                inventoryTable.addHeaderCell(createStyledCell("Inventory Metric", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                inventoryTable.addHeaderCell(createStyledCell("Value", headerFont, 12, new DeviceRgb(51, 65, 85), true));
+                
+                inventoryTable.addCell(createStyledCell("Total Medications", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                inventoryTable.addCell(createStyledCell(formatNumber(inventory.get("totalMedications")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                inventoryTable.addCell(createStyledCell("Low Stock Items", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                inventoryTable.addCell(createStyledCell(formatNumber(inventory.get("lowStockItems")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                inventoryTable.addCell(createStyledCell("Out of Stock Items", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                inventoryTable.addCell(createStyledCell(formatNumber(inventory.get("outOfStockItems")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                inventoryTable.addCell(createStyledCell("Total Inventory Value", normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                inventoryTable.addCell(createStyledCell(formatCurrency(inventory.get("inventoryValue")), normalFont, 11, new DeviceRgb(51, 65, 85), false));
+                
+                document.add(inventoryTable);
+            }
+
+            // Footer
+            document.add(new Paragraph("\n\n"));
+            Paragraph footer = new Paragraph("Report generated on: " + java.time.LocalDateTime.now().format(dateFormatter))
+                    .setFont(normalFont)
+                    .setFontSize(10)
+                    .setFontColor(new DeviceRgb(107, 114, 128))
+                    .setTextAlignment(TextAlignment.CENTER);
+            document.add(footer);
+
+            document.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            System.err.println("Error generating pharmacy annual report PDF: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to generate pharmacy annual report PDF", e);
+        }
+    }
+
+    private void addSectionHeader(Document document, String title, PdfFont font) {
+        Paragraph header = new Paragraph(title)
+                .setFont(font)
+                .setFontSize(16)
+                .setFontColor(new DeviceRgb(31, 81, 255))
+                .setMarginTop(15)
+                .setMarginBottom(10);
+        document.add(header);
+    }
+
+    private String formatNumber(Object value) {
+        if (value == null) return "0";
+        if (value instanceof Number) {
+            return decimalFormat.format(((Number) value).longValue());
+        }
+        return value.toString();
+    }
+
+    private String formatCurrency(Object value) {
+        if (value == null) return "$0.00";
+        if (value instanceof Number) {
+            return "$" + decimalFormat.format(((Number) value).doubleValue());
+        }
+        return value.toString();
+    }
+
+    private String formatPercentage(Object value) {
+        if (value == null) return "0%";
+        if (value instanceof Number) {
+            return String.format("%.1f%%", ((Number) value).doubleValue());
+        }
+        return value.toString();
     }
 }
