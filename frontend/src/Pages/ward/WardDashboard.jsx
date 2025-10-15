@@ -10,7 +10,8 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  TestTube
 } from 'lucide-react';
 
 // Import components
@@ -26,6 +27,7 @@ import PrescriptionsManagement from './components/PrescriptionsManagement';
 import WardAnalytics from './components/WardAnalytics';
 import BedManagement from './components/BedManagement';
 import WardStatisticsReport from './components/WardStatisticsReport';
+import LabRequestManagement from './components/LabRequestManagement';
 
 // Import modern notification components
 import { ToastContainer } from './components/notifications/Toast';
@@ -207,6 +209,7 @@ const WardDashboard = () => {
     { id: 'overview', label: 'Ward Overview', icon: Activity },
     { id: 'patients', label: 'Patient List', icon: Users },
     { id: 'admit', label: 'Admit Patients', icon: UserPlus },
+    { id: 'lab-requests', label: 'Lab Requests', icon: TestTube },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'reports', label: 'Statistics Report', icon: FileText },
     { id: 'beds', label: 'Bed Management', icon: Bed },
@@ -419,6 +422,13 @@ const WardDashboard = () => {
               )}
             </div>
           </div>
+        );
+      case 'lab-requests':
+        return (
+          <LabRequestManagement
+            showToast={notifications.toast}
+            activeAdmissions={displayActiveAdmissions}
+          />
         );
       case 'analytics':
         return (

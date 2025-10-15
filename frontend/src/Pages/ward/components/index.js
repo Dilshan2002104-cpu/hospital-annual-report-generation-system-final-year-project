@@ -10,3 +10,6 @@ export { default as TransferManagement } from './TransferManagement';
 export { default as TransferDetailsModal } from './TransferDetailsModal';
 export { default as NewTransferModal } from './NewTransferModal';
 export { default as AdmitPatientModal } from './AdmitPatientModal';
+export { default as LabRequestManagement } from './LabRequestManagement';
+export { default as CreateLabRequestModal } from './CreateLabRequestModal';
+export { default as LabRequestDetailsModal } from './LabRequestDetailsModal';
