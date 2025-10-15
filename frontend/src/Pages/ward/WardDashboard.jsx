@@ -423,14 +423,8 @@ const WardDashboard = () => {
       case 'analytics':
         return (
           <WardAnalytics
-            allAdmissions={displayAllAdmissions}
-            activeAdmissions={displayActiveAdmissions}
-            wards={wards}
-            loading={fetchingAdmissions}
-            onRefresh={async () => {
-              await fetchAllAdmissions();
-              await fetchActiveAdmissions();
-            }}
+            showToast={notifications.toast}
+            timeRange="7days"
           />
         );
       case 'reports':
