@@ -9,7 +9,6 @@ export default function WardHeader({ stats = {} }) {
     occupancyRate: 21,
     todayAdmissions: 0,
     todayDischarges: 2,
-    activePrescriptions: 0,
     ...stats
   };
 
@@ -57,11 +56,6 @@ export default function WardHeader({ stats = {} }) {
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
           <span>Discharges Today: <span className="font-semibold">{safeStats.todayDischarges}</span></span>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-          <span>Active Prescriptions: <span className="font-semibold">{safeStats.activePrescriptions}</span></span>
         </div>
       </div>
     </div>
