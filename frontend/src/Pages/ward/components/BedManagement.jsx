@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Bed,
   User,
-  Clock,
   Calendar,
   Filter,
   Search,
@@ -16,55 +15,124 @@ import {
   Activity
 } from 'lucide-react';
 import useAdmissions from '../hooks/useAdmissions';
+import useWards from '../hooks/useWards';
 
 const BedManagement = () => {
   const { activeAdmissions, loading, fetchActiveAdmissions } = useAdmissions();
+  const { wards: realWards, loading: wardsLoading, fetchWards } = useWards();
   const [selectedWard, setSelectedWard] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [_VIEW_MODE, _SET_VIEW_MODE] = useState('grid'); // 'grid' or 'list'
+  const [selectedBed, setSelectedBed] = useState(null);
+  const [showPatientModal, setShowPatientModal] = useState(false);
 
-  // Ward configuration - each ward has 20 beds
-  const wards = useMemo(() => [
-    { id: 1, name: 'Ward 1 - General', type: 'general', total: 20, color: 'blue' },
-    { id: 2, name: 'Ward 2 - General', type: 'general', total: 20, color: 'green' },
-    { id: 3, name: 'Ward 3 - ICU', type: 'icu', total: 20, color: 'red' },
-    { id: 4, name: 'Ward 4 - Dialysis', type: 'specialty', total: 20, color: 'purple' }
-  ], []);
+  // Auto-fetch admissions and wards on component mount and refresh every 30 seconds
+  useEffect(() => {
+    fetchActiveAdmissions();
+    fetchWards();
+    const interval = setInterval(() => {
+      fetchActiveAdmissions();
+      fetchWards();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [fetchActiveAdmissions, fetchWards]);
 
-  // Generate bed numbers for each ward (1-20)
-  const generateBeds = (wardId, total = 20) => {
-    return Array.from({ length: total }, (_, index) => ({
-      bedNumber: `${wardId}${String(index + 1).padStart(2, '0')}`, // e.g., "101", "102", etc.
-      wardId: wardId,
-      position: index + 1
-    }));
-  };
+  // Use real ward data from API, fallback to default configuration
+  const wards = useMemo(() => {
+    if (realWards && realWards.length > 0) {
+      // Use real wards from API
+      return realWards.map((ward, index) => ({
+        id: ward.wardId,
+        name: ward.wardName,
+        type: ward.wardType?.toLowerCase() || 'general',
+        total: 20, // Each ward has 20 beds
+        color: ['blue', 'green', 'red', 'purple'][index % 4] // Cycle through colors
+      }));
+    }
+    // Fallback to default ward configuration
+    return [
+      { id: 1, name: 'Ward 1 - General', type: 'general', total: 20, color: 'blue' },
+      { id: 2, name: 'Ward 2 - General', type: 'general', total: 20, color: 'green' },
+      { id: 3, name: 'Ward 3 - ICU', type: 'icu', total: 20, color: 'red' },
+      { id: 4, name: 'Ward 4 - Dialysis', type: 'specialty', total: 20, color: 'purple' }
+    ];
+  }, [realWards]);
 
-  // Get all beds with their current status
+
+
+  // Get all beds with their current status - create beds from actual admissions data
   const allBeds = useMemo(() => {
     const beds = [];
-    wards.forEach(ward => {
-      const wardBeds = generateBeds(ward.id, ward.total);
-      wardBeds.forEach(bed => {
-        // Find if this bed is occupied
-        const admission = activeAdmissions.find(adm =>
-          adm.wardName?.includes(ward.name.split(' - ')[0]) &&
-          adm.bedNumber === bed.bedNumber.slice(-2) // Match last 2 digits
-        );
-
-        beds.push({
-          ...bed,
-          ward: ward,
-          status: admission ? 'occupied' : 'available',
-          patient: admission ? {
-            name: admission.patientName,
-            id: admission.patientNationalId,
-            admissionDate: admission.admissionDate,
-            admissionId: admission.admissionId
-          } : null
-        });
+    
+    console.log('BedManagement - Processing admissions:', activeAdmissions?.length || 0);
+    console.log('BedManagement - Available wards:', wards?.length || 0);
+    
+    // First, create occupied beds from real admissions data
+    const occupiedBeds = new Set();
+    if (activeAdmissions && Array.isArray(activeAdmissions)) {
+      activeAdmissions.forEach(admission => {
+        const ward = wards.find(w => w.id === admission.wardId);
+        if (ward) {
+          console.log(`Adding occupied bed: Ward ${admission.wardId} - Bed ${admission.bedNumber} - Patient ${admission.patientName}`);
+          beds.push({
+            bedNumber: admission.bedNumber,
+            wardId: admission.wardId,
+            ward: ward,
+            status: 'occupied',
+            patient: {
+              name: admission.patientName,
+              id: admission.patientNationalId,
+              admissionDate: admission.admissionDate,
+              admissionId: admission.admissionId,
+              wardName: admission.wardName,
+              realBedNumber: admission.bedNumber
+            }
+          });
+          occupiedBeds.add(`${admission.wardId}-${admission.bedNumber}`);
+        }
       });
+    }
+    
+    // Then, create some available beds for each ward (for demo purposes)
+    wards.forEach(ward => {
+      // Add some available beds per ward
+      const availableBedsCount = 15; // Show 15 available beds per ward
+      for (let i = 1; i <= availableBedsCount; i++) {
+        let bedNumber;
+        
+        // Generate bed number based on ward type
+        switch (ward.type?.toLowerCase()) {
+          case 'icu':
+            bedNumber = `ICU-${i}`;
+            break;
+          case 'dialysis':
+            bedNumber = String(i).padStart(3, '0');
+            break;
+          case 'general':
+          default:
+            bedNumber = `${ward.id}${String(i).padStart(2, '0')}`;
+            break;
+        }
+        
+        // Only add if not already occupied
+        const bedExists = beds.some(b => b.wardId === ward.id && b.bedNumber === bedNumber);
+        if (!bedExists) {
+          beds.push({
+            bedNumber: bedNumber,
+            wardId: ward.id,
+            ward: ward,
+            status: 'available',
+            patient: null
+          });
+        }
+      }
     });
+    
+    console.log('BedManagement - Total beds created:', beds.length);
+    console.log('BedManagement - Occupied beds:', beds.filter(b => b.status === 'occupied').length);
+    console.log('BedManagement - Available beds:', beds.filter(b => b.status === 'available').length);
+    
     return beds;
   }, [activeAdmissions, wards]);
 
@@ -119,9 +187,9 @@ const BedManagement = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'occupied':
-        return 'bg-red-100 border-red-300 text-red-800';
+        return 'bg-red-500 border-red-600 text-white shadow-md'; // Bright red for occupied beds
       case 'available':
-        return 'bg-green-100 border-green-300 text-green-800';
+        return 'bg-green-500 border-green-600 text-white shadow-md'; // Bright green for available beds
       case 'cleaning':
         return 'bg-yellow-100 border-yellow-300 text-yellow-800';
       case 'maintenance':
@@ -141,43 +209,39 @@ const BedManagement = () => {
     return colors[color] || 'bg-gray-50 border-gray-200';
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+
+
+  const handleBedClick = (bed) => {
+    if (bed.status === 'occupied' && bed.patient) {
+      setSelectedBed(bed);
+      setShowPatientModal(true);
+    }
   };
 
   const BedCard = ({ bed }) => (
     <div
-      className={`relative p-3 rounded-lg border-2 transition-all duration-200 hover:shadow-md cursor-pointer ${getStatusColor(bed.status)}`}
-      title={bed.status === 'occupied' ? `Patient: ${bed.patient?.name}` : 'Available'}
+      className={`relative p-3 rounded-lg border-2 transition-all duration-200 hover:shadow-lg cursor-pointer ${getStatusColor(bed.status)}`}
+      title={bed.status === 'occupied' ? 
+        `Patient: ${bed.patient?.name} | Real Bed: ${bed.patient?.realBedNumber} | Ward: ${bed.patient?.wardName}` : 
+        'Available Bed'}
+      onClick={() => handleBedClick(bed)}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <Bed size={16} className="mr-1" />
-          <span className="font-bold text-sm">{bed.bedNumber}</span>
+          <span className="font-bold text-xs">{bed.bedNumber}</span>
         </div>
         {bed.status === 'occupied' && (
-          <User size={14} className="text-gray-600" />
+          <User size={14} className="text-white" />
         )}
       </div>
 
       {bed.status === 'occupied' && bed.patient ? (
-        <div className="space-y-1">
-          <div className="font-medium text-sm truncate">{bed.patient.name}</div>
-          <div className="text-xs text-gray-600">ID: {bed.patient.id}</div>
-          <div className="text-xs text-gray-500">
-            <Clock size={10} className="inline mr-1" />
-            {formatDate(bed.patient.admissionDate)}
-          </div>
+        <div className="text-center">
+          <div className="font-medium text-xs truncate text-white">{bed.patient.name}</div>
         </div>
       ) : (
-        <div className="text-center text-sm font-medium text-green-700">
+        <div className="text-center text-xs font-medium text-white">
           Available
         </div>
       )}
@@ -196,15 +260,31 @@ const BedManagement = () => {
             <div className="ml-3">
               <h1 className="text-xl font-semibold text-gray-900">Bed Management</h1>
               <p className="text-gray-600">Monitor bed allocation and patient distribution across all wards</p>
+              {/* Debug info */}
+              <p className="text-xs text-gray-400 mt-1">
+                Active Admissions: {activeAdmissions?.length || 0} | 
+                Wards: {wards?.length || 0} | 
+                Occupied Beds: {allBeds?.filter(b => b.status === 'occupied').length || 0} |
+                Last Updated: {new Date().toLocaleTimeString()}
+              </p>
+              {/* Show sample bed numbers for debugging */}
+              {activeAdmissions && activeAdmissions.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Sample bed numbers: {activeAdmissions.slice(0, 3).map(a => `${a.wardName}:${a.bedNumber}`).join(', ')}
+                </p>
+              )}
             </div>
           </div>
           <button
-            onClick={fetchActiveAdmissions}
-            disabled={loading}
+            onClick={() => {
+              fetchActiveAdmissions();
+              fetchWards();
+            }}
+            disabled={loading || wardsLoading}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            <RefreshCw size={16} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw size={16} className={`mr-2 ${(loading || wardsLoading) ? 'animate-spin' : ''}`} />
+            Refresh Beds
           </button>
         </div>
 
@@ -398,6 +478,83 @@ const BedManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* Patient Information Modal */}
+      {showPatientModal && selectedBed && selectedBed.patient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Patient Information</h3>
+              <button
+                onClick={() => setShowPatientModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            {/* Patient Details */}
+            <div className="space-y-4">
+              {/* Patient Name */}
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <label className="text-sm font-medium text-blue-800">Patient Name</label>
+                <p className="text-lg font-semibold text-blue-900">{selectedBed.patient.name}</p>
+              </div>
+
+              {/* Patient ID */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <label className="text-sm font-medium text-gray-600">National ID</label>
+                <p className="font-mono text-gray-900">{selectedBed.patient.id}</p>
+              </div>
+
+              {/* Ward & Bed Information */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <label className="text-sm font-medium text-green-800">Ward</label>
+                  <p className="font-semibold text-green-900">{selectedBed.patient.wardName}</p>
+                </div>
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <label className="text-sm font-medium text-purple-800">Bed Number</label>
+                  <p className="font-semibold text-purple-900">{selectedBed.patient.realBedNumber}</p>
+                </div>
+              </div>
+
+              {/* Admission Date */}
+              <div className="bg-orange-50 p-3 rounded-lg">
+                <label className="text-sm font-medium text-orange-800">Admission Date & Time</label>
+                <p className="text-orange-900">
+                  {new Date(selectedBed.patient.admissionDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })} at {' '}
+                  {new Date(selectedBed.patient.admissionDate).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+
+              {/* Admission ID */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <label className="text-sm font-medium text-gray-600">Admission ID</label>
+                <p className="font-mono text-gray-900">#{selectedBed.patient.admissionId}</p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowPatientModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
