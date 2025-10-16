@@ -120,7 +120,7 @@ const ClinicOverview = ({ todayStats, doctors = [], doctorsLoading = false, onTa
             className="flex flex-col items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-xl transition-all duration-200 hover:scale-105 group"
           >
             <ClipboardList size={24} className="text-orange-600 mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium text-orange-800">Care Reports</span>
+            <span className="text-sm font-medium text-orange-800">Reports</span>
           </button>
         </div>
       </div>

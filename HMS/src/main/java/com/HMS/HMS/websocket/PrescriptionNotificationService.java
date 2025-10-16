@@ -1,12 +1,13 @@
 package com.HMS.HMS.websocket;
 
-import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionResponseDTO;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.HMS.HMS.DTO.PrescriptionDTO.PrescriptionResponseDTO;
 
 @Service
 public class PrescriptionNotificationService {
@@ -18,9 +19,6 @@ public class PrescriptionNotificationService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    /**
-     * Notify pharmacy about new prescription creation
-     */
     public void notifyPrescriptionCreated(PrescriptionResponseDTO prescription) {
         Map<String, Object> notification = new HashMap<>();
         notification.put("type", "PRESCRIPTION_CREATED");
@@ -35,9 +33,6 @@ public class PrescriptionNotificationService {
         System.out.println("WebSocket notification sent for new prescription: " + prescription.getPrescriptionId());
     }
 
-    /**
-     * Notify about prescription status update
-     */
     public void notifyPrescriptionUpdated(PrescriptionResponseDTO prescription) {
 
         Map<String, Object> notification = new HashMap<>();

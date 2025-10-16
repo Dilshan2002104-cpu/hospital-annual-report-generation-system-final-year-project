@@ -23,6 +23,25 @@ export default function ClinicDashboard() {
   const [activeTab, setActiveTab] = useState('status');
   const [toasts, setToasts] = useState([]);
 
+  // Add CSS to hide scrollbar
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Toast utility functions
   const addToast = useCallback((type, title, message) => {
     const id = Date.now() + Math.random();
@@ -89,7 +108,7 @@ export default function ClinicDashboard() {
     { id: 'prescriptions', label: 'Prescriptions', icon: Pill },
     { id: 'history', label: 'Patient History', icon: History },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'reports', label: 'Care Reports', icon: ClipboardList }
+    { id: 'reports', label: 'Reports', icon: ClipboardList }
   ];
 
   const renderContent = () => {
@@ -171,7 +190,13 @@ export default function ClinicDashboard() {
       {/* Navigation Tabs */}
       <div className="bg-white/80 backdrop-blur-md border-b-2 border-blue-100 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-2 py-6 overflow-x-auto scrollbar-hide">
+          <nav 
+            className="flex space-x-2 py-6 overflow-x-auto no-scrollbar" 
+            style={{
+              scrollbarWidth: 'none', 
+              msOverflowStyle: 'none'
+            }}
+          >
             {tabs.map((tab) => (
               <TabButton
                 key={tab.id}
