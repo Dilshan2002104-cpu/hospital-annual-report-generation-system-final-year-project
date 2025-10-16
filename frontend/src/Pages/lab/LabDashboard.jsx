@@ -239,6 +239,7 @@ export default function LabDashboard() {
             onUpdateOrder={updateTestOrder}
             onProcessTest={processTest}
             stats={labStats}
+            showToast={(message, type) => addToast(type, type === 'success' ? 'Success' : 'Error', message)}
           />
         );
       case 'sample-collection':

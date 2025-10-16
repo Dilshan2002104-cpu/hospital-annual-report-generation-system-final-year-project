@@ -28,6 +28,7 @@ import WardAnalytics from './components/WardAnalytics';
 import BedManagement from './components/BedManagement';
 import WardStatisticsReport from './components/WardStatisticsReport';
 import LabRequestManagement from './components/LabRequestManagement';
+import TestResultsView from './components/TestResultsView';
 
 // Import modern notification components
 import { ToastContainer } from './components/notifications/Toast';
@@ -210,6 +211,7 @@ const WardDashboard = () => {
     { id: 'patients', label: 'Patient List', icon: Users },
     { id: 'admit', label: 'Admit Patients', icon: UserPlus },
     { id: 'lab-requests', label: 'Lab Requests', icon: TestTube },
+    { id: 'test-results', label: 'Test Results', icon: FileText },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'reports', label: 'Statistics Report', icon: FileText },
     { id: 'beds', label: 'Bed Management', icon: Bed },
@@ -429,6 +431,28 @@ const WardDashboard = () => {
             showToast={notifications.toast}
             activeAdmissions={displayActiveAdmissions}
           />
+        );
+      case 'test-results':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Patient Test Results</h2>
+              {selectedPatient ? (
+                <TestResultsView
+                  patientNationalId={selectedPatient.nationalId}
+                  showToast={notifications.toast}
+                />
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Select a patient to view their test results</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Go to Patient List tab and click on a patient to view their test results here
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         );
       case 'analytics':
         return (

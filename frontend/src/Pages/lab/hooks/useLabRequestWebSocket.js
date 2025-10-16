@@ -93,7 +93,7 @@ const useLabRequestWebSocket = (showToast = null) => {
 
   // Initialize WebSocket connection
   const { 
-    connected, 
+    isConnected, 
     error, 
     sendMessage, 
     disconnect 
@@ -105,11 +105,14 @@ const useLabRequestWebSocket = (showToast = null) => {
 
   // Load initial lab requests when connected
   useEffect(() => {
-    if (connected) {
+    if (isConnected) {
       console.log('🔗 Lab WebSocket connected - requesting initial data');
+      console.log('📊 WebSocket connection status:', { isConnected });
       // You can add initial data fetch here if needed
+    } else {
+      console.log('❌ Lab WebSocket disconnected');
     }
-  }, [connected]);
+  }, [isConnected]);
 
   // Manual refresh function
   const refreshLabRequests = useCallback((newRequests) => {
@@ -148,7 +151,7 @@ const useLabRequestWebSocket = (showToast = null) => {
   return {
     labRequests,
     stats,
-    connected,
+    connected: isConnected,
     error,
     sendMessage,
     disconnect,

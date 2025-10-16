@@ -11,7 +11,7 @@ const useLabRequests = (showToast = null) => {
     { id: 'CBC', name: 'Complete Blood Count', category: 'Hematology', urgent: false, description: 'Evaluates overall health and detects blood disorders' },
     { id: 'GLUCOSE', name: 'Blood Glucose', category: 'Chemistry', urgent: true, description: 'Measures blood sugar levels' },
     { id: 'UA', name: 'Urine Analysis', category: 'Chemistry', urgent: false, description: 'Detects urinary tract infections and kidney problems' },
-    { id: 'XRAY', name: 'Chest X-Ray', category: 'Radiology', urgent: false, description: 'Images of chest to check lungs and heart' }
+    { id: 'CHOLESTEROL', name: 'Cholesterol Level', category: 'Chemistry', urgent: false, description: 'Measures total cholesterol, HDL, LDL levels in mg/dL' }
   ];
 
   // Generate unique request ID

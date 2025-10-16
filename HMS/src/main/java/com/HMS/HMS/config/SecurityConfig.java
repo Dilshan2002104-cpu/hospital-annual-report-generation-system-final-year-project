@@ -60,27 +60,46 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/update/**").hasRole("ADMIN")
                         .requestMatchers("/api/auth/delete/**").hasRole("ADMIN")
 
-                                .requestMatchers("/api/transfers/**").permitAll()
+                        // Ward and transfer endpoints
+                        .requestMatchers("/api/transfers/**").permitAll()
+                        .requestMatchers("/api/patients/**").permitAll()
+                        .requestMatchers("/api/admissions/**").permitAll()
+                        .requestMatchers("/api/wards/getAll").permitAll()
+                        
+                        // Reports endpoints
                         .requestMatchers("/api/reports/admissions/**").permitAll()
                         .requestMatchers("/api/reports/ward-statistics/**").permitAll()
                         .requestMatchers("/api/reports/hospital-wide/**").permitAll()
                         .requestMatchers("/api/reports/pharmacy/**").permitAll()
+                        .requestMatchers("/api/reports/clinic/**").permitAll()
+                        .requestMatchers("/api/reports/comprehensive-clinic/**").permitAll()
+                        .requestMatchers("/api/reports/appointment-analytics/**").permitAll()
+                        
+                        // Medical endpoints
+                        .requestMatchers("/api/doctors/**").permitAll()
+                        .requestMatchers("/api/appointments/**").permitAll()
+                        .requestMatchers("/api/prescriptions/**").permitAll()
+                        
+                        // Pharmacy endpoints
                         .requestMatchers("/api/pharmacy/reports/**").permitAll()
                         .requestMatchers("/api/pharmacy/medications/**").permitAll()
                         .requestMatchers("/api/pharmacy/analytics/**").permitAll()
-                        .requestMatchers("/api/patients/**").permitAll()
-                        .requestMatchers("/api/doctors/**").permitAll()
-                        .requestMatchers("/api/appointments/**").permitAll()
-                        .requestMatchers("/api/admissions/**").permitAll()
-                        .requestMatchers("/api/reports/clinic/**").permitAll()
-                        .requestMatchers("/api/wards/getAll").permitAll()
-                        .requestMatchers("/api/reports/comprehensive-clinic/**").permitAll()
-                        .requestMatchers("/api/reports/appointment-analytics/**").permitAll()
-                        .requestMatchers("/api/test/**").permitAll()
-                        .requestMatchers("/api/prescriptions/**").permitAll()
+                        
+                        // Dialysis and clinic endpoints
                         .requestMatchers("/api/dialysis/**").permitAll()
                         .requestMatchers("/api/clinic/**").permitAll()
-                        .requestMatchers("/api/lab-requests/**").permitAll()
+                        
+                        // Lab and test endpoints
+                        .requestMatchers("/api/test/**").permitAll()
+                        .requestMatchers("/api/test-results/**").permitAll()
+                        .requestMatchers("/api/simple-test/**").permitAll()
+                        .requestMatchers("/api/test-results-simple/**").permitAll()
+                        .requestMatchers("/api/test-simple/**").permitAll()
+                        .requestMatchers("/api/health-test/**").permitAll()
+                        .requestMatchers("/api/debug/**").permitAll()
+                    
+                        
+                        // Actuator endpoints
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )

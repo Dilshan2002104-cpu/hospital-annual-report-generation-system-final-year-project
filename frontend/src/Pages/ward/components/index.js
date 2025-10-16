@@ -13,3 +13,4 @@ export { default as AdmitPatientModal } from './AdmitPatientModal';
 export { default as LabRequestManagement } from './LabRequestManagement';
 export { default as CreateLabRequestModal } from './CreateLabRequestModal';
 export { default as LabRequestDetailsModal } from './LabRequestDetailsModal';
+export { default as TestResultsView } from './TestResultsView';

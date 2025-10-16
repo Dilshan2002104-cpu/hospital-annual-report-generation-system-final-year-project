@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, TestTube, RefreshCw, Clock, AlertTriangle, Eye, XCircle, CheckCircle, User } from 'lucide-react';
+import { Search, TestTube, RefreshCw, Clock, AlertTriangle, Eye, XCircle, CheckCircle, User, FileText } from 'lucide-react';
 import useLabRequestWebSocket from '../hooks/useLabRequestWebSocket';
+import TestResultsModal from './TestResultsModal';
 import axios from 'axios';
 
 export default function TestOrdersManagement({ showToast }) {
@@ -8,6 +9,7 @@ export default function TestOrdersManagement({ showToast }) {
   const [loading, setLoading] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
   const [updatingRequests, setUpdatingRequests] = useState(new Set());
 
   const {
@@ -122,6 +124,11 @@ export default function TestOrdersManagement({ showToast }) {
   const handleViewDetails = (request) => {
     setSelectedRequest(request);
     setShowDetailsModal(true);
+  };
+
+  const handleEnterResults = (request) => {
+    setSelectedRequest(request);
+    setShowResultsModal(true);
   };
 
   return (
@@ -296,23 +303,33 @@ export default function TestOrdersManagement({ showToast }) {
                       )}
                       
                       {request.status === 'IN_PROGRESS' && (
-                        <button
-                          onClick={() => handleStatusUpdate(request.requestId, 'COMPLETED')}
-                          disabled={updatingRequests.has(request.requestId)}
-                          className="flex items-center space-x-1 px-3 py-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {updatingRequests.has(request.requestId) ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                              <span>Completing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4" />
-                              <span>Complete</span>
-                            </>
-                          )}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleEnterResults(request)}
+                            className="flex items-center space-x-1 px-3 py-2 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>Enter Results</span>
+                          </button>
+                          
+                          <button
+                            onClick={() => handleStatusUpdate(request.requestId, 'COMPLETED')}
+                            disabled={updatingRequests.has(request.requestId)}
+                            className="flex items-center space-x-1 px-3 py-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {updatingRequests.has(request.requestId) ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                <span>Completing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Complete</span>
+                              </>
+                            )}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -475,6 +492,19 @@ export default function TestOrdersManagement({ showToast }) {
           <p className="text-red-600 text-xs mt-1">Real-time updates may not work properly. Click refresh to reload data.</p>
         </div>
       )}
+
+      {/* Test Results Modal */}
+      <TestResultsModal
+        isOpen={showResultsModal}
+        onClose={() => {
+          setShowResultsModal(false);
+          setSelectedRequest(null);
+          // Refresh lab requests after closing modal
+          fetchLabRequests();
+        }}
+        labRequest={selectedRequest}
+        showToast={showToast}
+      />
     </div>
   );
 }
