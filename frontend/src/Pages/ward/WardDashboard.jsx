@@ -201,7 +201,6 @@ const WardDashboard = () => {
       improvingPatients: 0,
       todayAdmissions,
       todayDischarges,
-      activePrescriptions: 0, // Can be populated from prescription data if available
       pendingTransfers: 0
     };
   }, [wards, displayActiveAdmissions, displayAllAdmissions]);
