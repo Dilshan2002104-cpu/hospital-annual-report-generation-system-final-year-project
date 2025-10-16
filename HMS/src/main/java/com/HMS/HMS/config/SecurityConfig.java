@@ -97,6 +97,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/test-simple/**").permitAll()
                         .requestMatchers("/api/health-test/**").permitAll()
                         .requestMatchers("/api/debug/**").permitAll()
+                        .requestMatchers("/api/lab-reports/**").permitAll()
                     
                         
                         // Actuator endpoints

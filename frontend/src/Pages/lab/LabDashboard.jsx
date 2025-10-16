@@ -1,26 +1,15 @@
 import { useState, useMemo } from 'react';
 import {
-  Activity,
   FileText,
-  TestTube,
-  Database,
   TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Microscope
+  AlertCircle
 } from 'lucide-react';
 
 // Import components
 import LabHeader from './components/LabHeader';
-import LabOverview from './components/LabOverview';
 import TestOrdersManagement from './components/TestOrdersManagement';
-import SampleCollection from './components/SampleCollection';
-import TestProcessing from './components/TestProcessing';
-import ResultsManagement from './components/ResultsManagement';
-import QualityControl from './components/QualityControl';
 import LabAnalytics from './components/LabAnalytics';
 import LabReports from './components/LabReports';
-import EquipmentManagement from './components/EquipmentManagement';
 import { ToastContainer } from '../Clinic/nurs/components/Toast';
 
 // Import custom hooks
@@ -30,7 +19,7 @@ import useLabEquipment from './hooks/useLabEquipment';
 import useLabResults from './hooks/useLabResults';
 
 export default function LabDashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('test-orders');
   const [toasts, setToasts] = useState([]);
 
   // Toast functions
@@ -55,27 +44,16 @@ export default function LabDashboard() {
 
   const {
     samples,
-    loading: samplesLoading,
-    collectSample,
-    updateSampleStatus,
-    searchSamples,
     getStats: getSampleStats
   } = useSamples(addToast);
 
   const {
     equipment,
-    loading: equipmentLoading,
-    updateEquipment,
-    scheduleMaintenanceEquipment,
     getStats: getEquipmentStats
   } = useLabEquipment(addToast);
 
   const {
     results,
-    loading: resultsLoading,
-    createResult,
-    validateResult,
-    approveResult,
     getStats: getResultStats
   } = useLabResults(addToast);
 
@@ -155,53 +133,11 @@ export default function LabDashboard() {
   // Tab configuration
   const tabs = [
     {
-      id: 'overview',
-      label: 'Lab Overview',
-      icon: Activity,
-      description: 'Dashboard Summary',
-      count: labStats.urgentTests
-    },
-    {
       id: 'test-orders',
       label: 'Test Orders',
       icon: FileText,
       description: 'Order Management',
       count: labStats.pendingTests
-    },
-    {
-      id: 'sample-collection',
-      label: 'Sample Collection',
-      icon: TestTube,
-      description: 'Sample Processing',
-      count: labStats.todayCollections
-    },
-    {
-      id: 'test-processing',
-      label: 'Test Processing',
-      icon: Microscope,
-      description: 'Run Tests',
-      count: labStats.inProgressTests
-    },
-    {
-      id: 'results',
-      label: 'Results Management',
-      icon: CheckCircle,
-      description: 'Validate & Approve',
-      count: labStats.pendingApproval
-    },
-    {
-      id: 'quality-control',
-      label: 'Quality Control',
-      icon: AlertCircle,
-      description: 'QC Checks',
-      count: labStats.criticalResults
-    },
-    {
-      id: 'equipment',
-      label: 'Equipment',
-      icon: Database,
-      description: 'Maintenance & Status',
-      count: labStats.maintenanceEquipment
     },
     {
       id: 'analytics',
@@ -219,17 +155,6 @@ export default function LabDashboard() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'overview':
-        return (
-          <LabOverview
-            stats={labStats}
-            testOrders={testOrders}
-            samples={samples}
-            equipment={equipment}
-            results={results}
-            onTabChange={setActiveTab}
-          />
-        );
       case 'test-orders':
         return (
           <TestOrdersManagement
@@ -240,61 +165,6 @@ export default function LabDashboard() {
             onProcessTest={processTest}
             stats={labStats}
             showToast={(message, type) => addToast(type, type === 'success' ? 'Success' : 'Error', message)}
-          />
-        );
-      case 'sample-collection':
-        return (
-          <SampleCollection
-            samples={samples}
-            testOrders={testOrders}
-            loading={samplesLoading}
-            onCollectSample={collectSample}
-            onUpdateStatus={updateSampleStatus}
-            onSearchSamples={searchSamples}
-            stats={labStats}
-          />
-        );
-      case 'test-processing':
-        return (
-          <TestProcessing
-            testOrders={testOrders}
-            samples={samples}
-            equipment={equipment}
-            loading={testsLoading}
-            onProcessTest={processTest}
-            stats={labStats}
-          />
-        );
-      case 'results':
-        return (
-          <ResultsManagement
-            results={results}
-            testOrders={testOrders}
-            loading={resultsLoading}
-            onCreateResult={createResult}
-            onValidateResult={validateResult}
-            onApproveResult={approveResult}
-            stats={labStats}
-          />
-        );
-      case 'quality-control':
-        return (
-          <QualityControl
-            results={results}
-            testOrders={testOrders}
-            samples={samples}
-            loading={resultsLoading}
-            stats={labStats}
-          />
-        );
-      case 'equipment':
-        return (
-          <EquipmentManagement
-            equipment={equipment}
-            loading={equipmentLoading}
-            onUpdateEquipment={updateEquipment}
-            onScheduleMaintenance={scheduleMaintenanceEquipment}
-            stats={labStats}
           />
         );
       case 'analytics':
@@ -318,7 +188,17 @@ export default function LabDashboard() {
           />
         );
       default:
-        return null;
+        return (
+          <TestOrdersManagement
+            testOrders={testOrders}
+            loading={testsLoading}
+            onCreateOrder={createTestOrder}
+            onUpdateOrder={updateTestOrder}
+            onProcessTest={processTest}
+            stats={labStats}
+            showToast={(message, type) => addToast(type, type === 'success' ? 'Success' : 'Error', message)}
+          />
+        );
     }
   };
 
@@ -354,7 +234,7 @@ export default function LabDashboard() {
                 {/* Alert badges */}
                 {tab.count > 0 && (
                   <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                    ['test-orders', 'results', 'quality-control', 'equipment'].includes(tab.id)
+                    tab.id === 'test-orders'
                       ? 'bg-red-500 text-white'
                       : 'bg-blue-500 text-white'
                   }`}>
@@ -373,18 +253,18 @@ export default function LabDashboard() {
       </main>
 
       {/* Critical Alerts Banner */}
-      {(labStats.urgentTests > 0 || labStats.criticalResults > 0 || labStats.offlineEquipment > 0) && (
+      {labStats.urgentTests > 0 && (
         <div className="fixed bottom-4 right-4 z-50">
           <div className="bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-2 max-w-sm">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <div>
-              <div className="font-medium text-sm">Critical Lab Alerts</div>
+              <div className="font-medium text-sm">Urgent Test Orders</div>
               <div className="text-xs opacity-90">
-                {labStats.urgentTests + labStats.criticalResults + labStats.offlineEquipment} items need attention
+                {labStats.urgentTests} urgent test{labStats.urgentTests > 1 ? 's' : ''} need attention
               </div>
             </div>
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab('test-orders')}
               className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs font-medium transition-colors"
             >
               View

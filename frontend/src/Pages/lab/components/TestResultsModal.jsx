@@ -6,10 +6,109 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
   const [results, setResults] = useState({});
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   if (!isOpen || !labRequest) return null;
 
+  // Validation rules for different test types
+  const validationRules = {
+    'Complete Blood Count': {
+      wbc: { min: 0, max: 50, required: true, label: 'White Blood Cells' },
+      rbc: { min: 0, max: 10, required: true, label: 'Red Blood Cells' },
+      hemoglobin: { min: 0, max: 25, required: true, label: 'Hemoglobin' },
+      platelets: { min: 0, max: 1000, required: true, label: 'Platelets' }
+    },
+    'Blood Glucose': {
+      glucose: { min: 20, max: 600, required: true, label: 'Glucose Level' },
+      testType: { required: true, label: 'Test Type' }
+    },
+    'Urine Analysis': {
+      protein: { required: true, label: 'Protein' },
+      urineGlucose: { required: true, label: 'Glucose' },
+      specificGravity: { min: 1.000, max: 1.040, required: true, label: 'Specific Gravity' },
+      ph: { min: 4.0, max: 9.0, required: true, label: 'pH' }
+    },
+    'Cholesterol Level': {
+      totalCholesterol: { min: 50, max: 500, required: true, label: 'Total Cholesterol' },
+      hdlCholesterol: { min: 10, max: 150, required: true, label: 'HDL Cholesterol' },
+      ldlCholesterol: { min: 20, max: 400, required: true, label: 'LDL Cholesterol' },
+      triglycerides: { min: 30, max: 1000, required: true, label: 'Triglycerides' }
+    }
+  };
+
+  // Validate a specific field
+  const validateField = (testName, field, value) => {
+    const rules = validationRules[testName];
+    if (!rules || !rules[field]) return '';
+
+    const rule = rules[field];
+    
+    // Required field validation
+    if (rule.required && (!value || value === '')) {
+      return `${rule.label} is required`;
+    }
+
+    // Skip other validations if field is empty and not required
+    if (!value || value === '') return '';
+
+    // Numeric range validation
+    if (typeof rule.min === 'number' && parseFloat(value) < rule.min) {
+      return `${rule.label} must be at least ${rule.min}`;
+    }
+    
+    if (typeof rule.max === 'number' && parseFloat(value) > rule.max) {
+      return `${rule.label} must not exceed ${rule.max}`;
+    }
+
+    return '';
+  };
+
+  // Validate all fields for a test
+  const validateTest = (testName) => {
+    const testResults = results[testName] || {};
+    const rules = validationRules[testName];
+    const errors = {};
+
+    if (rules) {
+      Object.keys(rules).forEach(field => {
+        const error = validateField(testName, field, testResults[field]);
+        if (error) {
+          errors[field] = error;
+        }
+      });
+    }
+
+    return errors;
+  };
+
+  // Get field error
+  const getFieldError = (testName, field) => {
+    return validationErrors[testName]?.[field] || '';
+  };
+
+  // Check if field has error
+  const hasFieldError = (testName, field) => {
+    return !!getFieldError(testName, field);
+  };
+
+  // Check if form is valid
+  const isFormValid = () => {
+    const tests = labRequest.tests || [{ testName: labRequest.testType }];
+    
+    for (const test of tests) {
+      const testName = test.testName;
+      const errors = validateTest(testName);
+      if (Object.keys(errors).length > 0) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
   const handleInputChange = (testName, field, value) => {
+    // Update the results
     setResults(prev => ({
       ...prev,
       [testName]: {
@@ -17,6 +116,58 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
         [field]: value
       }
     }));
+
+    // Mark field as touched
+    setTouched(prev => ({
+      ...prev,
+      [testName]: {
+        ...prev[testName],
+        [field]: true
+      }
+    }));
+
+    // Validate the field and update errors
+    const error = validateField(testName, field, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [testName]: {
+        ...prev[testName],
+        [field]: error
+      }
+    }));
+  };
+
+  const handleFieldBlur = (testName, field) => {
+    setTouched(prev => ({
+      ...prev,
+      [testName]: {
+        ...prev[testName],
+        [field]: true
+      }
+    }));
+
+    const value = results[testName]?.[field];
+    const error = validateField(testName, field, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [testName]: {
+        ...prev[testName],
+        [field]: error
+      }
+    }));
+  };
+
+  const isFieldTouched = (testName, field) => {
+    return touched[testName]?.[field] || false;
+  };
+
+  const handleClose = () => {
+    // Reset all form state when closing
+    setResults({});
+    setNotes('');
+    setValidationErrors({});
+    setTouched({});
+    onClose();
   };
 
   const handleSubmit = async (e) => {
@@ -28,6 +179,26 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
       
       if (!jwtToken) {
         if (showToast) showToast('Authentication required', 'error');
+        return;
+      }
+
+      // Validate all fields first
+      const tests = labRequest.tests || [{ testName: labRequest.testType }];
+      let hasValidationErrors = false;
+      const allErrors = {};
+
+      tests.forEach(test => {
+        const testName = test.testName;
+        const errors = validateTest(testName);
+        if (Object.keys(errors).length > 0) {
+          allErrors[testName] = errors;
+          hasValidationErrors = true;
+        }
+      });
+
+      if (hasValidationErrors) {
+        setValidationErrors(allErrors);
+        if (showToast) showToast('Please fix validation errors before submitting', 'error');
         return;
       }
 
@@ -119,10 +290,12 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
 
       if (response.data.success) {
         if (showToast) showToast('Test results saved successfully', 'success');
-        onClose();
         // Reset form
         setResults({});
         setNotes('');
+        setValidationErrors({});
+        setTouched({});
+        onClose();
       } else {
         if (showToast) showToast('Failed to save test results', 'error');
       }
@@ -144,7 +317,8 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            White Blood Cells (WBC) <span className="text-gray-500">(4.0-11.0 × 10³/μL)</span>
+            White Blood Cells (WBC) <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 4.0-11.0 × 10³/μL)</span>
           </label>
           <input
             type="number"
@@ -152,12 +326,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 7.5"
             value={results[testName]?.wbc || ''}
             onChange={(e) => handleInputChange(testName, 'wbc', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'wbc')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'wbc') && isFieldTouched(testName, 'wbc')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'wbc') && isFieldTouched(testName, 'wbc') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'wbc')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Red Blood Cells (RBC) <span className="text-gray-500">(4.2-5.9 × 10⁶/μL)</span>
+            Red Blood Cells (RBC) <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 4.2-5.9 × 10⁶/μL)</span>
           </label>
           <input
             type="number"
@@ -165,12 +348,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 4.8"
             value={results[testName]?.rbc || ''}
             onChange={(e) => handleInputChange(testName, 'rbc', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'rbc')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'rbc') && isFieldTouched(testName, 'rbc')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'rbc') && isFieldTouched(testName, 'rbc') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'rbc')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Hemoglobin <span className="text-gray-500">(12.0-15.5 g/dL)</span>
+            Hemoglobin <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 12.0-15.5 g/dL)</span>
           </label>
           <input
             type="number"
@@ -178,12 +370,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 13.2"
             value={results[testName]?.hemoglobin || ''}
             onChange={(e) => handleInputChange(testName, 'hemoglobin', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'hemoglobin')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'hemoglobin') && isFieldTouched(testName, 'hemoglobin')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'hemoglobin') && isFieldTouched(testName, 'hemoglobin') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'hemoglobin')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Platelets <span className="text-gray-500">(150-450 × 10³/μL)</span>
+            Platelets <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 150-450 × 10³/μL)</span>
           </label>
           <input
             type="number"
@@ -191,8 +392,16 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 300"
             value={results[testName]?.platelets || ''}
             onChange={(e) => handleInputChange(testName, 'platelets', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'platelets')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'platelets') && isFieldTouched(testName, 'platelets')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'platelets') && isFieldTouched(testName, 'platelets') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'platelets')}</p>
+          )}
         </div>
       </div>
     </div>
@@ -204,7 +413,8 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
       <div className="grid grid-cols-1 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Glucose Level <span className="text-gray-500">(70-100 mg/dL fasting)</span>
+            Glucose Level <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 70-100 mg/dL fasting)</span>
           </label>
           <input
             type="number"
@@ -212,20 +422,39 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 95"
             value={results[testName]?.glucose || ''}
             onChange={(e) => handleInputChange(testName, 'glucose', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'glucose')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'glucose') && isFieldTouched(testName, 'glucose')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'glucose') && isFieldTouched(testName, 'glucose') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'glucose')}</p>
+          )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Test Type <span className="text-red-500">*</span>
+          </label>
           <select
-            value={results[testName]?.testType || 'fasting'}
+            value={results[testName]?.testType || ''}
             onChange={(e) => handleInputChange(testName, 'testType', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'testType')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'testType') && isFieldTouched(testName, 'testType')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           >
+            <option value="">Select test type</option>
             <option value="fasting">Fasting Glucose</option>
             <option value="random">Random Glucose</option>
             <option value="postprandial">Post-prandial Glucose</option>
           </select>
+          {hasFieldError(testName, 'testType') && isFieldTouched(testName, 'testType') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'testType')}</p>
+          )}
         </div>
       </div>
     </div>
@@ -237,12 +466,18 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Protein <span className="text-gray-500">(Negative/Trace/1+/2+/3+/4+)</span>
+            Protein <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: Negative/Trace)</span>
           </label>
           <select
             value={results[testName]?.protein || ''}
             onChange={(e) => handleInputChange(testName, 'protein', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'protein')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'protein') && isFieldTouched(testName, 'protein')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           >
             <option value="">Select Result</option>
             <option value="negative">Negative</option>
@@ -252,24 +487,37 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             <option value="3+">3+</option>
             <option value="4+">4+</option>
           </select>
+          {hasFieldError(testName, 'protein') && isFieldTouched(testName, 'protein') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'protein')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Glucose <span className="text-gray-500">(Negative/Positive)</span>
+            Glucose <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: Negative)</span>
           </label>
           <select
             value={results[testName]?.urineGlucose || ''}
             onChange={(e) => handleInputChange(testName, 'urineGlucose', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'urineGlucose')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'urineGlucose') && isFieldTouched(testName, 'urineGlucose')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           >
             <option value="">Select Result</option>
             <option value="negative">Negative</option>
             <option value="positive">Positive</option>
           </select>
+          {hasFieldError(testName, 'urineGlucose') && isFieldTouched(testName, 'urineGlucose') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'urineGlucose')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Specific Gravity <span className="text-gray-500">(1.003-1.030)</span>
+            Specific Gravity <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 1.003-1.030)</span>
           </label>
           <input
             type="number"
@@ -277,12 +525,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 1.020"
             value={results[testName]?.specificGravity || ''}
             onChange={(e) => handleInputChange(testName, 'specificGravity', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'specificGravity')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'specificGravity') && isFieldTouched(testName, 'specificGravity')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'specificGravity') && isFieldTouched(testName, 'specificGravity') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'specificGravity')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            pH <span className="text-gray-500">(4.6-8.0)</span>
+            pH <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: 4.6-8.0)</span>
           </label>
           <input
             type="number"
@@ -290,8 +547,16 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 6.5"
             value={results[testName]?.ph || ''}
             onChange={(e) => handleInputChange(testName, 'ph', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'ph')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'ph') && isFieldTouched(testName, 'ph')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'ph') && isFieldTouched(testName, 'ph') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'ph')}</p>
+          )}
         </div>
       </div>
     </div>
@@ -303,7 +568,8 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Total Cholesterol <span className="text-gray-500">(&lt;200 mg/dL)</span>
+            Total Cholesterol <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: &lt;200 mg/dL)</span>
           </label>
           <input
             type="number"
@@ -311,12 +577,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 180"
             value={results[testName]?.totalCholesterol || ''}
             onChange={(e) => handleInputChange(testName, 'totalCholesterol', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'totalCholesterol')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'totalCholesterol') && isFieldTouched(testName, 'totalCholesterol')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'totalCholesterol') && isFieldTouched(testName, 'totalCholesterol') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'totalCholesterol')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            HDL Cholesterol <span className="text-gray-500">(&gt;40 mg/dL)</span>
+            HDL Cholesterol <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: &gt;40 mg/dL)</span>
           </label>
           <input
             type="number"
@@ -324,12 +599,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 50"
             value={results[testName]?.hdlCholesterol || ''}
             onChange={(e) => handleInputChange(testName, 'hdlCholesterol', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'hdlCholesterol')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'hdlCholesterol') && isFieldTouched(testName, 'hdlCholesterol')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'hdlCholesterol') && isFieldTouched(testName, 'hdlCholesterol') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'hdlCholesterol')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            LDL Cholesterol <span className="text-gray-500">(&lt;100 mg/dL)</span>
+            LDL Cholesterol <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: &lt;100 mg/dL)</span>
           </label>
           <input
             type="number"
@@ -337,12 +621,21 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 110"
             value={results[testName]?.ldlCholesterol || ''}
             onChange={(e) => handleInputChange(testName, 'ldlCholesterol', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'ldlCholesterol')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'ldlCholesterol') && isFieldTouched(testName, 'ldlCholesterol')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'ldlCholesterol') && isFieldTouched(testName, 'ldlCholesterol') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'ldlCholesterol')}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Triglycerides <span className="text-gray-500">(&lt;150 mg/dL)</span>
+            Triglycerides <span className="text-red-500">*</span>
+            <span className="text-gray-500">(Normal: &lt;150 mg/dL)</span>
           </label>
           <input
             type="number"
@@ -350,8 +643,16 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             placeholder="e.g., 120"
             value={results[testName]?.triglycerides || ''}
             onChange={(e) => handleInputChange(testName, 'triglycerides', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onBlur={() => handleFieldBlur(testName, 'triglycerides')}
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+              hasFieldError(testName, 'triglycerides') && isFieldTouched(testName, 'triglycerides')
+                ? 'border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {hasFieldError(testName, 'triglycerides') && isFieldTouched(testName, 'triglycerides') && (
+            <p className="text-red-500 text-xs mt-1">{getFieldError(testName, 'triglycerides')}</p>
+          )}
         </div>
       </div>
     </div>
@@ -401,8 +702,8 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -417,7 +718,7 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-600"
           >
             <X className="h-6 w-6" />
@@ -455,6 +756,16 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             </div>
           </div>
 
+          {/* Validation Legend */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+            <div className="flex items-center text-sm text-blue-800">
+              <span className="font-medium">Validation Guide:</span>
+              <span className="ml-2">Fields marked with</span>
+              <span className="text-red-500 font-bold ml-1 mr-1">*</span>
+              <span>are required. Values must be within the normal range shown in gray.</span>
+            </div>
+          </div>
+
           {/* Test Results Input */}
           {renderTestInputs()}
 
@@ -472,18 +783,43 @@ const TestResultsModal = ({ isOpen, onClose, labRequest, showToast }) => {
             />
           </div>
 
+          {/* Validation Summary */}
+          {!isFormValid() && Object.keys(validationErrors).length > 0 && (
+            <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Please correct the following errors:</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      {Object.entries(validationErrors).map(([testName, testErrors]) =>
+                        Object.entries(testErrors).map(([field, error]) => (
+                          <li key={`${testName}-${field}`}>{error}</li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || Object.values(results).every(testResults => !testResults || Object.keys(testResults).length === 0)}
+              disabled={isSubmitting || !isFormValid() || Object.values(results).every(testResults => !testResults || Object.keys(testResults).length === 0)}
               className="flex items-center space-x-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (

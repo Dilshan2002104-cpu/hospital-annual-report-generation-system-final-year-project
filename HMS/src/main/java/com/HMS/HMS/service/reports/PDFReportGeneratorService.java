@@ -8,6 +8,11 @@ import com.HMS.HMS.DTO.reports.MonthlyDialysisDataDTO;
 import com.HMS.HMS.DTO.reports.MonthlyVisitDataDTO;
 import com.HMS.HMS.DTO.reports.SpecializationDataDTO;
 import com.HMS.HMS.DTO.reports.WardOccupancyDataDTO;
+// Laboratory report DTOs
+import com.HMS.HMS.DTO.reports.LabAnnualReportDTO;
+import com.HMS.HMS.DTO.reports.LabOverallStatisticsDTO;
+import com.HMS.HMS.DTO.reports.MonthlyLabVolumeDTO;
+import com.HMS.HMS.DTO.reports.LabQualityMetricsDTO;
 import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFont;
@@ -2398,5 +2403,599 @@ public class PDFReportGeneratorService {
             return String.format("%.1f%%", ((Number) value).doubleValue());
         }
         return value.toString();
+    }
+
+    // ========== LABORATORY ANNUAL REPORT GENERATION ==========
+
+    /**
+     * Generate comprehensive Laboratory Annual Report PDF
+     */
+    public byte[] generateLaboratoryAnnualReport(LabAnnualReportDTO reportData) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try {
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf, PageSize.A4);
+
+            // Set up fonts
+            PdfFont titleFont = PdfFontFactory.createFont();
+            PdfFont headerFont = PdfFontFactory.createFont();
+            PdfFont normalFont = PdfFontFactory.createFont();
+
+            // Colors
+            DeviceRgb primaryColor = new DeviceRgb(41, 128, 185);
+            DeviceRgb lightGray = new DeviceRgb(236, 240, 241);
+
+            // Document margins
+            document.setMargins(50, 50, 50, 50);
+
+            // === COVER PAGE ===
+            addLabReportCoverPage(document, reportData, titleFont, headerFont, primaryColor);
+            document.add(new AreaBreak());
+
+            // === EXECUTIVE SUMMARY ===
+            addLabExecutiveSummary(document, reportData, headerFont, normalFont, primaryColor);
+            document.add(new AreaBreak());
+
+            // === OVERALL STATISTICS SECTION ===
+            addLabOverallStatisticsSection(document, reportData, headerFont, normalFont, primaryColor, lightGray);
+            document.add(new AreaBreak());
+
+            // === MONTHLY TRENDS SECTION ===
+            addLabMonthlyTrendsSection(document, reportData, headerFont, normalFont, primaryColor);
+            document.add(new AreaBreak());
+
+            // === TEST TYPES ANALYSIS ===
+            addLabTestTypesSection(document, reportData, headerFont, normalFont, primaryColor, lightGray);
+            document.add(new AreaBreak());
+
+            // === EQUIPMENT UTILIZATION ===
+            addLabEquipmentSection(document, reportData, headerFont, normalFont, primaryColor, lightGray);
+            document.add(new AreaBreak());
+
+            // === WARD ANALYSIS ===
+            addLabWardAnalysisSection(document, reportData, headerFont, normalFont, primaryColor, lightGray);
+            document.add(new AreaBreak());
+
+            // === QUALITY METRICS ===
+            addLabQualityMetricsSection(document, reportData, headerFont, normalFont, primaryColor);
+            document.add(new AreaBreak());
+
+            // === PERFORMANCE METRICS ===
+            addLabPerformanceMetricsSection(document, reportData, headerFont, normalFont, primaryColor, lightGray);
+
+            document.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating laboratory annual report PDF: " + e.getMessage(), e);
+        }
+    }
+
+    private void addLabReportCoverPage(Document document, LabAnnualReportDTO reportData, 
+                                     PdfFont titleFont, PdfFont headerFont, DeviceRgb primaryColor) {
+        // Hospital Header
+        Paragraph hospitalName = new Paragraph("HOSPITAL MANAGEMENT SYSTEM")
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(primaryColor)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(10);
+        document.add(hospitalName);
+
+        // Main Title
+        Paragraph title = new Paragraph(reportData.getReportTitle())
+                .setFont(titleFont)
+                .setFontSize(28)
+                .setFontColor(primaryColor)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginTop(100)
+                .setMarginBottom(50);
+        document.add(title);
+
+        // Subtitle
+        Paragraph subtitle = new Paragraph("Comprehensive Analysis of Laboratory Operations")
+                .setFont(headerFont)
+                .setFontSize(18)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(100);
+        document.add(subtitle);
+
+        // Report Details Box
+        Table detailsTable = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                .setWidth(UnitValue.createPercentValue(60))
+                .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+
+        detailsTable.addCell(createInfoCell("Report Year:", String.valueOf(reportData.getYear()), headerFont));
+        detailsTable.addCell(createInfoCell("Generated Date:", 
+                reportData.getReportGeneratedDate().format(dateFormatter), headerFont));
+        detailsTable.addCell(createInfoCell("Department:", "Laboratory Services", headerFont));
+        detailsTable.addCell(createInfoCell("Report Type:", "Annual Comprehensive", headerFont));
+
+        document.add(detailsTable);
+
+        // Footer
+        Paragraph footer = new Paragraph("Confidential - For Internal Use Only")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginTop(150)
+                .setFontColor(ColorConstants.GRAY);
+        document.add(footer);
+    }
+
+    private void addLabExecutiveSummary(Document document, LabAnnualReportDTO reportData, 
+                                      PdfFont headerFont, PdfFont normalFont, DeviceRgb primaryColor) {
+        // Section Header
+        addSectionHeader(document, "EXECUTIVE SUMMARY", headerFont, primaryColor);
+
+        // Summary content
+        LabOverallStatisticsDTO stats = reportData.getOverallStatistics();
+        
+        Paragraph summary = new Paragraph()
+                .setFont(normalFont)
+                .setFontSize(12)
+                .setTextAlignment(TextAlignment.JUSTIFIED);
+
+        summary.add("The Laboratory Department has demonstrated exceptional performance throughout " + 
+                   reportData.getYear() + ", processing a total of " + 
+                   decimalFormat.format(stats.getTotalTests()) + " tests for " + 
+                   decimalFormat.format(stats.getTotalPatients()) + " patients. ");
+
+        summary.add("Our department maintained an average turnaround time of " + 
+                   stats.getAvgTurnaroundTime() + " hours, which " + 
+                   (stats.getAvgTurnaroundTime().doubleValue() <= 4.0 ? "exceeds" : "approaches") + 
+                   " our target of 4.0 hours. ");
+
+        summary.add("The overall quality score of " + 
+                   String.format("%.1f%%", stats.getQualityScore()) + 
+                   " reflects our commitment to accuracy and reliability in diagnostic testing. ");
+
+        summary.add("Equipment utilization reached " + 
+                   String.format("%.1f%%", stats.getEquipmentUptime()) + 
+                   " uptime across our " + stats.getEquipmentCount() + 
+                   " pieces of laboratory equipment, ensuring continuous service availability.");
+
+        document.add(summary);
+
+        // Key Achievements
+        document.add(new Paragraph("Key Achievements:")
+                .setFont(headerFont)
+                .setFontSize(14)
+                .setMarginTop(20)
+                .setMarginBottom(10));
+
+        com.itextpdf.layout.element.List list = new com.itextpdf.layout.element.List()
+                .setFont(normalFont)
+                .setFontSize(11);
+
+        list.add("Processed " + decimalFormat.format(stats.getUrgentTests()) + " urgent tests with priority handling");
+        list.add("Maintained equipment uptime of " + String.format("%.1f%%", stats.getEquipmentUptime()));
+        list.add("Achieved quality score of " + String.format("%.1f%%", stats.getQualityScore()));
+        list.add("Reduced test cancellation rate to " + 
+                String.format("%.2f%%", (stats.getTestsCancelled() * 100.0) / stats.getTotalTests()));
+
+        document.add(list);
+    }
+
+    private void addLabOverallStatisticsSection(Document document, LabAnnualReportDTO reportData,
+                                              PdfFont headerFont, PdfFont normalFont, 
+                                              DeviceRgb primaryColor, DeviceRgb lightGray) {
+        addSectionHeader(document, "OVERALL LABORATORY STATISTICS", headerFont, primaryColor);
+
+        // Statistics Table
+        Table statsTable = new Table(UnitValue.createPercentArray(new float[]{2, 1, 1}))
+                .setWidth(UnitValue.createPercentValue(100));
+
+        // Header row
+        statsTable.addHeaderCell(createHeaderCell("Metric", headerFont, primaryColor));
+        statsTable.addHeaderCell(createHeaderCell("Value", headerFont, primaryColor));
+        statsTable.addHeaderCell(createHeaderCell("Performance", headerFont, primaryColor));
+
+        LabOverallStatisticsDTO stats = reportData.getOverallStatistics();
+
+        // Add statistics rows
+        addStatsRow(statsTable, "Total Tests Processed", decimalFormat.format(stats.getTotalTests()), 
+                   "Excellent", normalFont, lightGray);
+        addStatsRow(statsTable, "Unique Patients Served", decimalFormat.format(stats.getTotalPatients()), 
+                   "High Volume", normalFont, ColorConstants.WHITE);
+        addStatsRow(statsTable, "Average Turnaround Time", stats.getAvgTurnaroundTime() + " hours", 
+                   stats.getAvgTurnaroundTime().doubleValue() <= 4.0 ? "Target Met" : "Needs Improvement", 
+                   normalFont, lightGray);
+        addStatsRow(statsTable, "Quality Score", String.format("%.1f%%", stats.getQualityScore()), 
+                   "Excellent", normalFont, ColorConstants.WHITE);
+        addStatsRow(statsTable, "Urgent Tests", decimalFormat.format(stats.getUrgentTests()), 
+                   "Priority Handled", normalFont, lightGray);
+        addStatsRow(statsTable, "Equipment Count", String.valueOf(stats.getEquipmentCount()), 
+                   "Well Equipped", normalFont, ColorConstants.WHITE);
+        addStatsRow(statsTable, "Equipment Uptime", String.format("%.1f%%", stats.getEquipmentUptime()), 
+                   "Excellent", normalFont, lightGray);
+
+        document.add(statsTable);
+    }
+
+    private void addLabMonthlyTrendsSection(Document document, LabAnnualReportDTO reportData,
+                                          PdfFont headerFont, PdfFont normalFont, DeviceRgb primaryColor) {
+        addSectionHeader(document, "MONTHLY VOLUME TRENDS", headerFont, primaryColor);
+
+        // Add monthly volume chart
+        try {
+            byte[] chartBytes = chartGenerationService.generateLabMonthlyVolumeLineChart(
+                    reportData.getMonthlyVolumes(), "Monthly Laboratory Test Volume Trends");
+            
+            if (chartBytes != null && chartBytes.length > 0) {
+                Image chartImage = new Image(ImageDataFactory.create(chartBytes));
+                chartImage.setWidth(UnitValue.createPercentValue(100));
+                chartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                document.add(chartImage);
+            }
+        } catch (Exception e) {
+            document.add(new Paragraph("Chart generation failed: " + e.getMessage())
+                    .setFont(normalFont).setFontColor(ColorConstants.RED));
+        }
+
+        // Monthly trends analysis
+        document.add(new Paragraph("Analysis:")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setMarginTop(15)
+                .setMarginBottom(5));
+
+        Paragraph analysis = new Paragraph()
+                .setFont(normalFont)
+                .setFontSize(11);
+
+        // Calculate trends
+        List<MonthlyLabVolumeDTO> monthlyData = reportData.getMonthlyVolumes();
+        if (monthlyData.size() >= 2) {
+            long firstQuarter = monthlyData.subList(0, 3).stream()
+                    .mapToLong(MonthlyLabVolumeDTO::getTestCount).sum();
+            long lastQuarter = monthlyData.subList(9, 12).stream()
+                    .mapToLong(MonthlyLabVolumeDTO::getTestCount).sum();
+
+            analysis.add("The laboratory processed tests consistently throughout the year with ");
+            if (lastQuarter > firstQuarter) {
+                analysis.add("an upward trend in the final quarter, indicating growing demand for laboratory services. ");
+            } else {
+                analysis.add("stable volume throughout the year, demonstrating consistent healthcare utilization. ");
+            }
+        }
+
+        analysis.add("Peak testing periods typically occurred during winter months, ");
+        analysis.add("likely due to seasonal illness patterns and increased hospital admissions.");
+
+        document.add(analysis);
+    }
+
+    private void addLabTestTypesSection(Document document, LabAnnualReportDTO reportData,
+                                      PdfFont headerFont, PdfFont normalFont, 
+                                      DeviceRgb primaryColor, DeviceRgb lightGray) {
+        addSectionHeader(document, "TEST TYPES ANALYSIS", headerFont, primaryColor);
+
+        // Add test distribution pie chart
+        try {
+            byte[] chartBytes = chartGenerationService.generateTestTypeDistributionPieChart(
+                    reportData.getTestTypeStatistics(), "Laboratory Test Distribution by Type");
+            
+            if (chartBytes != null && chartBytes.length > 0) {
+                Image chartImage = new Image(ImageDataFactory.create(chartBytes));
+                chartImage.setWidth(UnitValue.createPercentValue(80));
+                chartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                document.add(chartImage);
+            }
+        } catch (Exception e) {
+            document.add(new Paragraph("Chart generation failed: " + e.getMessage())
+                    .setFont(normalFont).setFontColor(ColorConstants.RED));
+        }
+
+        // Test types table
+        document.add(new Paragraph("Top Laboratory Tests by Volume:")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setMarginTop(15)
+                .setMarginBottom(10));
+
+        Table testTable = new Table(UnitValue.createPercentArray(new float[]{3, 2, 1, 1, 2}))
+                .setWidth(UnitValue.createPercentValue(100));
+
+        testTable.addHeaderCell(createHeaderCell("Test Type", headerFont, primaryColor));
+        testTable.addHeaderCell(createHeaderCell("Category", headerFont, primaryColor));
+        testTable.addHeaderCell(createHeaderCell("Total Tests", headerFont, primaryColor));
+        testTable.addHeaderCell(createHeaderCell("Percentage", headerFont, primaryColor));
+        testTable.addHeaderCell(createHeaderCell("Avg Processing Time", headerFont, primaryColor));
+
+        // Add top 10 tests
+        reportData.getTestTypeStatistics().stream()
+                .sorted((a, b) -> Long.compare(b.getTotalTests(), a.getTotalTests()))
+                .limit(10)
+                .forEach(test -> {
+                    testTable.addCell(createDataCell(test.getTestType(), normalFont));
+                    testTable.addCell(createDataCell(test.getTestCategory(), normalFont));
+                    testTable.addCell(createDataCell(decimalFormat.format(test.getTotalTests()), normalFont));
+                    testTable.addCell(createDataCell(String.format("%.1f%%", test.getPercentage()), normalFont));
+                    testTable.addCell(createDataCell(test.getAvgProcessingTime() + " min", normalFont));
+                });
+
+        document.add(testTable);
+    }
+
+    private void addLabEquipmentSection(Document document, LabAnnualReportDTO reportData,
+                                      PdfFont headerFont, PdfFont normalFont, 
+                                      DeviceRgb primaryColor, DeviceRgb lightGray) {
+        addSectionHeader(document, "EQUIPMENT UTILIZATION", headerFont, primaryColor);
+
+        // Equipment utilization chart
+        try {
+            byte[] chartBytes = chartGenerationService.generateEquipmentUtilizationBarChart(
+                    reportData.getEquipmentUtilization(), "Laboratory Equipment Utilization");
+            
+            if (chartBytes != null && chartBytes.length > 0) {
+                Image chartImage = new Image(ImageDataFactory.create(chartBytes));
+                chartImage.setWidth(UnitValue.createPercentValue(100));
+                chartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                document.add(chartImage);
+            }
+        } catch (Exception e) {
+            document.add(new Paragraph("Chart generation failed: " + e.getMessage())
+                    .setFont(normalFont).setFontColor(ColorConstants.RED));
+        }
+
+        // Equipment details table
+        document.add(new Paragraph("Equipment Performance Details:")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setMarginTop(15)
+                .setMarginBottom(10));
+
+        Table equipTable = new Table(UnitValue.createPercentArray(new float[]{2.5f, 1.5f, 1, 1, 1, 1}))
+                .setWidth(UnitValue.createPercentValue(100));
+
+        equipTable.addHeaderCell(createHeaderCell("Equipment", headerFont, primaryColor));
+        equipTable.addHeaderCell(createHeaderCell("Type", headerFont, primaryColor));
+        equipTable.addHeaderCell(createHeaderCell("Utilization", headerFont, primaryColor));
+        equipTable.addHeaderCell(createHeaderCell("Tests", headerFont, primaryColor));
+        equipTable.addHeaderCell(createHeaderCell("Uptime", headerFont, primaryColor));
+        equipTable.addHeaderCell(createHeaderCell("Status", headerFont, primaryColor));
+
+        reportData.getEquipmentUtilization().forEach(equip -> {
+            equipTable.addCell(createDataCell(equip.getEquipmentName(), normalFont));
+            equipTable.addCell(createDataCell(equip.getEquipmentType(), normalFont));
+            equipTable.addCell(createDataCell(String.format("%.1f%%", equip.getUtilizationPercentage()), normalFont));
+            equipTable.addCell(createDataCell(decimalFormat.format(equip.getTestsProcessed()), normalFont));
+            equipTable.addCell(createDataCell(String.format("%.1f%%", equip.getUptimePercentage()), normalFont));
+            equipTable.addCell(createDataCell(equip.getStatus(), normalFont));
+        });
+
+        document.add(equipTable);
+    }
+
+    private void addLabWardAnalysisSection(Document document, LabAnnualReportDTO reportData,
+                                         PdfFont headerFont, PdfFont normalFont, 
+                                         DeviceRgb primaryColor, DeviceRgb lightGray) {
+        addSectionHeader(document, "WARD-WISE LABORATORY REQUESTS", headerFont, primaryColor);
+
+        // Ward requests chart
+        try {
+            byte[] chartBytes = chartGenerationService.generateWardLabRequestsBarChart(
+                    reportData.getWardRequests(), "Laboratory Requests by Ward");
+            
+            if (chartBytes != null && chartBytes.length > 0) {
+                Image chartImage = new Image(ImageDataFactory.create(chartBytes));
+                chartImage.setWidth(UnitValue.createPercentValue(100));
+                chartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                document.add(chartImage);
+            }
+        } catch (Exception e) {
+            document.add(new Paragraph("Chart generation failed: " + e.getMessage())
+                    .setFont(normalFont).setFontColor(ColorConstants.RED));
+        }
+
+        // Ward analysis table
+        document.add(new Paragraph("Ward Request Analysis:")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setMarginTop(15)
+                .setMarginBottom(10));
+
+        Table wardTable = new Table(UnitValue.createPercentArray(new float[]{2, 1.5f, 1, 1, 1, 2}))
+                .setWidth(UnitValue.createPercentValue(100));
+
+        wardTable.addHeaderCell(createHeaderCell("Ward", headerFont, primaryColor));
+        wardTable.addHeaderCell(createHeaderCell("Type", headerFont, primaryColor));
+        wardTable.addHeaderCell(createHeaderCell("Total", headerFont, primaryColor));
+        wardTable.addHeaderCell(createHeaderCell("Urgent", headerFont, primaryColor));
+        wardTable.addHeaderCell(createHeaderCell("Percentage", headerFont, primaryColor));
+        wardTable.addHeaderCell(createHeaderCell("Common Test", headerFont, primaryColor));
+
+        reportData.getWardRequests().stream()
+                .sorted((a, b) -> Long.compare(b.getTotalRequests(), a.getTotalRequests()))
+                .forEach(ward -> {
+                    wardTable.addCell(createDataCell(ward.getWardName(), normalFont));
+                    wardTable.addCell(createDataCell(ward.getWardType(), normalFont));
+                    wardTable.addCell(createDataCell(decimalFormat.format(ward.getTotalRequests()), normalFont));
+                    wardTable.addCell(createDataCell(decimalFormat.format(ward.getUrgentRequests()), normalFont));
+                    wardTable.addCell(createDataCell(String.format("%.1f%%", ward.getPercentage()), normalFont));
+                    wardTable.addCell(createDataCell(ward.getMostCommonTest(), normalFont));
+                });
+
+        document.add(wardTable);
+    }
+
+    private void addLabQualityMetricsSection(Document document, LabAnnualReportDTO reportData,
+                                           PdfFont headerFont, PdfFont normalFont, DeviceRgb primaryColor) {
+        addSectionHeader(document, "QUALITY METRICS", headerFont, primaryColor);
+
+        LabQualityMetricsDTO quality = reportData.getQualityMetrics();
+
+        // Quality overview
+        Paragraph qualityOverview = new Paragraph()
+                .setFont(normalFont)
+                .setFontSize(12)
+                .setTextAlignment(TextAlignment.JUSTIFIED);
+
+        qualityOverview.add("The Laboratory Department maintains rigorous quality standards with an overall quality score of ");
+        qualityOverview.add(String.format("%.1f", quality.getOverallQualityScore().doubleValue()) + ". ");
+        qualityOverview.add("Quality control measures include " + decimalFormat.format(quality.getQualityControlTests()) + 
+                          " quality control tests and " + decimalFormat.format(quality.getCalibrationEvents()) + 
+                          " calibration events throughout the year.");
+
+        document.add(qualityOverview);
+
+        // Quality metrics table
+        document.add(new Paragraph("Quality Performance Indicators:")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setMarginTop(15)
+                .setMarginBottom(10));
+
+        Table qualityTable = new Table(UnitValue.createPercentArray(new float[]{2, 1, 1}))
+                .setWidth(UnitValue.createPercentValue(70))
+                .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+
+        qualityTable.addHeaderCell(createHeaderCell("Quality Metric", headerFont, primaryColor));
+        qualityTable.addHeaderCell(createHeaderCell("Value", headerFont, primaryColor));
+        qualityTable.addHeaderCell(createHeaderCell("Status", headerFont, primaryColor));
+
+        addQualityRow(qualityTable, "Overall Quality Score", 
+                     String.format("%.1f", quality.getOverallQualityScore().doubleValue()), 
+                     quality.getOverallQualityScore().doubleValue() >= 95 ? "Excellent" : "Good", normalFont);
+        addQualityRow(qualityTable, "Error Rate", String.format("%.2f%%", quality.getErrorRate()), 
+                     quality.getErrorRate() <= 1.0 ? "Excellent" : "Acceptable", normalFont);
+        addQualityRow(qualityTable, "Repeat Test Rate", String.format("%.2f%%", quality.getRepeatTestRate()), 
+                     quality.getRepeatTestRate() <= 1.5 ? "Good" : "Needs Attention", normalFont);
+        addQualityRow(qualityTable, "Sample Rejection Rate", String.format("%.2f%%", quality.getSampleRejectionRate()), 
+                     quality.getSampleRejectionRate() <= 2.0 ? "Acceptable" : "High", normalFont);
+        addQualityRow(qualityTable, "Accuracy Score", String.format("%.1f%%", quality.getAccuracyScore()), 
+                     "Excellent", normalFont);
+        addQualityRow(qualityTable, "Precision Score", String.format("%.1f%%", quality.getPrecisionScore()), 
+                     "Excellent", normalFont);
+
+        document.add(qualityTable);
+    }
+
+    private void addLabPerformanceMetricsSection(Document document, LabAnnualReportDTO reportData,
+                                               PdfFont headerFont, PdfFont normalFont, 
+                                               DeviceRgb primaryColor, DeviceRgb lightGray) {
+        addSectionHeader(document, "PERFORMANCE METRICS", headerFont, primaryColor);
+
+        // Performance chart
+        try {
+            byte[] chartBytes = chartGenerationService.generateLabPerformanceMetricsChart(
+                    reportData.getPerformanceMetrics(), "Laboratory Performance vs Targets");
+            
+            if (chartBytes != null && chartBytes.length > 0) {
+                Image chartImage = new Image(ImageDataFactory.create(chartBytes));
+                chartImage.setWidth(UnitValue.createPercentValue(100));
+                chartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+                document.add(chartImage);
+            }
+        } catch (Exception e) {
+            document.add(new Paragraph("Chart generation failed: " + e.getMessage())
+                    .setFont(normalFont).setFontColor(ColorConstants.RED));
+        }
+
+        // Performance metrics table
+        document.add(new Paragraph("Performance Summary:")
+                .setFont(headerFont)
+                .setFontSize(12)
+                .setMarginTop(15)
+                .setMarginBottom(10));
+
+        Table perfTable = new Table(UnitValue.createPercentArray(new float[]{3, 1, 1, 1, 1}))
+                .setWidth(UnitValue.createPercentValue(100));
+
+        perfTable.addHeaderCell(createHeaderCell("Metric", headerFont, primaryColor));
+        perfTable.addHeaderCell(createHeaderCell("Current", headerFont, primaryColor));
+        perfTable.addHeaderCell(createHeaderCell("Target", headerFont, primaryColor));
+        perfTable.addHeaderCell(createHeaderCell("Trend", headerFont, primaryColor));
+        perfTable.addHeaderCell(createHeaderCell("Status", headerFont, primaryColor));
+
+        reportData.getPerformanceMetrics().forEach(metric -> {
+            perfTable.addCell(createDataCell(metric.getMetricName(), normalFont));
+            perfTable.addCell(createDataCell(metric.getValue() + " " + metric.getUnit(), normalFont));
+            perfTable.addCell(createDataCell(metric.getTargetValue() + " " + metric.getUnit(), normalFont));
+            perfTable.addCell(createDataCell(capitalizeFirst(metric.getTrend()), normalFont));
+            perfTable.addCell(createDataCell(capitalizeFirst(metric.getStatus()), normalFont));
+        });
+
+        document.add(perfTable);
+
+        // Conclusion
+        document.add(new Paragraph("Conclusion:")
+                .setFont(headerFont)
+                .setFontSize(14)
+                .setMarginTop(30)
+                .setMarginBottom(10));
+
+        Paragraph conclusion = new Paragraph()
+                .setFont(normalFont)
+                .setFontSize(12)
+                .setTextAlignment(TextAlignment.JUSTIFIED);
+
+        conclusion.add("The Laboratory Department has demonstrated exceptional performance throughout " + 
+                      reportData.getYear() + ", exceeding quality standards and maintaining efficient operations. ");
+        conclusion.add("Continued investment in equipment maintenance, staff training, and process optimization will ");
+        conclusion.add("ensure sustained excellence in laboratory services and patient care.");
+
+        document.add(conclusion);
+    }
+
+    // Helper methods for laboratory report
+    private void addSectionHeader(Document document, String title, PdfFont headerFont, DeviceRgb primaryColor) {
+        Paragraph header = new Paragraph(title)
+                .setFont(headerFont)
+                .setFontSize(16)
+                .setFontColor(primaryColor)
+                .setMarginBottom(15)
+                .setMarginTop(10);
+        document.add(header);
+    }
+
+    private void addStatsRow(Table table, String metric, String value, String performance, 
+                           PdfFont font, com.itextpdf.kernel.colors.Color bgColor) {
+        table.addCell(createDataCell(metric, font).setBackgroundColor(bgColor));
+        table.addCell(createDataCell(value, font).setBackgroundColor(bgColor));
+        table.addCell(createDataCell(performance, font).setBackgroundColor(bgColor));
+    }
+
+    private void addQualityRow(Table table, String metric, String value, String status, PdfFont font) {
+        table.addCell(createDataCell(metric, font));
+        table.addCell(createDataCell(value, font));
+        table.addCell(createDataCell(status, font));
+    }
+
+    private String capitalizeFirst(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
+    }
+    
+    // Additional helper methods for laboratory reports
+    private Cell createInfoCell(String label, String value, PdfFont font) {
+        Paragraph content = new Paragraph()
+                .add(new Text(label).setFont(font).setBold())
+                .add(new Text(" " + value).setFont(font));
+        return new Cell().add(content)
+                .setPadding(8)
+                .setBorder(com.itextpdf.layout.borders.Border.NO_BORDER);
+    }
+    
+    private Cell createHeaderCell(String text, PdfFont font, DeviceRgb color) {
+        return new Cell().add(new Paragraph(text))
+                .setFont(font)
+                .setFontSize(11)
+                .setBold()
+                .setFontColor(ColorConstants.WHITE)
+                .setBackgroundColor(color)
+                .setPadding(8)
+                .setTextAlignment(TextAlignment.CENTER);
+    }
+    
+    private Cell createDataCell(String text, PdfFont font) {
+        return new Cell().add(new Paragraph(text))
+                .setFont(font)
+                .setFontSize(10)
+                .setPadding(6)
+                .setTextAlignment(TextAlignment.LEFT);
     }
 }

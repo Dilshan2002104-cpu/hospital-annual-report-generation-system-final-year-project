@@ -1244,4 +1244,263 @@ public class ChartGenerationService {
         
         return chartToByteArray(chart);
     }
+    
+    // ========== LABORATORY CHART GENERATION METHODS ==========
+    
+    /**
+     * Generate monthly laboratory test volume line chart
+     */
+    public byte[] generateLabMonthlyVolumeLineChart(List<MonthlyLabVolumeDTO> monthlyData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyLabVolumeDTO data : monthlyData) {
+            dataset.addValue(data.getTestCount(), "Total Tests", data.getMonthName().substring(0, 3));
+            dataset.addValue(data.getUrgentTests(), "Urgent Tests", data.getMonthName().substring(0, 3));
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            "Number of Tests",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeLineChart(chart);
+        
+        // Custom styling for lab data
+        CategoryPlot plot = chart.getCategoryPlot();
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        
+        // Color scheme: Blue for total, Red for urgent
+        renderer.setSeriesPaint(0, new Color(59, 130, 246)); // Blue
+        renderer.setSeriesPaint(1, new Color(239, 68, 68));  // Red
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesStroke(1, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+        renderer.setSeriesShapesVisible(1, true);
+        
+        return chartToByteArray(chart);
+    }
+    
+    /**
+     * Generate test type distribution pie chart
+     */
+    public byte[] generateTestTypeDistributionPieChart(List<TestTypeStatisticsDTO> testTypeData, String title) {
+        DefaultPieDataset<String> dataset = new DefaultPieDataset<>();
+
+        // Take top 10 test types for better visibility
+        testTypeData.stream()
+            .sorted((a, b) -> Long.compare(b.getTotalTests(), a.getTotalTests()))
+            .limit(10)
+            .forEach(data -> {
+                dataset.setValue(data.getTestType(), data.getTotalTests());
+            });
+
+        JFreeChart chart = ChartFactory.createPieChart(
+            title,
+            dataset,
+            true,
+            true,
+            false
+        );
+
+        customizePieChart(chart);
+        
+        // Custom colors for lab test types
+        @SuppressWarnings("unchecked")
+        PiePlot<String> plot = (PiePlot<String>) chart.getPlot();
+        Color[] colors = {
+            new Color(59, 130, 246),   // Blue
+            new Color(16, 185, 129),   // Green
+            new Color(245, 158, 11),   // Amber
+            new Color(239, 68, 68),    // Red
+            new Color(139, 92, 246),   // Purple
+            new Color(236, 72, 153),   // Pink
+            new Color(20, 184, 166),   // Teal
+            new Color(251, 113, 133),  // Rose
+            new Color(168, 85, 247),   // Violet
+            new Color(34, 197, 94)     // Emerald
+        };
+        
+        int colorIndex = 0;
+        for (int i = 0; i < dataset.getItemCount(); i++) {
+            plot.setSectionPaint(dataset.getKey(i), colors[colorIndex % colors.length]);
+            colorIndex++;
+        }
+        
+        return chartToByteArray(chart);
+    }
+    
+    /**
+     * Generate equipment utilization bar chart
+     */
+    public byte[] generateEquipmentUtilizationBarChart(List<EquipmentUtilizationDTO> equipmentData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (EquipmentUtilizationDTO data : equipmentData) {
+            // Truncate long equipment names for better display
+            String shortName = data.getEquipmentName().length() > 20 
+                ? data.getEquipmentName().substring(0, 17) + "..."
+                : data.getEquipmentName();
+            
+            dataset.addValue(data.getUtilizationPercentage(), "Utilization %", shortName);
+            dataset.addValue(data.getUptimePercentage(), "Uptime %", shortName);
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(
+            title,
+            "Equipment",
+            "Percentage (%)",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeBarChart(chart);
+        
+        // Custom styling
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.getRenderer().setSeriesPaint(0, new Color(59, 130, 246));  // Blue for utilization
+        plot.getRenderer().setSeriesPaint(1, new Color(16, 185, 129));  // Green for uptime
+        
+        // Rotate category labels for better readability
+        plot.getDomainAxis().setCategoryLabelPositions(
+            org.jfree.chart.axis.CategoryLabelPositions.UP_45);
+        
+        return chartToByteArray(chart);
+    }
+    
+    /**
+     * Generate ward laboratory requests bar chart
+     */
+    public byte[] generateWardLabRequestsBarChart(List<WardLabRequestsDTO> wardData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        // Sort by total requests and take top wards
+        wardData.stream()
+            .sorted((a, b) -> Long.compare(b.getTotalRequests(), a.getTotalRequests()))
+            .limit(8) // Show top 8 wards for clarity
+            .forEach(data -> {
+                dataset.addValue(data.getTotalRequests(), "Total Requests", data.getWardName());
+                dataset.addValue(data.getUrgentRequests(), "Urgent Requests", data.getWardName());
+            });
+
+        JFreeChart chart = ChartFactory.createBarChart(
+            title,
+            "Ward",
+            "Number of Requests",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeBarChart(chart);
+        
+        // Custom styling
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.getRenderer().setSeriesPaint(0, new Color(59, 130, 246));  // Blue for total
+        plot.getRenderer().setSeriesPaint(1, new Color(239, 68, 68));   // Red for urgent
+        
+        // Rotate labels for better readability
+        plot.getDomainAxis().setCategoryLabelPositions(
+            org.jfree.chart.axis.CategoryLabelPositions.UP_45);
+        
+        return chartToByteArray(chart);
+    }
+    
+    /**
+     * Generate laboratory performance metrics line chart
+     */
+    public byte[] generateLabPerformanceMetricsChart(List<LabPerformanceMetricsDTO> metricsData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        // Filter to show key performance metrics
+        List<String> keyMetrics = List.of("Average Turnaround Time", "Test Accuracy Rate", 
+                                        "Equipment Uptime", "Patient Satisfaction");
+        
+        for (LabPerformanceMetricsDTO data : metricsData) {
+            if (keyMetrics.contains(data.getMetricName())) {
+                dataset.addValue(data.getValue(), "Current Value", data.getMetricName());
+                dataset.addValue(data.getTargetValue(), "Target Value", data.getMetricName());
+            }
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Performance Metrics",
+            "Value",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeLineChart(chart);
+        
+        // Custom styling
+        CategoryPlot plot = chart.getCategoryPlot();
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        
+        renderer.setSeriesPaint(0, new Color(59, 130, 246));  // Blue for current
+        renderer.setSeriesPaint(1, new Color(16, 185, 129));  // Green for target
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesStroke(1, new BasicStroke(3.0f, BasicStroke.CAP_ROUND, 
+                                                   BasicStroke.JOIN_ROUND, 0, new float[]{10.0f, 6.0f}, 0));
+        renderer.setSeriesShapesVisible(0, true);
+        renderer.setSeriesShapesVisible(1, true);
+        
+        // Rotate labels for better readability
+        plot.getDomainAxis().setCategoryLabelPositions(
+            org.jfree.chart.axis.CategoryLabelPositions.UP_45);
+        
+        return chartToByteArray(chart);
+    }
+    
+    /**
+     * Generate laboratory turnaround time trend chart
+     */
+    public byte[] generateLabTurnaroundTimeTrendChart(List<MonthlyLabVolumeDTO> monthlyData, String title) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+        for (MonthlyLabVolumeDTO data : monthlyData) {
+            dataset.addValue(data.getAvgTurnaroundTime(), "Avg Turnaround Time (hours)", 
+                           data.getMonthName().substring(0, 3));
+        }
+
+        JFreeChart chart = ChartFactory.createLineChart(
+            title,
+            "Month",
+            "Turnaround Time (hours)",
+            dataset,
+            PlotOrientation.VERTICAL,
+            true,
+            true,
+            false
+        );
+
+        customizeLineChart(chart);
+        
+        // Custom styling with target line
+        CategoryPlot plot = chart.getCategoryPlot();
+        LineAndShapeRenderer renderer = (LineAndShapeRenderer) plot.getRenderer();
+        
+        renderer.setSeriesPaint(0, new Color(59, 130, 246));
+        renderer.setSeriesStroke(0, new BasicStroke(3.0f));
+        renderer.setSeriesShapesVisible(0, true);
+        
+        // Add target line at 4 hours
+        plot.addRangeMarker(new org.jfree.chart.plot.ValueMarker(4.0, 
+                           new Color(239, 68, 68), new BasicStroke(2.0f)));
+        
+        return chartToByteArray(chart);
+    }
 }
