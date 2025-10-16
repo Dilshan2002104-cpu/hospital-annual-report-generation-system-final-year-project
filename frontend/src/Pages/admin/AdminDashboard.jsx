@@ -214,43 +214,44 @@ const Toast = ({ toast, onClose }) => {
   }, [toast.id, toast.duration, onClose]);
 
   return (
-    <div className={`max-w-sm w-full rounded-xl overflow-hidden transform transition-all duration-500 ease-out hover:scale-105 ${getToastStyles(toast.type)} animate-in slide-in-from-right-full`}>
+    <div className={`w-full max-w-sm rounded-xl shadow-2xl transform transition-all duration-500 ease-out hover:scale-[1.02] toast-enter ${getToastStyles(toast.type)}`}>
       {/* Enhanced Progress bar */}
       <div className="relative overflow-hidden">
-        <div className={`h-1.5 ${getProgressBarColor(toast.type)}`}>
-          <div className="h-full bg-white opacity-30 animate-pulse"></div>
+        <div className={`h-2 ${getProgressBarColor(toast.type)}`}>
+          <div className="h-full bg-white/40 animate-pulse"></div>
         </div>
-        <div className="absolute top-0 left-0 h-full bg-white opacity-20 animate-shimmer"></div>
+        <div className="absolute top-0 left-0 h-full w-1/3 bg-white/30 animate-shimmer"></div>
       </div>
       
-      {/* Enhanced Content */}
-      <div className="p-5">
-        <div className="flex items-start">
-          <div className="relative">
-            {getToastIcon(toast.type)}
-            <div className="absolute -inset-1 bg-white opacity-20 rounded-full animate-ping"></div>
+      {/* Enhanced Content with proper spacing */}
+      <div className="p-4">
+        <div className="flex items-start space-x-3">
+          <div className="relative flex-shrink-0 mt-0.5">
+            <div className="animate-toast-pulse">
+              {getToastIcon(toast.type)}
+            </div>
           </div>
-          <div className="ml-4 w-0 flex-1">
+          
+          <div className="flex-1 min-w-0 pr-8">
             {toast.title && (
-              <p className="text-sm font-bold text-gray-900 mb-2 tracking-wide">
+              <h4 className="text-sm font-bold text-gray-900 mb-1.5 leading-tight">
                 {toast.title}
-              </p>
+              </h4>
             )}
-            <p className="text-sm text-gray-700 leading-relaxed font-medium">
+            <p className="text-sm text-gray-700 leading-relaxed break-words">
               {toast.message}
             </p>
           </div>
-          <div className="ml-4 flex-shrink-0 flex">
-            <button
-              onClick={() => onClose(toast.id)}
-              className="inline-flex text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 rounded-lg p-2 transition-all duration-200 hover:bg-gray-100 hover:scale-110"
-              aria-label="Close notification"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          
+          <button
+            onClick={() => onClose(toast.id)}
+            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400 rounded-full p-1.5 transition-all duration-200 hover:bg-white/20"
+            aria-label="Close notification"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -260,14 +261,15 @@ const Toast = ({ toast, onClose }) => {
 // Enhanced Toast Container
 const ToastContainer = ({ toasts, onRemoveToast }) => {
   return (
-    <div className="fixed top-6 right-6 z-50 space-y-3 pointer-events-none">
+    <div className="fixed top-4 right-4 z-[9999] space-y-3 pointer-events-none max-w-sm">
       {toasts.map((toast, index) => (
         <div 
           key={toast.id} 
-          className="pointer-events-auto"
+          className="pointer-events-auto transform transition-all duration-300"
           style={{
-            transform: `translateY(${index * -8}px)`,
-            zIndex: 50 - index
+            transform: `translateY(${index * -4}px) translateX(0)`,
+            zIndex: 9999 - index,
+            animation: `slideInRight 0.4s ease-out ${index * 0.1}s both`
           }}
         >
           <Toast
@@ -749,18 +751,20 @@ export default function AdminDashboard() {
   }, [newUser.password]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)'
-        }}></div>
-      </div>
-      
-      {/* Content */}
-      <div className="relative z-10">
-      {/* Toast Container */}
+    <>
+      {/* Toast Container - Moved outside to prevent clipping */}
       <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)'
+          }}></div>
+        </div>
+        
+        {/* Content */}
+        <div className="relative z-10">
       
       {/* Enhanced Header with Gradient */}
       <header className="bg-white/80 backdrop-blur-md shadow-lg border-b-2 border-blue-100">
@@ -1686,7 +1690,8 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
