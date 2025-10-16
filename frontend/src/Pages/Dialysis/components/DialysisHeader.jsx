@@ -114,31 +114,7 @@ export default function DialysisHeader({ stats }) {
           </div>
         </div>
 
-        {/* Quick Actions Bar */}
-        <div className="border-t border-gray-200 py-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-              <span>Present: {stats.presentToday}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-              <span>Absent: {stats.absentToday}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-              <span>Pending: {stats.pendingToday}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-              <span>In Progress: {stats.inProgressSessions}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-              <span>Completed: {stats.completedSessions}</span>
-            </div>
-          </div>
-        </div>
+
       </div>
     </header>
   );

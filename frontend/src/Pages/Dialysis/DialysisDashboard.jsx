@@ -281,8 +281,6 @@ export default function DialysisDashboard() {
 
     const totalPatients = new Set(sessions.map(s => s.patientId)).size;
     const presentToday = todaySessions.filter(s => s.attendance === 'present').length;
-    const absentToday = todaySessions.filter(s => s.attendance === 'absent').length;
-    const pendingToday = todaySessions.filter(s => s.attendance === 'pending').length;
 
     const completedSessions = todaySessions.filter(s => s.status === 'completed').length;
     const inProgressSessions = todaySessions.filter(s => s.status === 'in_progress').length;
@@ -291,8 +289,6 @@ export default function DialysisDashboard() {
       totalPatients,
       todaySessions: todaySessions.length,
       presentToday,
-      absentToday,
-      pendingToday,
       completedSessions,
       inProgressSessions,
       attendanceRate: todaySessions.length > 0 ?
