@@ -305,6 +305,44 @@ public class TestResultService {
         return specificResults;
     }
     
+    /**
+     * Get all test results in the system
+     */
+    public List<TestResultResponseDTO> getAllTestResults() {
+        try {
+            List<TestResult> testResults = testResultRepository.findAll();
+            List<TestResultResponseDTO> responseList = new ArrayList<>();
+            
+            for (TestResult testResult : testResults) {
+                Map<String, Object> specificResults = getSpecificTestResults(testResult);
+                
+                TestResultResponseDTO responseDTO = new TestResultResponseDTO(
+                    testResult.getId(),
+                    testResult.getRequestId(),
+                    testResult.getTestName(),
+                    testResult.getPatientNationalId(),
+                    testResult.getPatientName(),
+                    testResult.getWardName(),
+                    testResult.getCompletedBy(),
+                    testResult.getCompletedAt(),
+                    testResult.getNotes(),
+                    specificResults
+                );
+                
+                responseList.add(responseDTO);
+            }
+            
+            // Sort by completion date (most recent first)
+            responseList.sort((a, b) -> b.getCompletedAt().compareTo(a.getCompletedAt()));
+            
+            return responseList;
+        } catch (Exception e) {
+            System.err.println("Error fetching all test results: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
     // Helper methods for type conversion
     private Double getDoubleValue(Map<String, Object> map, String key) {
         Object value = map.get(key);
@@ -336,5 +374,120 @@ public class TestResultService {
             return ((Number) value).intValue();
         }
         return null;
+    }
+
+    /**
+     * Create sample test data for demonstration
+     */
+    public Map<String, Object> createSampleTestData() {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            List<String> sampleResults = new ArrayList<>();
+            
+            // Sample Blood Glucose Result
+            TestResult glucoseTest = new TestResult(
+                "LAB-BG001",
+                "Blood Glucose",
+                "123456789V",
+                "John Doe",
+                "ICU",
+                "Dr. Sarah Lab Tech",
+                now.minusHours(2),
+                "Fasting glucose test - normal results"
+            );
+            glucoseTest = testResultRepository.save(glucoseTest);
+            
+            BloodGlucoseResult glucoseResult = new BloodGlucoseResult(
+                glucoseTest,
+                95.0,
+                "fasting"
+            );
+            bloodGlucoseResultRepository.save(glucoseResult);
+            sampleResults.add("Blood Glucose test for John Doe");
+
+            // Sample Complete Blood Count
+            TestResult cbcTest = new TestResult(
+                "LAB-CBC002",
+                "Complete Blood Count",
+                "987654321V",
+                "Jane Smith",
+                "Cardiology",
+                "Dr. Mike Lab Tech", 
+                now.minusHours(1),
+                "Routine CBC - all parameters normal"
+            );
+            cbcTest = testResultRepository.save(cbcTest);
+            
+            CompleteBloodCountResult cbcResult = new CompleteBloodCountResult(
+                cbcTest,
+                7.5,
+                4.8,
+                14.2,
+                350000
+            );
+            cbcResultRepository.save(cbcResult);
+            sampleResults.add("Complete Blood Count for Jane Smith");
+
+            // Sample Urine Analysis
+            TestResult urineTest = new TestResult(
+                "LAB-UA003",
+                "Urine Analysis",
+                "456789123V",
+                "Bob Wilson",
+                "Nephrology",
+                "Dr. Lisa Lab Tech",
+                now.minusMinutes(30),
+                "Routine urine analysis - no abnormalities detected"
+            );
+            urineTest = testResultRepository.save(urineTest);
+            
+            UrineAnalysisResult urineResult = new UrineAnalysisResult(
+                urineTest,
+                "negative",
+                "negative",
+                1.020,
+                6.5
+            );
+            urineAnalysisResultRepository.save(urineResult);
+            sampleResults.add("Urine Analysis for Bob Wilson");
+
+            // Sample Cholesterol Test
+            TestResult cholesterolTest = new TestResult(
+                "LAB-CHOL004",
+                "Cholesterol Level",
+                "789123456V",
+                "Alice Johnson",
+                "Internal Medicine",
+                "Dr. Tom Lab Tech",
+                now.minusMinutes(15),
+                "Lipid profile - slightly elevated LDL, recommend dietary changes"
+            );
+            cholesterolTest = testResultRepository.save(cholesterolTest);
+            
+            CholesterolLevelResult cholesterolResult = new CholesterolLevelResult(
+                cholesterolTest,
+                220,
+                45,
+                150,
+                125
+            );
+            cholesterolResultRepository.save(cholesterolResult);
+            sampleResults.add("Cholesterol Level for Alice Johnson");
+
+            return Map.of(
+                "success", true,
+                "message", "Sample test data created successfully",
+                "createdTests", sampleResults.size(),
+                "tests", sampleResults
+            );
+            
+        } catch (Exception e) {
+            System.err.println("Error creating sample test data: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of(
+                "success", false,
+                "message", "Failed to create sample data: " + e.getMessage()
+            );
+        }
     }
 }

@@ -29,6 +29,7 @@ import BedManagement from './components/BedManagement';
 import WardStatisticsReport from './components/WardStatisticsReport';
 import LabRequestManagement from './components/LabRequestManagement';
 import TestResultsView from './components/TestResultsView';
+import AllTestResultsView from './components/AllTestResultsView';
 
 // Import modern notification components
 import { ToastContainer } from './components/notifications/Toast';
@@ -435,23 +436,25 @@ const WardDashboard = () => {
       case 'test-results':
         return (
           <div className="space-y-6">
+            {/* All Test Results Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Patient Test Results</h2>
-              {selectedPatient ? (
+              <AllTestResultsView
+                showToast={notifications.toast}
+              />
+            </div>
+
+            {/* Individual Patient Test Results Section */}
+            {selectedPatient && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-6">
+                  Test Results for {selectedPatient.name}
+                </h2>
                 <TestResultsView
                   patientNationalId={selectedPatient.nationalId}
                   showToast={notifications.toast}
                 />
-              ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Select a patient to view their test results</p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Go to Patient List tab and click on a patient to view their test results here
-                  </p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         );
       case 'analytics':

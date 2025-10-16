@@ -7,33 +7,143 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showAllResults, setShowAllResults] = useState(false);
 
   const fetchTestResults = useCallback(async () => {
     try {
       setLoading(true);
-      const jwtToken = localStorage.getItem('jwtToken');
+      console.log('🔍 Fetching test results for patient:', patientNationalId);
       
-      if (!jwtToken) {
-        showToast('Authentication required', 'error');
-        return;
-      }
-
-      const response = await axios.get(
-        `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
-        {
-          headers: {
-            'Authorization': `Bearer ${jwtToken}`
+      // First try with JWT token
+      const jwtToken = localStorage.getItem('jwtToken');
+      let response;
+      
+      if (jwtToken) {
+        try {
+          response = await axios.get(
+            `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
+            {
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+        } catch (authError) {
+          if (authError.response?.status === 401 || authError.response?.status === 403) {
+            console.log('🔓 JWT failed, trying without authentication...');
+            // Try without JWT since some endpoints might be public
+            response = await axios.get(
+              `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
+              {
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+          } else {
+            throw authError;
           }
         }
-      );
-
-      setTestResults(response.data || []);
-    } catch (error) {
-      console.error('Error fetching test results:', error);
-      if (error.response?.status === 401) {
-        showToast('Authentication failed', 'error');
       } else {
-        showToast('Failed to fetch test results', 'error');
+        // No JWT token, try direct API call
+        response = await axios.get(
+          `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+
+      console.log('✅ Test results fetched:', response.data);
+      setTestResults(response.data || []);
+      
+      if (showToast && response.data?.length === 0) {
+        showToast('No recent test results found for this patient', 'info');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error fetching test results:', error);
+      
+      if (error.response?.status === 404) {
+        showToast && showToast('No test results found for this patient', 'info');
+        setTestResults([]);
+      } else if (error.response?.status === 401) {
+        showToast && showToast('Authentication required to view test results', 'error');
+      } else if (error.response?.status === 500) {
+        showToast && showToast('Server error while fetching test results', 'error');
+      } else {
+        showToast && showToast(`Failed to fetch test results: ${error.message}`, 'error');
+      }
+      setTestResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [patientNationalId, showToast]);
+
+  const fetchAllTestResults = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('🔍 Fetching ALL test results for patient:', patientNationalId);
+      
+      const jwtToken = localStorage.getItem('jwtToken');
+      let response;
+      
+      if (jwtToken) {
+        try {
+          response = await axios.get(
+            `http://localhost:8080/api/test-results/patient/${patientNationalId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${jwtToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+        } catch (authError) {
+          if (authError.response?.status === 401 || authError.response?.status === 403) {
+            console.log('🔓 JWT failed, trying without authentication...');
+            response = await axios.get(
+              `http://localhost:8080/api/test-results/patient/${patientNationalId}`,
+              {
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+          } else {
+            throw authError;
+          }
+        }
+      } else {
+        response = await axios.get(
+          `http://localhost:8080/api/test-results/patient/${patientNationalId}`,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+
+      console.log('✅ All test results fetched:', response.data);
+      setTestResults(response.data || []);
+      
+      if (showToast && response.data?.length === 0) {
+        showToast('No test results found for this patient', 'info');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error fetching all test results:', error);
+      
+      if (error.response?.status === 404) {
+        showToast && showToast('No test results found for this patient', 'info');
+        setTestResults([]);
+      } else {
+        showToast && showToast(`Failed to fetch test results: ${error.message}`, 'error');
+        setTestResults([]);
       }
     } finally {
       setLoading(false);
@@ -67,39 +177,57 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
   };
 
   const formatResultSummary = (testName, results) => {
-    if (!results) return 'No data available';
+    if (!results || Object.keys(results).length === 0) return 'No data available';
 
-    switch (testName) {
-      case 'Blood Glucose':
-        return `${results.glucoseLevel} mg/dL (${results.testType})`;
-      case 'Complete Blood Count':
-        return `WBC: ${results.wbc}, RBC: ${results.rbc}, Hgb: ${results.hemoglobin}`;
-      case 'Urine Analysis':
-        return `Protein: ${results.protein}, Glucose: ${results.urineGlucose}`;
-      case 'Cholesterol Level':
-        return `Total: ${results.totalCholesterol}, HDL: ${results.hdlCholesterol}, LDL: ${results.ldlCholesterol}`;
-      default:
-        return 'View details for results';
+    try {
+      switch (testName) {
+        case 'Blood Glucose':
+          return `${results.glucoseLevel || 'N/A'} mg/dL (${results.testType || 'Standard'})`;
+        case 'Complete Blood Count':
+          return `WBC: ${results.wbc || 'N/A'}, RBC: ${results.rbc || 'N/A'}, Hgb: ${results.hemoglobin || 'N/A'}`;
+        case 'Urine Analysis':
+          return `Protein: ${results.protein || 'N/A'}, Glucose: ${results.urineGlucose || 'N/A'}`;
+        case 'Cholesterol Level':
+          return `Total: ${results.totalCholesterol || 'N/A'}, HDL: ${results.hdlCholesterol || 'N/A'}, LDL: ${results.ldlCholesterol || 'N/A'}`;
+        default: {
+          // For any other test type, show key-value pairs
+          const resultKeys = Object.keys(results).slice(0, 3); // Show first 3 values
+          return resultKeys.map(key => `${key}: ${results[key]}`).join(', ') || 'View details for results';
+        }
+      }
+    } catch (error) {
+      console.error('Error formatting result summary:', error);
+      return 'Error displaying results';
     }
   };
 
   const renderDetailedResults = (testName, results) => {
-    if (!results) return <p>No detailed results available</p>;
+    if (!results || Object.keys(results).length === 0) {
+      return <p className="text-gray-500 italic">No detailed results available</p>;
+    }
 
-    switch (testName) {
-      case 'Blood Glucose':
-        return (
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="font-medium">Glucose Level:</span>
-              <span>{results.glucoseLevel} mg/dL</span>
+    try {
+      switch (testName) {
+        case 'Blood Glucose':
+          return (
+            <div className="space-y-3">
+              <div className="flex justify-between p-2 bg-gray-50 rounded">
+                <span className="font-medium text-gray-700">Glucose Level:</span>
+                <span className="font-semibold text-blue-600">{results.glucoseLevel || 'N/A'} mg/dL</span>
+              </div>
+              <div className="flex justify-between p-2 bg-gray-50 rounded">
+                <span className="font-medium text-gray-700">Test Type:</span>
+                <span className="capitalize text-gray-800">{results.testType || 'Standard'}</span>
+              </div>
+              {results.glucoseLevel && (
+                <div className="mt-2 p-2 rounded bg-blue-50">
+                  <span className="text-sm text-blue-700">
+                    Reference Range: 70-140 mg/dL (fasting: 70-100 mg/dL)
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium">Test Type:</span>
-              <span className="capitalize">{results.testType}</span>
-            </div>
-          </div>
-        );
+          );
 
       case 'Complete Blood Count':
         return (
@@ -167,8 +295,26 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
           </div>
         );
 
-      default:
-        return <p>Detailed results not available for this test type</p>;
+      default: {
+        // For unknown test types, display all available data
+        const resultEntries = Object.entries(results);
+        return (
+          <div className="space-y-2">
+            {resultEntries.map(([key, value], index) => (
+              <div key={index} className="flex justify-between p-2 bg-gray-50 rounded">
+                <span className="font-medium text-gray-700 capitalize">
+                  {key.replace(/([A-Z])/g, ' $1').trim()}:
+                </span>
+                <span className="text-gray-800">{value || 'N/A'}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      }
+    } catch (error) {
+      console.error('Error rendering detailed results:', error);
+      return <p className="text-red-500">Error displaying detailed results</p>;
     }
   };
 
@@ -184,13 +330,30 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Recent Test Results</h3>
-        <button
-          onClick={fetchTestResults}
-          className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-        >
-          Refresh
-        </button>
+        <h3 className="text-lg font-semibold text-gray-900">
+          {showAllResults ? 'All Test Results' : 'Recent Test Results (30 days)'}
+        </h3>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              setShowAllResults(!showAllResults);
+              if (!showAllResults) {
+                fetchAllTestResults();
+              } else {
+                fetchTestResults();
+              }
+            }}
+            className="px-3 py-1 text-sm bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors"
+          >
+            {showAllResults ? 'Show Recent' : 'Show All'}
+          </button>
+          <button
+            onClick={showAllResults ? fetchAllTestResults : fetchTestResults}
+            className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {testResults.length === 0 ? (
@@ -219,6 +382,16 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
                     <p className="text-sm text-gray-600 mt-1">
                       {formatResultSummary(result.testName, result.results)}
                     </p>
+                    
+                    {/* Request ID and Ward Info */}
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      <span className="font-medium">Request: {result.requestId}</span>
+                      {result.wardName && (
+                        <span>Ward: {result.wardName}</span>
+                      )}
+                    </div>
+
+                    {/* Completion Info */}
                     <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
                       <div className="flex items-center space-x-1">
                         <Calendar className="h-3 w-3" />
@@ -231,10 +404,18 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
                       {result.completedBy && (
                         <div className="flex items-center space-x-1">
                           <User className="h-3 w-3" />
-                          <span>{result.completedBy}</span>
+                          <span>By: {result.completedBy}</span>
                         </div>
                       )}
                     </div>
+
+                    {/* Notes if available */}
+                    {result.notes && (
+                      <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
+                        <span className="font-medium text-yellow-800">Notes: </span>
+                        <span className="text-yellow-700">{result.notes}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button

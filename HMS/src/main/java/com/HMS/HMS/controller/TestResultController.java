@@ -82,4 +82,34 @@ public class TestResultController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+    
+    /**
+     * Get ALL test results in the system
+     */
+    @GetMapping("/all")
+    public ResponseEntity<List<TestResultResponseDTO>> getAllTestResults() {
+        try {
+            List<TestResultResponseDTO> results = testResultService.getAllTestResults();
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+    
+    /**
+     * Create sample test data for demonstration (temporary endpoint)
+     */
+    @PostMapping("/create-sample-data")
+    public ResponseEntity<Map<String, Object>> createSampleTestData() {
+        try {
+            Map<String, Object> response = testResultService.createSampleTestData();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = Map.of(
+                "success", false,
+                "message", "Failed to create sample data: " + e.getMessage()
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
 }
