@@ -287,6 +287,33 @@ Frontend application will start at `http://localhost:5173`
 
 ---
 
+## ☁️ Deployment
+
+### **AWS Deployment (Free Tier Available!)**
+
+This application can be deployed on **AWS Free Tier** for 12 months at no cost!
+
+**Quick Deployment:**
+```bash
+# On your EC2 instance (Ubuntu)
+wget https://raw.githubusercontent.com/Dilshan2002104-cpu/hospital-annual-report-generation-system-final-year-project/main/deploy-aws.sh
+chmod +x deploy-aws.sh
+./deploy-aws.sh
+```
+
+**Resources Required:**
+- EC2 t2.micro instance (FREE for 12 months)
+- RDS MySQL db.t2.micro (FREE for 12 months) OR Local MySQL
+- 30 GB storage (FREE)
+
+**Complete Guides:**
+- 📖 [AWS Deployment Guide](AWS_DEPLOYMENT_GUIDE.md) - Step-by-step instructions
+- ⚡ [Quick Reference](QUICK_DEPLOYMENT_REFERENCE.md) - Fast deployment overview
+
+**Cost After Free Tier:** ~$26-38/month
+
+---
+
 ## ⚙️ Configuration
 
 ### Backend Configuration (`application.properties`)
