@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function LoginForm() {
   const navigate = useNavigate();
@@ -93,7 +94,7 @@ export default function LoginForm() {
     setErrors({});
 
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/login', {
+      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, {
         empId: formData.empId,
         password: formData.password
       });
