@@ -66,6 +66,9 @@ services:
     image: dilshan019/hms-frontend:latest
     container_name: hms-frontend
     restart: unless-stopped
+    environment:
+      # Configure API URL to point to the EC2 instance
+      REACT_APP_API_URL: http://16.171.66.213:8080
     ports:
       - "80:80"
       - "443:443"
