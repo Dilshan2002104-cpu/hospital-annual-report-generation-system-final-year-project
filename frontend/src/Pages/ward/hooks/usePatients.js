@@ -1,5 +1,6 @@
 import { useState,useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../config/api';
 
 const usePatients = (showToast = null) => {
   const [patients, setPatients] = useState([]);
@@ -19,7 +20,7 @@ const usePatients = (showToast = null) => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/patients/all', {
+      const response = await axios.get(API_ENDPOINTS.PATIENTS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }

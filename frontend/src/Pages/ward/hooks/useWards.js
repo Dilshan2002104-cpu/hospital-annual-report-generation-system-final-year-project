@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../config/api';
 
 const useWards = (showToast = null) => {
   const [wards, setWards] = useState([]);
@@ -17,7 +18,7 @@ const useWards = (showToast = null) => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/wards/getAll', {
+      const response = await axios.get(API_ENDPOINTS.WARDS.GET_ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
