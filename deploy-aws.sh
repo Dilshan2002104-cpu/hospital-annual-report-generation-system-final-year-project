@@ -1,6 +1,14 @@
 #!/bin/bash
 
-# Hospital Management System - AWS Deployment Script
+#!/bin/bash
+
+# HMS AWS EC2 Deployment Script with Docker
+# Automated deployment for Ubuntu EC2 instance using Docker containers
+
+set -e
+
+echo "🏥 Hospital Management System - AWS EC2 Docker Deployment"
+echo "========================================================"
 # This script automates the deployment process on Ubuntu EC2 instance
 
 set -e  # Exit on error

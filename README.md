@@ -289,7 +289,61 @@ Frontend application will start at `http://localhost:5173`
 
 ## ☁️ Deployment
 
-### **AWS Deployment (Free Tier Available!)**
+### 🐳 **Docker Deployment (Recommended)**
+
+The fastest way to deploy the complete application stack using Docker containers.
+
+**Quick Start:**
+```bash
+# Clone the repository
+git clone https://github.com/Dilshan2002104-cpu/hospital-annual-report-generation-system-final-year-project.git
+cd hospital-annual-report-generation-system-final-year-project
+
+# Start the complete stack (Frontend + Backend + Database)
+docker-compose up -d
+
+# Access the application
+# Frontend: http://localhost
+# Backend API: http://localhost:8080
+```
+
+**Prerequisites:**
+- Docker Desktop or Docker Engine (20.10+)
+- Docker Compose (2.0+)
+- 4GB RAM available
+
+**Features:**
+- ✅ Complete stack deployment in minutes
+- ✅ Automated database setup and initialization  
+- ✅ Production-ready nginx configuration
+- ✅ Health checks and auto-restart
+- ✅ Volume persistence for database
+- ✅ Development and production configurations
+
+**Detailed Guide:** See [DOCKER_SETUP.md](DOCKER_SETUP.md) for complete instructions, troubleshooting, and advanced configurations.
+
+### **AWS EC2 Deployment with Docker**
+
+Deploy the containerized application on AWS EC2 for production use:
+
+```bash
+# Quick EC2 deployment (on Ubuntu instance)
+wget https://raw.githubusercontent.com/Dilshan2002104-cpu/hospital-annual-report-generation-system-final-year-project/main/deploy-ec2.sh
+chmod +x deploy-ec2.sh
+./deploy-ec2.sh
+
+# Access your application at http://your-ec2-public-ip
+```
+
+**EC2 Requirements:**
+- Instance: t3.medium or larger
+- OS: Ubuntu 22.04 LTS
+- Storage: 20GB GP3
+- Security Group: Allow HTTP (80), HTTPS (443), SSH (22)
+
+**Complete Guide:** See [EC2_DEPLOYMENT.md](EC2_DEPLOYMENT.md) for detailed instructions, security configuration, HTTPS setup, and monitoring.
+
+### **AWS Deployment (Alternative - Free Tier Available!)**
 
 This application can be deployed on **AWS Free Tier** for 12 months at no cost!
 

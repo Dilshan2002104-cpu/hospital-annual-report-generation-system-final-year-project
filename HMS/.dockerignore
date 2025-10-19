@@ -1,0 +1,29 @@
+# Build artifacts
+target/
+*.jar
+*.war
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Maven
+.m2/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Git
+.git/
+.gitignore
