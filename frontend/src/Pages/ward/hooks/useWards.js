@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { API_ENDPOINTS } from '../../config/api';
+import { API_ENDPOINTS } from '../../../config/api';
 
 const useWards = (showToast = null) => {
   const [wards, setWards] = useState([]);

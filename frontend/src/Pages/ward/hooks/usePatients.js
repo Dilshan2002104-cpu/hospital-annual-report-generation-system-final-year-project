@@ -1,6 +1,6 @@
 import { useState,useCallback } from 'react';
 import axios from 'axios';
-import { API_ENDPOINTS } from '../../config/api';
+import { API_ENDPOINTS } from '../../../config/api';
 
 const usePatients = (showToast = null) => {
   const [patients, setPatients] = useState([]);
