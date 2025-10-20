@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '../../../config/api';
 import { 
   FileText, 
   Download, 
@@ -28,7 +29,7 @@ export default function LabReports() {
 
   const fetchAvailableYears = async () => {
     try {
-      const response = await fetch('/api/lab-reports/available-years', {
+      const response = await fetch(`${getApiBaseUrl()}/api/lab-reports/available-years`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -49,7 +50,7 @@ export default function LabReports() {
     setIsGenerating(true);
     setError(null);
     try {
-      const response = await fetch(`/api/lab-reports/annual/${year}/preview`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/lab-reports/annual/${year}/preview`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -75,7 +76,7 @@ export default function LabReports() {
     setIsGenerating(true);
     setError(null);
     try {
-      const response = await fetch(`/api/lab-reports/annual/${year}/pdf`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/lab-reports/annual/${year}/pdf`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

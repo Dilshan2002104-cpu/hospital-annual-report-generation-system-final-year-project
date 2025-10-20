@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Calendar, User, Clock, AlertCircle, TrendingUp, Activity } from 'lucide-react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const TestResultsView = ({ patientNationalId, showToast }) => {
   const [testResults, setTestResults] = useState([]);
@@ -21,7 +22,7 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
       if (jwtToken) {
         try {
           response = await axios.get(
-            `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
+            API_ENDPOINTS.TEST_RESULTS.BY_PATIENT_RECENT(patientNationalId),
             {
               headers: {
                 'Authorization': `Bearer ${jwtToken}`,
@@ -34,7 +35,7 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
             console.log('🔓 JWT failed, trying without authentication...');
             // Try without JWT since some endpoints might be public
             response = await axios.get(
-              `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
+              API_ENDPOINTS.TEST_RESULTS.BY_PATIENT_RECENT(patientNationalId),
               {
                 headers: {
                   'Content-Type': 'application/json'
@@ -48,7 +49,7 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
       } else {
         // No JWT token, try direct API call
         response = await axios.get(
-          `http://localhost:8080/api/test-results/patient/${patientNationalId}/recent`,
+          API_ENDPOINTS.TEST_RESULTS.BY_PATIENT_RECENT(patientNationalId),
           {
             headers: {
               'Content-Type': 'application/json'
@@ -94,7 +95,7 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
       if (jwtToken) {
         try {
           response = await axios.get(
-            `http://localhost:8080/api/test-results/patient/${patientNationalId}`,
+            API_ENDPOINTS.TEST_RESULTS.BY_PATIENT(patientNationalId),
             {
               headers: {
                 'Authorization': `Bearer ${jwtToken}`,
@@ -106,7 +107,7 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
           if (authError.response?.status === 401 || authError.response?.status === 403) {
             console.log('🔓 JWT failed, trying without authentication...');
             response = await axios.get(
-              `http://localhost:8080/api/test-results/patient/${patientNationalId}`,
+              API_ENDPOINTS.TEST_RESULTS.BY_PATIENT(patientNationalId),
               {
                 headers: {
                   'Content-Type': 'application/json'
@@ -119,7 +120,7 @@ const TestResultsView = ({ patientNationalId, showToast }) => {
         }
       } else {
         response = await axios.get(
-          `http://localhost:8080/api/test-results/patient/${patientNationalId}`,
+          API_ENDPOINTS.TEST_RESULTS.BY_PATIENT(patientNationalId),
           {
             headers: {
               'Content-Type': 'application/json'

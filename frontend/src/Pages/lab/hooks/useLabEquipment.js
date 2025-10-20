@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useLabEquipment = (showToast = null) => {
   const [equipment, setEquipment] = useState([]);
@@ -62,7 +64,7 @@ const useLabEquipment = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.get('http://localhost:8080/api/lab/equipment', {
+      const response = await axios.get(API_ENDPOINTS.LAB.EQUIPMENT.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -113,7 +115,7 @@ const useLabEquipment = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.put(`http://localhost:8080/api/lab/equipment/${equipmentId}`, updateData, {
+      const response = await axios.put(API_ENDPOINTS.LAB.EQUIPMENT.UPDATE(equipmentId), updateData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -166,7 +168,7 @@ const useLabEquipment = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.post(`http://localhost:8080/api/lab/equipment/${equipmentId}/maintenance`, maintenanceData, {
+      const response = await axios.post(API_ENDPOINTS.LAB.EQUIPMENT.MAINTENANCE(equipmentId), maintenanceData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`

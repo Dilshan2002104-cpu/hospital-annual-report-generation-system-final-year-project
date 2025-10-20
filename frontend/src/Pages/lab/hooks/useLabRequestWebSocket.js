@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import useWebSocket from '../../../hooks/useWebSocket';
+import { getWebSocketUrl } from '../../../config/api.js';
 
 const useLabRequestWebSocket = (showToast = null) => {
   const [labRequests, setLabRequests] = useState([]);
@@ -97,7 +98,7 @@ const useLabRequestWebSocket = (showToast = null) => {
     error, 
     sendMessage, 
     disconnect 
-  } = useWebSocket('http://localhost:8080/ws', subscriptions, {
+  } = useWebSocket(getWebSocketUrl(), subscriptions, {
     reconnect: true,
     reconnectInterval: 3000,
     maxReconnectAttempts: 10

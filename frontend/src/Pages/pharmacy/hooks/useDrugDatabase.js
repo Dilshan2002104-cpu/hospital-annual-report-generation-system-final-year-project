@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 import useWebSocket from '../../../hooks/useWebSocket';
+import { API_ENDPOINTS, getWebSocketUrl } from '../../../config/api.js';
 
 export default function useDrugDatabase() {
   const [_DRUG_DATABASE, _SET_DRUG_DATABASE] = useState([]);
@@ -39,7 +40,7 @@ export default function useDrugDatabase() {
       params.append('sort', sort);
 
       const response = await axios.get(
-        `http://localhost:8080/api/pharmacy/medications/getAll?${params.toString()}`,
+        `${API_ENDPOINTS.PHARMACY.MEDICATIONS.GET_ALL}?${params.toString()}`,
         { headers: getAuthHeaders() }
       );
 
@@ -286,7 +287,7 @@ export default function useDrugDatabase() {
 
   // WebSocket connection for real-time drug database updates
   const { isConnected: wsConnected } = useWebSocket(
-    'http://localhost:8080/ws',
+    getWebSocketUrl(),
     { '/topic/inventory': handleDrugDatabaseWebSocketUpdate },
     { debug: true, reconnectDelay: 5000 }
   );

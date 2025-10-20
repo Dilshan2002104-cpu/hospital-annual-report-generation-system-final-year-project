@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useWardAnalytics = (showToast = null) => {
   const [activeAdmissions, setActiveAdmissions] = useState([]);
@@ -23,7 +24,7 @@ const useWardAnalytics = (showToast = null) => {
   // Fetch active admissions
   const fetchActiveAdmissions = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/admissions/active', {
+      const response = await axios.get(API_ENDPOINTS.ADMISSIONS.ACTIVE, {
         headers: getAuthHeaders()
       });
       setActiveAdmissions(response.data);
@@ -54,7 +55,7 @@ const useWardAnalytics = (showToast = null) => {
   // Fetch all admissions
   const fetchAllAdmissions = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/admissions/getAll', {
+      const response = await axios.get(API_ENDPOINTS.ADMISSIONS.ALL, {
         headers: getAuthHeaders()
       });
       setAllAdmissions(response.data);
@@ -85,7 +86,7 @@ const useWardAnalytics = (showToast = null) => {
   // Fetch wards
   const fetchWards = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/wards/getAll', {
+      const response = await axios.get(API_ENDPOINTS.WARDS.GET_ALL, {
         headers: getAuthHeaders()
       });
       setWards(response.data);
@@ -118,7 +119,7 @@ const useWardAnalytics = (showToast = null) => {
     try {
       const patientPromises = nationalIds.map(async (nationalId) => {
         try {
-          const response = await axios.get(`http://localhost:8080/api/patients/${nationalId}`, {
+          const response = await axios.get(API_ENDPOINTS.PATIENTS.BY_ID(nationalId), {
             headers: getAuthHeaders()
           });
           return response.data;

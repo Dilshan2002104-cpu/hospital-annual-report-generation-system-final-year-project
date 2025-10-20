@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../config/api';
 import {
   Users,
   Activity,
@@ -87,7 +88,7 @@ export default function DialysisDashboard() {
       const jwtToken = localStorage.getItem('jwtToken');
 
       const response = await fetch(
-        `http://localhost:8080/api/dialysis/sessions/${sessionId}/report/pdf`,
+        `${getApiBaseUrl()}/api/dialysis/sessions/${sessionId}/report/pdf`,
         {
           method: 'GET',
           headers: {

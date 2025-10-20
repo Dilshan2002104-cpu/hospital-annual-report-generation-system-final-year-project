@@ -13,6 +13,7 @@ import {
   Filler
 } from 'chart.js';
 import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../config/api';
 import { 
   Activity, 
   Users, 
@@ -111,14 +112,14 @@ export default function DialysisAnalytics() {
         monthlyResponse,
         machineWiseResponse
       ] = await Promise.all([
-        fetch(`http://localhost:8080/api/dialysis/analytics/machine-performance?startDate=${startDate}&endDate=${endDate}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/session-trends?days=${timeRange}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/patient-metrics?startDate=${startDate}&endDate=${endDate}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/operational-metrics`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/kpi-dashboard`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/utilization-heatmap?days=7`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/monthly-comparison?months=6`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/machine-wise-trends?days=${timeRange}`, { headers })
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/machine-performance?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/session-trends?days=${timeRange}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/patient-metrics?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/operational-metrics`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/kpi-dashboard`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/utilization-heatmap?days=7`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/monthly-comparison?months=6`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/machine-wise-trends?days=${timeRange}`, { headers })
       ]);
 
       if (!machineResponse.ok || !trendsResponse.ok || !metricsResponse.ok || 
@@ -201,11 +202,11 @@ export default function DialysisAnalytics() {
         machineUtilizationResponse,
         yearComparisonResponse
       ] = await Promise.all([
-        fetch(`http://localhost:8080/api/dialysis/analytics/annual-statistics?year=${year}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/monthly-sessions?year=${year}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/monthly-patients?year=${year}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/monthly-machine-utilization?year=${year}`, { headers }),
-        fetch(`http://localhost:8080/api/dialysis/analytics/year-comparison?currentYear=${year}&previousYear=${year - 1}`, { headers })
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/annual-statistics?year=${year}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/monthly-sessions?year=${year}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/monthly-patients?year=${year}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/monthly-machine-utilization?year=${year}`, { headers }),
+        fetch(`${getApiBaseUrl()}/api/dialysis/analytics/year-comparison?currentYear=${year}&previousYear=${year - 1}`, { headers })
       ]);
 
       // Check for errors
@@ -269,7 +270,7 @@ export default function DialysisAnalytics() {
 
       console.log('Fetching machine-wise patient trends for year:', year);
 
-      const response = await fetch(`http://localhost:8080/api/dialysis/reports/machine-trends/${year}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/dialysis/reports/machine-trends/${year}`, {
         headers,
         signal: AbortSignal.timeout(10000)
       });

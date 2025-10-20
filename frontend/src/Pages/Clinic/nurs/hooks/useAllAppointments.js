@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../../config/api';
 
 const useAllAppointments = () => {
   const [allAppointments, setAllAppointments] = useState([]);
@@ -19,7 +20,7 @@ const useAllAppointments = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/appointments/getAll', {
+      const response = await axios.get(API_ENDPOINTS.APPOINTMENTS.GET_ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }

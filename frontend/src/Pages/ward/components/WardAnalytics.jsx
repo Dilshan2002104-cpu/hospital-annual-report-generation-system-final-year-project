@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -119,7 +120,7 @@ export default function WardAnalytics({
       // Fetch patient details in batches
       const patientPromises = uniquePatientIds.map(async (nationalId) => {
         try {
-          const response = await axios.get(`http://localhost:8080/api/patients/${nationalId}`, { headers });
+          const response = await axios.get(API_ENDPOINTS.PATIENTS.BY_ID(nationalId), { headers });
           return response.data;
         } catch (error) {
           console.warn(`Failed to fetch patient ${nationalId}:`, error);

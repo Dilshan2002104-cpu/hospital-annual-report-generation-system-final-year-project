@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getApiBaseUrl } from '../../../config/api';
 
 const usePharmacyAnalytics = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -107,10 +108,10 @@ const usePharmacyAnalytics = () => {
         performanceResponse,
         revenueResponse
       ] = await Promise.all([
-        fetch(`/api/pharmacy/analytics/prescriptions?period=${period}`),
-        fetch('/api/pharmacy/analytics/inventory'),
-        fetch(`/api/pharmacy/analytics/performance?period=${period}`),
-        fetch(`/api/pharmacy/analytics/revenue?period=${period}`)
+        fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/prescriptions?period=${period}`),
+        fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/inventory`),
+        fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/performance?period=${period}`),
+        fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/revenue?period=${period}`)
       ]);
 
       const [
@@ -152,7 +153,7 @@ const usePharmacyAnalytics = () => {
 
   const fetchPrescriptionAnalytics = useCallback(async (period = '7d') => {
     try {
-      const response = await fetch(`/api/pharmacy/analytics/prescriptions?period=${period}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/prescriptions?period=${period}`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -168,7 +169,7 @@ const usePharmacyAnalytics = () => {
 
   const fetchInventoryAnalytics = useCallback(async () => {
     try {
-      const response = await fetch('/api/pharmacy/analytics/inventory');
+      const response = await fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/inventory`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -184,7 +185,7 @@ const usePharmacyAnalytics = () => {
 
   const fetchPerformanceMetrics = useCallback(async (period = '7d') => {
     try {
-      const response = await fetch(`/api/pharmacy/analytics/performance?period=${period}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/performance?period=${period}`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -200,7 +201,7 @@ const usePharmacyAnalytics = () => {
 
   const fetchRevenueAnalytics = useCallback(async (period = '7d') => {
     try {
-      const response = await fetch(`/api/pharmacy/analytics/revenue?period=${period}`);
+      const response = await fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/revenue?period=${period}`);
       const result = await response.json();
       
       if (response.ok && result.success) {
@@ -216,7 +217,7 @@ const usePharmacyAnalytics = () => {
 
   const fetchAlerts = useCallback(async () => {
     try {
-      const response = await fetch('/api/pharmacy/analytics/alerts');
+      const response = await fetch(`${getApiBaseUrl()}/api/pharmacy/analytics/alerts`);
       const result = await response.json();
       
       if (response.ok && result.success) {

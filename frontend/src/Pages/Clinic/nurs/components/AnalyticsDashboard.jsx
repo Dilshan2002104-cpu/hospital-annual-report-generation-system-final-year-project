@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, Stethoscope, RefreshCw, Eye, ChevronRight, Clock, CheckCircle, AlertCircle, XCircle, Search, X, FileText, Download } from 'lucide-react';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../../config/api';
 import { Line } from 'react-chartjs-2';
 import PatientStatsChart from './charts/PatientStatsChart';
 import AppointmentAnalytics from './charts/AppointmentAnalytics';
@@ -62,7 +63,7 @@ const AnalyticsDashboard = () => {
       }
 
       const response = await axios.get(
-        `http://localhost:8080/api/reports/comprehensive-clinic/full-report/${selectedYear}/pdf`,
+        `${getApiBaseUrl()}/api/reports/comprehensive-clinic/full-report/${selectedYear}/pdf`,
         {
           headers: {
             'Authorization': `Bearer ${jwtToken}`,

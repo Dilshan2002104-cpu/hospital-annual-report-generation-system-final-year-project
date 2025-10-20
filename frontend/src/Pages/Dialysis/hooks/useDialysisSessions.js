@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import useDialysisWebSocket from './useDialysisWebSocket';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useDialysisSessions = (showToast) => {
   const [sessions, setSessions] = useState([]);
@@ -64,7 +65,7 @@ const useDialysisSessions = (showToast) => {
     try {
       const jwtToken = localStorage.getItem('jwtToken');
       const response = await axios.patch(
-        `http://localhost:8080/api/dialysis/machines/${machineId}/status`,
+        API_ENDPOINTS.DIALYSIS.MACHINES.STATUS(machineId),
         { 
           status: status,
           reason: reason,
@@ -117,7 +118,7 @@ const useDialysisSessions = (showToast) => {
       
       // Real API call to fetch dialysis sessions
       const jwtToken = localStorage.getItem('jwtToken');
-      const response = await axios.get('http://localhost:8080/api/dialysis/sessions', {
+      const response = await axios.get(API_ENDPOINTS.DIALYSIS.SESSIONS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -147,7 +148,7 @@ const useDialysisSessions = (showToast) => {
       
       // Real API call to update session
       const jwtToken = localStorage.getItem('jwtToken');
-      const response = await axios.put(`http://localhost:8080/api/dialysis/sessions/${sessionId}`, updateData, {
+      const response = await axios.put(API_ENDPOINTS.DIALYSIS.SESSIONS.UPDATE(sessionId), updateData, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -184,7 +185,7 @@ const useDialysisSessions = (showToast) => {
       
       // Real API call to update attendance
       const jwtToken = localStorage.getItem('jwtToken');
-      await axios.patch(`http://localhost:8080/api/dialysis/sessions/${sessionId}/attendance`, 
+      await axios.patch(API_ENDPOINTS.DIALYSIS.SESSIONS.ATTENDANCE(sessionId), 
         { attendance: attendanceStatus }, 
         {
           headers: {
@@ -232,7 +233,7 @@ const useDialysisSessions = (showToast) => {
       
       // Step 1: Update session details
       console.log('📝 Updating session details...', { sessionId, detailsData });
-      await axios.patch(`http://localhost:8080/api/dialysis/sessions/${sessionId}/details`, 
+      await axios.patch(API_ENDPOINTS.DIALYSIS.SESSIONS.DETAILS(sessionId), 
         detailsData, 
         {
           headers: {
@@ -315,7 +316,7 @@ const useDialysisSessions = (showToast) => {
       
       // Step 1: Delete the session
       console.log('🗑️ Deleting dialysis session...', { sessionId, machineId: session.machineId });
-      await axios.delete(`http://localhost:8080/api/dialysis/sessions/${sessionId}`, {
+      await axios.delete(API_ENDPOINTS.DIALYSIS.SESSIONS.DELETE(sessionId), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -382,7 +383,7 @@ const useDialysisSessions = (showToast) => {
       }
 
       // Fetch patients currently admitted to Ward 4 (Dialysis Ward)
-      const response = await axios.get('http://localhost:8080/api/admissions/ward/4', {
+      const response = await axios.get(API_ENDPOINTS.ADMISSIONS.BY_WARD(4), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -441,7 +442,7 @@ const useDialysisSessions = (showToast) => {
     try {
       const jwtToken = localStorage.getItem('jwtToken');
       const response = await axios.get(
-        `http://localhost:8080/api/dialysis/machines/available-for-time`,
+        API_ENDPOINTS.DIALYSIS.MACHINES.AVAILABLE_FOR_TIME,
         {
           params: {
             date: date,
@@ -465,7 +466,7 @@ const useDialysisSessions = (showToast) => {
     try {
       const jwtToken = localStorage.getItem('jwtToken');
       const response = await axios.get(
-        `http://localhost:8080/api/dialysis/machines/availability-status`,
+        API_ENDPOINTS.DIALYSIS.MACHINES.AVAILABILITY_STATUS,
         {
           params: {
             date: date,
@@ -493,7 +494,7 @@ const useDialysisSessions = (showToast) => {
       
       // Step 1: Create the session
       console.log('📝 Creating dialysis session...', sessionData);
-      const response = await axios.post('http://localhost:8080/api/dialysis/sessions', sessionData, {
+      const response = await axios.post(API_ENDPOINTS.DIALYSIS.SESSIONS.CREATE, sessionData, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'

@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useSamples = (showToast = null) => {
   const [samples, setSamples] = useState([]);
@@ -53,7 +55,7 @@ const useSamples = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.get('http://localhost:8080/api/lab/samples', {
+      const response = await axios.get(API_ENDPOINTS.LAB.SAMPLES.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -104,7 +106,7 @@ const useSamples = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.post('http://localhost:8080/api/lab/samples', sampleData, {
+      const response = await axios.post(API_ENDPOINTS.LAB.SAMPLES.CREATE, sampleData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -167,7 +169,7 @@ const useSamples = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.patch(`http://localhost:8080/api/lab/samples/${sampleId}/status`,
+      const response = await axios.patch(API_ENDPOINTS.LAB.SAMPLES.UPDATE_STATUS(sampleId),
         { status: newStatus, ...additionalData }, {
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +223,7 @@ const useSamples = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.post('http://localhost:8080/api/lab/samples/search', searchCriteria, {
+      const response = await axios.post(API_ENDPOINTS.LAB.SAMPLES.SEARCH, searchCriteria, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`

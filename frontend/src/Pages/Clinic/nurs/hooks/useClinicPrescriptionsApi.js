@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../../config/api';
 
 const useClinicPrescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -28,7 +29,7 @@ const useClinicPrescriptions = () => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get('http://localhost:8080/api/pharmacy/medications/getAll', {
+      const response = await axios.get(API_ENDPOINTS.MEDICATIONS.GET_ALL, {
         headers: getAuthHeaders()
       });
 
@@ -145,7 +146,7 @@ const useClinicPrescriptions = () => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get('http://localhost:8080/api/patients/all', {
+      const response = await axios.get(API_ENDPOINTS.PATIENTS.GET_ALL, {
         headers: getAuthHeaders()
       });
 
@@ -280,7 +281,7 @@ const useClinicPrescriptions = () => {
       }
 
       // Fetch clinic prescriptions from the specific clinic endpoint
-      const response = await axios.get('http://localhost:8080/api/clinic/prescriptions?page=0&size=100&sortBy=prescribedDate&sortDir=desc', {
+      const response = await axios.get(API_ENDPOINTS.CLINIC_PRESCRIPTIONS.GET_ALL + '?page=0&size=100&sortBy=prescribedDate&sortDir=desc', {
         headers: getAuthHeaders()
       });
 
@@ -464,7 +465,7 @@ const useClinicPrescriptions = () => {
       console.log('📤 Sending clinic prescription API request:', JSON.stringify(apiData, null, 2));
 
       // Try using the new clinic prescription endpoint
-      const response = await axios.post('http://localhost:8080/api/clinic/prescriptions', apiData, {
+      const response = await axios.post(API_ENDPOINTS.CLINIC_PRESCRIPTIONS.CREATE, apiData, {
         headers: getAuthHeaders()
       });
 

@@ -3,6 +3,7 @@ import { Search, TestTube, RefreshCw, Clock, AlertTriangle, Eye, XCircle, CheckC
 import useLabRequestWebSocket from '../hooks/useLabRequestWebSocket';
 import TestResultsModal from './TestResultsModal';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 export default function TestOrdersManagement({ showToast }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,7 +31,7 @@ export default function TestOrdersManagement({ showToast }) {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/lab-requests/all', {
+      const response = await axios.get(API_ENDPOINTS.LAB_REQUESTS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -78,7 +79,7 @@ export default function TestOrdersManagement({ showToast }) {
       });
       
       // Send update to backend
-      await axios.put(`http://localhost:8080/api/lab-requests/${requestId}/status`, 
+      await axios.put(API_ENDPOINTS.LAB_REQUESTS.UPDATE_STATUS(requestId), 
         null,
         {
           params: {

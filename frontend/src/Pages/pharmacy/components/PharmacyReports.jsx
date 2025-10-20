@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Download, CheckCircle } from 'lucide-react';
+import { getApiBaseUrl } from '../../../config/api';
 
 export default function PharmacyReports() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -21,7 +22,7 @@ export default function PharmacyReports() {
 
       // Check if backend is running first
       try {
-        const healthCheck = await fetch('/api/pharmacy/reports/test', {
+        const healthCheck = await fetch(`${getApiBaseUrl()}/api/pharmacy/reports/test`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json'

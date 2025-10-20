@@ -86,7 +86,7 @@ const usePatients = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get(`http://localhost:8080/api/patients/${nationalId}`, {
+      const response = await axios.get(API_ENDPOINTS.PATIENTS.BY_ID(nationalId), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'

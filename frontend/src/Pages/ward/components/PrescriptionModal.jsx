@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Pill, AlertCircle, FileText, User, Search, Minus, AlertTriangle } from 'lucide-react';
 import useNotifications from '../hooks/useNotifications';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 
 const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptionAdded }) => {
@@ -396,7 +397,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
       }
 
       // Fetch from pharmacy medications API endpoint
-      const response = await axios.get('http://localhost:8080/api/pharmacy/medications/getAll', {
+      const response = await axios.get(API_ENDPOINTS.PHARMACY.MEDICATIONS.GET_ALL, {
         headers: getAuthHeaders(),
         timeout: 10000 // 10 second timeout
       });
@@ -863,7 +864,7 @@ const PrescriptionModal = ({ isOpen, onClose, activePatients = [], onPrescriptio
           }
 
           // Fetch from pharmacy medications API endpoint
-          const response = await axios.get('http://localhost:8080/api/pharmacy/medications/getAll', {
+          const response = await axios.get(API_ENDPOINTS.PHARMACY.MEDICATIONS.GET_ALL, {
             headers: {
               'Authorization': `Bearer ${jwtToken}`,
               'Content-Type': 'application/json'

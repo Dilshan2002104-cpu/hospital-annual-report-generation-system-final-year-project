@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TrendingUp, Activity, Users, Calendar, FileText, Shield, Download, BarChart3, AlertCircle, Clock, Building2, Stethoscope } from 'lucide-react';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../../config/api';
 
 const ReportsModule = ({ todayStats }) => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -28,7 +29,7 @@ const ReportsModule = ({ todayStats }) => {
 
       const response = await axios({
         method: 'GET',
-        url: `http://localhost:8080/api/reports/comprehensive-clinic/full-report/${year}/pdf`,
+        url: `${getApiBaseUrl()}/api/reports/comprehensive-clinic/full-report/${year}/pdf`,
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
         },

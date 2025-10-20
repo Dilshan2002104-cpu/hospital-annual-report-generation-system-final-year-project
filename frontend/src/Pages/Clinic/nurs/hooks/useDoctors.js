@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../../config/api.js';
 
 const useDoctors = () => {
   const [doctors, setDoctors] = useState([]);
@@ -51,7 +52,7 @@ const useDoctors = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/doctors/getAll', {
+      const response = await axios.get(API_ENDPOINTS.DOCTORS.GET_ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -115,7 +116,7 @@ const useDoctors = () => {
         specialization: doctorData.specialization
       };
 
-      await axios.post('http://localhost:8080/api/doctors/add', requestData, {
+      await axios.post(API_ENDPOINTS.DOCTORS.ADD, requestData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -180,7 +181,7 @@ const useDoctors = () => {
         return false;
       }
 
-      await axios.delete(`http://localhost:8080/api/doctors/delete/${doctorId}`, {
+      await axios.delete(API_ENDPOINTS.DOCTORS.DELETE(doctorId), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -248,7 +249,7 @@ const useDoctors = () => {
         specialization: doctorData.specialization
       };
 
-      await axios.put(`http://localhost:8080/api/doctors/update/${doctorData.id}`, requestData, {
+      await axios.put(API_ENDPOINTS.DOCTORS.UPDATE(doctorData.id), requestData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`

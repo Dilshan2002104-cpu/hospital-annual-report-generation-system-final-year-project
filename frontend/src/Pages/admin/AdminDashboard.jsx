@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../../config/api.js";
 
 // Add custom CSS animations
 const customStyles = `
@@ -32,7 +33,7 @@ const TOAST_TYPES = {
 
 // Configuration constants
 const CONFIG = {
-  API_BASE: 'http://localhost:8080', // In production, this would come from environment variables
+  API_BASE: API_BASE_URL, // Using dynamic API URL detection
   ITEMS_PER_PAGE: 10,
   DEBOUNCE_DELAY: 300,
   TOKEN_KEY: 'adminToken'

@@ -16,6 +16,7 @@ import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
 import { format, parseISO } from 'date-fns';
 import usePharmacyAnalytics from '../hooks/usePharmacyAnalytics';
+import { API_BASE_URL } from '../../../config/api.js';
 
 // Register Chart.js components
 ChartJS.register(
@@ -544,8 +545,8 @@ const TrendsTab = () => {
         monthlyDispensingResponse,
         topMedicationsResponse
       ] = await Promise.all([
-        fetch(`http://localhost:8080/api/pharmacy/analytics/annual/monthly-dispensing?year=${selectedYear}`, { headers }),
-        fetch(`http://localhost:8080/api/pharmacy/analytics/annual/top-medications?year=${selectedYear}&limit=20`, { headers })
+        fetch(`${API_BASE_URL}/api/pharmacy/analytics/annual/monthly-dispensing?year=${selectedYear}`, { headers }),
+        fetch(`${API_BASE_URL}/api/pharmacy/analytics/annual/top-medications?year=${selectedYear}&limit=20`, { headers })
       ]);
 
       // Check for errors and handle fallback data

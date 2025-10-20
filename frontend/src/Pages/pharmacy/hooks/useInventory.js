@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import useWebSocket from '../../../hooks/useWebSocket';
+import { API_ENDPOINTS, getWebSocketUrl } from '../../../config/api.js';
 
 export default function useInventory(options = {}) {
   const [inventory, setInventory] = useState([]);
@@ -13,7 +14,7 @@ export default function useInventory(options = {}) {
   // Fetch inventory from API
   const fetchInventoryFromAPI = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/pharmacy/medications/inventory');
+      const response = await axios.get(API_ENDPOINTS.PHARMACY.MEDICATIONS.INVENTORY);
       
       if (response.data.success) {
         return response.data.data || [];
@@ -118,7 +119,7 @@ export default function useInventory(options = {}) {
 
   // WebSocket connection for real-time inventory updates
   const { isConnected: wsConnected } = useWebSocket(
-    'http://localhost:8080/ws',
+    getWebSocketUrl(),
     { 
       '/topic/inventory': handleInventoryWebSocketUpdate,
       '/topic/inventory/alerts': handleInventoryWebSocketUpdate
@@ -151,7 +152,7 @@ export default function useInventory(options = {}) {
     try {
       setError(null);
       
-      const response = await axios.put(`http://localhost:8080/api/pharmacy/medications/${medicationId}/stock`, {
+      const response = await axios.put(API_ENDPOINTS.PHARMACY.MEDICATIONS.UPDATE_STOCK(medicationId), {
         newStock: updateData.newStock,
         batchNumber: updateData.batchNumber
       }, {
@@ -231,7 +232,7 @@ export default function useInventory(options = {}) {
     try {
       setError(null);
       
-      const response = await axios.post('http://localhost:8080/api/pharmacy/medications/add', itemData, {
+      const response = await axios.post(API_ENDPOINTS.PHARMACY.MEDICATIONS.ADD, itemData, {
         headers: {
           'Content-Type': 'application/json',
         }

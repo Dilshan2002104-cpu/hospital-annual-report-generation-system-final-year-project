@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useLabTests = (showToast = null) => {
   const [testOrders, setTestOrders] = useState([]);
@@ -53,7 +55,7 @@ const useLabTests = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.get('http://localhost:8080/api/lab/test-orders', {
+      const response = await axios.get(API_ENDPOINTS.LAB.TEST_ORDERS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -105,7 +107,7 @@ const useLabTests = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.post('http://localhost:8080/api/lab/test-orders', orderData, {
+      const response = await axios.post(API_ENDPOINTS.LAB.TEST_ORDERS.CREATE, orderData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -168,7 +170,7 @@ const useLabTests = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.put(`http://localhost:8080/api/lab/test-orders/${orderId}`, updateData, {
+      const response = await axios.put(API_ENDPOINTS.LAB.TEST_ORDERS.UPDATE(orderId), updateData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -221,7 +223,7 @@ const useLabTests = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.patch(`http://localhost:8080/api/lab/test-orders/${orderId}/process`, processData, {
+      const response = await axios.patch(API_ENDPOINTS.LAB.TEST_ORDERS.PROCESS(orderId), processData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`

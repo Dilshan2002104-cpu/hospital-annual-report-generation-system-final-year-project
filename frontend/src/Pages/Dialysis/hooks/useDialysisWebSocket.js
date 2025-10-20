@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import useWebSocket from '../../../hooks/useWebSocket';
+import { getWebSocketUrl } from '../../../config/api.js';
 
 /**
  * Custom hook for real-time dialysis updates via WebSocket
@@ -149,7 +150,7 @@ export const useDialysisWebSocket = (onDialysisUpdate) => {
 
   // Use WebSocket hook
   const { isConnected, error, sendMessage, reconnect } = useWebSocket(
-    'http://localhost:8080/ws',
+    getWebSocketUrl(),
     subscriptions,
     wsOptions
   );

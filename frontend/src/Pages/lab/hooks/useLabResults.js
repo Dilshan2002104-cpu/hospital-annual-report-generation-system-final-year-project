@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useLabResults = (showToast = null) => {
   const [results, setResults] = useState([]);
@@ -68,7 +70,7 @@ const useLabResults = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.get('http://localhost:8080/api/lab/results', {
+      const response = await axios.get(API_ENDPOINTS.LAB.RESULTS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -119,7 +121,7 @@ const useLabResults = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.post('http://localhost:8080/api/lab/results', resultData, {
+      const response = await axios.post(API_ENDPOINTS.LAB.RESULTS.CREATE, resultData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -182,7 +184,7 @@ const useLabResults = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.patch(`http://localhost:8080/api/lab/results/${resultId}/validate`, validationData, {
+      const response = await axios.patch(API_ENDPOINTS.LAB.RESULTS.VALIDATE(resultId), validationData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -235,7 +237,7 @@ const useLabResults = (showToast = null) => {
 
       // Uncomment when backend is ready
       /*
-      const response = await axios.patch(`http://localhost:8080/api/lab/results/${resultId}/approve`, approvalData, {
+      const response = await axios.patch(API_ENDPOINTS.LAB.RESULTS.APPROVE(resultId), approvalData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`

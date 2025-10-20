@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useLabRequests = (showToast = null) => {
   const [labRequests, setLabRequests] = useState([]);
@@ -32,7 +33,7 @@ const useLabRequests = (showToast = null) => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/lab-requests/all', {
+      const response = await axios.get(API_ENDPOINTS.LAB_REQUESTS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -92,7 +93,7 @@ const useLabRequests = (showToast = null) => {
         }))
       };
 
-      const response = await axios.post('http://localhost:8080/api/lab-requests/create', payload, {
+      const response = await axios.post(API_ENDPOINTS.LAB_REQUESTS.CREATE, payload, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -149,7 +150,7 @@ const useLabRequests = (showToast = null) => {
         return;
       }
 
-      const response = await axios.get(`http://localhost:8080/api/lab-requests/ward/${encodeURIComponent(wardName)}`, {
+      const response = await axios.get(API_ENDPOINTS.LAB_REQUESTS.BY_WARD(encodeURIComponent(wardName)), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -175,7 +176,7 @@ const useLabRequests = (showToast = null) => {
         return [];
       }
 
-      const response = await axios.get(`http://localhost:8080/api/lab-requests/patient/${patientNationalId}`, {
+      const response = await axios.get(API_ENDPOINTS.LAB_REQUESTS.BY_PATIENT(patientNationalId), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -199,7 +200,7 @@ const useLabRequests = (showToast = null) => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/lab-requests/pending', {
+      const response = await axios.get(API_ENDPOINTS.LAB_REQUESTS.PENDING, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }

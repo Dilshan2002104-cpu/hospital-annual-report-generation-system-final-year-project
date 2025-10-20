@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Heart, Shield, User, Lock, CheckCircle, XCircle, AlertCircle, LogIn, Loader2 } from "lucide-react";
+import { API_ENDPOINTS } from "../config/api.js";
 
 // Toast Component
 const Toast = ({ message, type, isVisible, onClose }) => {
@@ -149,7 +150,7 @@ export default function AdminLogin() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/api/auth/login",
+        API_ENDPOINTS.AUTH.LOGIN,
         {
           empId: formData.employeeId,
           password: formData.password,

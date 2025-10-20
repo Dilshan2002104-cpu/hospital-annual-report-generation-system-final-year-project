@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getWebSocketUrl } from '../../../config/api';
 
 const useAnalyticsWebSocket = (onAnalyticsUpdate) => {
   const [wsConnected, setWsConnected] = useState(false);
@@ -12,10 +13,8 @@ const useAnalyticsWebSocket = (onAnalyticsUpdate) => {
 
   const connect = useCallback(() => {
     try {
-      // Determine WebSocket URL based on current location
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/pharmacy/analytics`;
+      // Use centralized WebSocket URL configuration
+      const wsUrl = `${getWebSocketUrl()}/ws/pharmacy/analytics`;
 
       console.log('Attempting to connect to Analytics WebSocket:', wsUrl);
 

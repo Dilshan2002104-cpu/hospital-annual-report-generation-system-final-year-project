@@ -2,8 +2,9 @@
 // This file demonstrates the new API structure and can be used for testing
 
 import axios from 'axios';
+import { getApiBaseUrl } from './config/api';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = `${getApiBaseUrl()}/api`;
 
 // Test API endpoints
 export const testPrescriptionAPI = async () => {

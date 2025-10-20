@@ -3,27 +3,43 @@
 
 // Dynamic API base URL detection
 const getApiBaseUrl = () => {
-  // In production, detect the current host and use port 8080
-  if (typeof window !== 'undefined') {
-    const currentHost = window.location.hostname;
-    
-    // If accessing from an IP address (like EC2), use that IP
-    if (currentHost.match(/^\d+\.\d+\.\d+\.\d+/) || 
-        (currentHost !== 'localhost' && currentHost !== '127.0.0.1')) {
-      return `http://${currentHost}:8080`;
-    }
-  }
-  
-  // Environment variable override (for Docker builds)
+  // Environment variable override (highest priority)
   if (import.meta.env.VITE_API_URL) {
+    console.log('🔧 Using VITE_API_URL:', import.meta.env.VITE_API_URL);
     return import.meta.env.VITE_API_URL;
   }
   
+  // In browser environment, detect the current host
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname;
+    console.log('🔧 Current hostname:', currentHost);
+    
+    // If accessing from an IP address (like EC2), use relative path for proxy
+    if (currentHost.match(/^\d+\.\d+\.\d+\.\d+/) || 
+        (currentHost !== 'localhost' && currentHost !== '127.0.0.1')) {
+      // Use relative path to leverage Nginx proxy
+      const apiUrl = `http://${currentHost}`;
+      console.log('🔧 Using production API URL with proxy:', apiUrl);
+      return apiUrl;
+    }
+  }
+  
   // Default to localhost for development
+  console.log('🔧 Using development API URL: http://localhost:8080');
   return 'http://localhost:8080';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
+
+// Export the function as well for dynamic usage
+export { getApiBaseUrl };
+
+// Debug logging
+console.log('🔧 HMS API Configuration:', {
+  API_BASE_URL,
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
+  VITE_API_URL: import.meta.env.VITE_API_URL
+});
 
 // Complete API Endpoints Configuration
 export const API_ENDPOINTS = {
@@ -98,6 +114,16 @@ export const API_ENDPOINTS = {
       CANCEL: (prescriptionId) => `${API_BASE_URL}/api/clinic/prescriptions/prescription/${prescriptionId}/cancel`,
       PDF: (prescriptionId) => `${API_BASE_URL}/api/clinic/prescriptions/${prescriptionId}/pdf`,
     },
+  },
+
+  // Clinic Prescriptions (alias for compatibility)
+  CLINIC_PRESCRIPTIONS: {
+    GET_ALL: `${API_BASE_URL}/api/clinic/prescriptions`,
+    BY_ID: (prescriptionId) => `${API_BASE_URL}/api/clinic/prescriptions/prescription/${prescriptionId}`,
+    UPDATE_STATUS: (id) => `${API_BASE_URL}/api/clinic/prescriptions/${id}/status`,
+    DISPENSE: (prescriptionId) => `${API_BASE_URL}/api/clinic/prescriptions/prescription/${prescriptionId}/dispense`,
+    CANCEL: (prescriptionId) => `${API_BASE_URL}/api/clinic/prescriptions/prescription/${prescriptionId}/cancel`,
+    PDF: (prescriptionId) => `${API_BASE_URL}/api/clinic/prescriptions/${prescriptionId}/pdf`,
   },
 
   // Laboratory
@@ -216,12 +242,21 @@ export const API_ENDPOINTS = {
     TEST_SIMPLE_SAVE: `${API_BASE_URL}/api/test-simple/save-basic`,
     TEST_RESULTS_SIMPLE: `${API_BASE_URL}/api/test-results-simple/test-save`,
   },
+
+  // Aliases for compatibility (to fix console errors)
+  LAB_REQUESTS: {
+    ALL: `${API_BASE_URL}/api/lab-requests/all`,
+    CREATE: `${API_BASE_URL}/api/lab-requests/create`,
+    BY_WARD: (wardName) => `${API_BASE_URL}/api/lab-requests/ward/${encodeURIComponent(wardName)}`,
+    BY_PATIENT: (patientNationalId) => `${API_BASE_URL}/api/lab-requests/patient/${patientNationalId}`,
+    PENDING: `${API_BASE_URL}/api/lab-requests/pending`,
+  },
 };
 
 // WebSocket Configuration
 export const getWebSocketUrl = () => {
-  const baseUrl = API_BASE_URL.replace('http://', '').replace('https://', '');
-  return `ws://${baseUrl}/ws`;
+  // SockJS requires HTTP/HTTPS URLs, not WS URLs
+  return `${API_BASE_URL}/ws`;
 };
 
 // Helper Functions

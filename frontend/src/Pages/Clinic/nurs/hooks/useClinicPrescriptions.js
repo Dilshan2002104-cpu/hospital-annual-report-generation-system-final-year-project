@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getApiBaseUrl } from '../../../../config/api';
 
 const useClinicPrescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -186,7 +187,7 @@ const useClinicPrescriptions = () => {
     setError(null);
     
     try {
-      const response = await fetch('/api/prescriptions/clinic?page=0&size=100');
+      const response = await fetch(`${getApiBaseUrl()}/api/prescriptions/clinic?page=0&size=100`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -235,7 +236,7 @@ const useClinicPrescriptions = () => {
         }))
       };
 
-      const response = await fetch('/api/prescriptions/clinic', {
+      const response = await fetch(`${getApiBaseUrl()}/api/prescriptions/clinic`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

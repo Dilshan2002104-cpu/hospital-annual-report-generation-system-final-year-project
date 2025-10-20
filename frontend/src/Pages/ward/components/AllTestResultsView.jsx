@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Calendar, User, Clock, AlertCircle, TrendingUp, Activity, RefreshCw, Search } from 'lucide-react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const AllTestResultsView = ({ showToast }) => {
   const [testResults, setTestResults] = useState([]);
@@ -22,7 +23,7 @@ const AllTestResultsView = ({ showToast }) => {
       if (jwtToken) {
         try {
           response = await axios.get(
-            'http://localhost:8080/api/test-results/all',
+            API_ENDPOINTS.TEST_RESULTS.ALL,
             {
               headers: {
                 'Authorization': `Bearer ${jwtToken}`,
@@ -34,7 +35,7 @@ const AllTestResultsView = ({ showToast }) => {
           if (authError.response?.status === 401 || authError.response?.status === 403) {
             console.log('🔓 JWT failed, trying without authentication...');
             response = await axios.get(
-              'http://localhost:8080/api/test-results/all',
+              API_ENDPOINTS.TEST_RESULTS.ALL,
               {
                 headers: {
                   'Content-Type': 'application/json'
@@ -47,7 +48,7 @@ const AllTestResultsView = ({ showToast }) => {
         }
       } else {
         response = await axios.get(
-          'http://localhost:8080/api/test-results/all',
+          API_ENDPOINTS.TEST_RESULTS.ALL,
           {
             headers: {
               'Content-Type': 'application/json'
@@ -210,7 +211,7 @@ const AllTestResultsView = ({ showToast }) => {
           <button
             onClick={async () => {
               try {
-                const response = await axios.post('http://localhost:8080/api/test-results/create-sample-data');
+                const response = await axios.post(API_ENDPOINTS.TEST_RESULTS.CREATE_SAMPLE_DATA);
                 if (response.data.success) {
                   showToast && showToast(`Created ${response.data.createdTests} sample test results`, 'success');
                   fetchAllTestResults(); // Refresh to show new data

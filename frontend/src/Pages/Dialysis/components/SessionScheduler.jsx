@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../config/api';
 import { 
   Plus, 
   Clock, 
@@ -196,7 +197,7 @@ export default function SessionScheduler({
     const fetchAllMachines = async () => {
       try {
         setMachinesLoading(true);
-        const response = await fetch('http://localhost:8080/api/dialysis/machines');
+        const response = await fetch(`${getApiBaseUrl()}/api/dialysis/machines`);
         if (response.ok) {
           const machineData = await response.json();
           

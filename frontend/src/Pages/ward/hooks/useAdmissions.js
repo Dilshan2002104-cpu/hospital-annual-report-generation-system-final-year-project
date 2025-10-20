@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useAdmissions = (showToast = null) => {
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ const useAdmissions = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.post('http://localhost:8080/api/admissions/admit', admissionData, {
+      const response = await axios.post(API_ENDPOINTS.ADMISSIONS.ADMIT, admissionData, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -84,7 +85,7 @@ const useAdmissions = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get('http://localhost:8080/api/admissions/active', {
+      const response = await axios.get(API_ENDPOINTS.ADMISSIONS.ACTIVE, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -139,7 +140,7 @@ const useAdmissions = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get('http://localhost:8080/api/admissions/getAll', {
+      const response = await axios.get(API_ENDPOINTS.ADMISSIONS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -194,7 +195,7 @@ const useAdmissions = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.put(`http://localhost:8080/api/admissions/discharge/${admissionId}`, {}, {
+      const response = await axios.put(API_ENDPOINTS.ADMISSIONS.DISCHARGE(admissionId), {}, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'

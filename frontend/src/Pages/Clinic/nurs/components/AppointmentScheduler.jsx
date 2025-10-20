@@ -5,6 +5,7 @@ import { ToastContainer } from './Toast';
 import ConfirmModal from './ConfirmModal';
 import useDoctors from '../hooks/useDoctors';
 import useAppointments from '../hooks/useAppointments';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../../config/api';
 
 const AppointmentScheduler = ({ patients }) => {
   const { doctors, loading, addDoctor, updateDoctor, deleteDoctor, submitting } = useDoctors();
@@ -539,7 +540,7 @@ const AppointmentScheduler = ({ patients }) => {
                         return;
                       }
 
-                      const response = await fetch(`http://localhost:8080/api/appointments/${appointmentId}/complete`, {
+                      const response = await fetch(`${getApiBaseUrl()}/api/appointments/${appointmentId}/complete`, {
                         method: 'PUT',
                         headers: {
                           'Authorization': `Bearer ${jwtToken}`,

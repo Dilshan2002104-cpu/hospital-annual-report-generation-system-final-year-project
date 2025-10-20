@@ -13,7 +13,7 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (no hardcoded API URL - uses auto-detection)
 RUN npm run build
 
 # Production stage with Nginx

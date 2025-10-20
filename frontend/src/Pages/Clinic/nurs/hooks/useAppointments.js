@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../../config/api.js';
 
 const useAppointments = (showToast = null) => {
   const [appointments, setAppointments] = useState([]);
@@ -31,7 +32,7 @@ const useAppointments = (showToast = null) => {
         return;
       }
 
-      const response = await axios.get('http://localhost:8080/api/appointments/getAll', {
+      const response = await axios.get(API_ENDPOINTS.APPOINTMENTS.GET_ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }
@@ -86,7 +87,7 @@ const useAppointments = (showToast = null) => {
         appointmentTime: appointmentData.appointmentTime
       };
 
-      const response = await axios.post('http://localhost:8080/api/appointments/create', requestData, {
+      const response = await axios.post(API_ENDPOINTS.APPOINTMENTS.CREATE, requestData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -150,7 +151,7 @@ const useAppointments = (showToast = null) => {
         return false;
       }
 
-      await axios.put(`http://localhost:8080/api/appointments/update/${appointmentId}`, appointmentData, {
+      await axios.put(API_ENDPOINTS.APPOINTMENTS.UPDATE(appointmentId), appointmentData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
@@ -205,7 +206,7 @@ const useAppointments = (showToast = null) => {
         return false;
       }
 
-      await axios.delete(`http://localhost:8080/api/appointments/delete/${appointmentId}`, {
+      await axios.delete(API_ENDPOINTS.APPOINTMENTS.DELETE(appointmentId), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`
         }

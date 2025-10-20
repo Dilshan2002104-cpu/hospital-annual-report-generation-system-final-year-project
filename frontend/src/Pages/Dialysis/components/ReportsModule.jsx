@@ -13,6 +13,7 @@ import {
   Filler
 } from 'chart.js';
 import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2';
+import { API_ENDPOINTS, getApiBaseUrl } from '../../../config/api';
 import { 
   FileText, 
   BarChart3,
@@ -260,19 +261,19 @@ export default function ReportsModule({ sessions }) {
       let endpoint = '';
       switch (reportMode) {
         case 'annual-report':
-          endpoint = `http://localhost:8080/api/dialysis/reports/annual/${selectedYear}`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/annual/${selectedYear}`;
           break;
         case 'comprehensive':
-          endpoint = `http://localhost:8080/api/dialysis/reports/comprehensive/${selectedYear}`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/comprehensive/${selectedYear}`;
           break;
         case 'machine-specific':
-          endpoint = `http://localhost:8080/api/dialysis/reports/machine-performance/${selectedMachine}/${selectedYear}`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/machine-performance/${selectedMachine}/${selectedYear}`;
           break;
         case 'patient-analytics':
-          endpoint = `http://localhost:8080/api/dialysis/reports/patient-analytics/${selectedYear}`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/patient-analytics/${selectedYear}`;
           break;
         default:
-          endpoint = `http://localhost:8080/api/dialysis/analytics/kpi-dashboard`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/analytics/kpi-dashboard`;
       }
 
       console.log('📊 Fetching report data from:', endpoint);
@@ -377,21 +378,21 @@ export default function ReportsModule({ sessions }) {
 
       switch (reportMode) {
         case 'annual-report':
-          endpoint = `http://localhost:8080/api/dialysis/reports/annual/${selectedYear}/pdf`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/annual/${selectedYear}/pdf`;
           filename = `Dialysis_Annual_Report_${selectedYear}.pdf`;
           break;
         case 'comprehensive':
-          endpoint = `http://localhost:8080/api/dialysis/reports/comprehensive/export-pdf/${selectedYear}/Q1`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/comprehensive/export-pdf/${selectedYear}/Q1`;
           filename = `Comprehensive_Dialysis_Report_${selectedYear}.pdf`;
           break;
         case 'machine-specific': {
           const machineId = selectedMachine === 'all' ? 'M001' : selectedMachine;
-          endpoint = `http://localhost:8080/api/dialysis/reports/machine-performance/export-pdf/${machineId}/${selectedYear}`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/machine-performance/export-pdf/${machineId}/${selectedYear}`;
           filename = `Machine_Performance_Report_${machineId}_${selectedYear}.pdf`;
           break;
         }
         case 'patient-analytics':
-          endpoint = `http://localhost:8080/api/dialysis/reports/patient-analytics/export-pdf/${selectedYear}/Q1`;
+          endpoint = `${getApiBaseUrl()}/api/dialysis/reports/patient-analytics/export-pdf/${selectedYear}/Q1`;
           filename = `Patient_Analytics_Report_${selectedYear}.pdf`;
           break;
         default:

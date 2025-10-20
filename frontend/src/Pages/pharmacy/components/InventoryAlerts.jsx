@@ -10,6 +10,7 @@ import {
   Package
 } from 'lucide-react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 export default function InventoryAlerts({ loading: externalLoading }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -25,7 +26,7 @@ export default function InventoryAlerts({ loading: externalLoading }) {
         setLoading(true);
         setError(null);
         
-        const response = await axios.get(`http://localhost:8080/api/pharmacy/medications/alerts`, {
+        const response = await axios.get(API_ENDPOINTS.PHARMACY.MEDICATIONS.ALERTS, {
           params: { daysUntilExpiry }
         });
         

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../../config/api.js';
 
 const useTransferReports = (showToast = null) => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -27,7 +28,7 @@ const useTransferReports = (showToast = null) => {
         ? `/api/reports/transfers/patient/${patientNationalId}/preview`
         : `/api/reports/transfers/patient/${patientNationalId}/pdf`;
 
-      const response = await axios.get(`http://localhost:8080${endpoint}`, {
+      const response = await axios.get(`${API_BASE_URL}${endpoint}`, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
         },

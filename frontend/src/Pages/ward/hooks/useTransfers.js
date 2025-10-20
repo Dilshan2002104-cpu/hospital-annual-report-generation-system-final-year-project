@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useTransfers = (showToast = null) => {
   const [loading, setLoading] = useState(false);
@@ -20,7 +21,7 @@ const useTransfers = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.post('http://localhost:8080/api/transfers/instant', transferData, {
+      const response = await axios.post(API_ENDPOINTS.TRANSFERS.INSTANT, transferData, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -92,7 +93,7 @@ const useTransfers = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get(`http://localhost:8080/api/transfers/patient/${patientNationalId}/history`, {
+      const response = await axios.get(API_ENDPOINTS.TRANSFERS.PATIENT_HISTORY(patientNationalId), {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
@@ -153,7 +154,7 @@ const useTransfers = (showToast = null) => {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const response = await axios.get('http://localhost:8080/api/transfers/all', {
+      const response = await axios.get(API_ENDPOINTS.TRANSFERS.ALL, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
