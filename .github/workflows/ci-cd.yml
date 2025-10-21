@@ -186,6 +186,10 @@ jobs:
         script: |
           echo "🚀 Starting HMS deployment..."
           
+          # Ensure the Docker network exists
+          echo "Checking Docker network..."
+          docker network inspect hms-network >/dev/null 2>&1 || docker network create hms-network
+          
           # Stop existing containers
           echo "Stopping existing containers..."
           docker stop hms-frontend hms-backend || true
