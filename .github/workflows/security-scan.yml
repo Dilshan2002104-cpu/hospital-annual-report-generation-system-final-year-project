@@ -16,6 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     name: Dependency Security Scan
     
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hms_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -h localhost" --health-interval=10s --health-timeout=5s --health-retries=10
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -99,6 +109,16 @@ jobs:
       security-events: write
       actions: read
       contents: read
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hms_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -h localhost" --health-interval=10s --health-timeout=5s --health-retries=10
 
     strategy:
       matrix:
