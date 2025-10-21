@@ -195,6 +195,10 @@ jobs:
           docker stop hms-frontend hms-backend || true
           docker rm hms-frontend hms-backend || true
           
+          # Ensure database container is on the network
+          echo "Connecting existing database to HMS network..."
+          docker network connect hms-network hms-database || echo "Database already connected to network or network connection failed"
+          
           # Pull latest images
           echo "Pulling latest Docker images..."
           docker pull ${{ env.DOCKERHUB_USERNAME }}/hms-backend:latest
