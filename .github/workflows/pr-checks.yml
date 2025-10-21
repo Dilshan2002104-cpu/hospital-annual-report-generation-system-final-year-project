@@ -48,6 +48,10 @@ jobs:
       run: npm run build
 
     # Backend Checks
+    - name: Make Maven Wrapper Executable
+      working-directory: ./HMS
+      run: chmod +x ./mvnw
+
     - name: Backend Compile
       working-directory: ./HMS
       run: ./mvnw compile

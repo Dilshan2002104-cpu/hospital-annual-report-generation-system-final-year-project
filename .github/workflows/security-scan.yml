@@ -40,6 +40,10 @@ jobs:
         npm audit
 
     # Backend Security Check
+    - name: Make Maven Wrapper Executable
+      working-directory: ./HMS
+      run: chmod +x ./mvnw
+
     - name: Backend Dependency Check
       working-directory: ./HMS
       run: |
@@ -119,7 +123,9 @@ jobs:
     - name: Build Java project
       if: matrix.language == 'java'
       working-directory: ./HMS
-      run: ./mvnw compile
+      run: |
+        chmod +x ./mvnw
+        ./mvnw compile
 
     - name: Set up Node.js (for JavaScript analysis)
       if: matrix.language == 'javascript'
