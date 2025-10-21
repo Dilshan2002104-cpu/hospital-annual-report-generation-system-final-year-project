@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { API_ENDPOINTS, getApiBaseUrl } from '../../../../config/api';
+import { API_ENDPOINTS } from '../../../../config/api';
 
 const useAllAppointments = () => {
   const [allAppointments, setAllAppointments] = useState([]);

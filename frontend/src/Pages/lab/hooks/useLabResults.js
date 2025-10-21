@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import axios from 'axios';
+// import axios from 'axios'; // Currently using mock data
 import { API_ENDPOINTS } from '../../../config/api.js';
 
 const useLabResults = (showToast = null) => {
