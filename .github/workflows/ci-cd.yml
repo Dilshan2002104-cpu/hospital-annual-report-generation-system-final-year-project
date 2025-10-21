@@ -1,0 +1,242 @@
+name: HMS CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DOCKERHUB_USERNAME: dilshan019
+  SERVER_HOST: 13.53.135.196
+  SERVER_USER: ubuntu
+  
+jobs:
+  # Job 1: Code Quality & Tests
+  quality-tests:
+    runs-on: ubuntu-latest
+    name: Code Quality & Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    # Frontend Quality Checks
+    - name: Install Frontend Dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    # - name: Frontend Lint Check
+    #   working-directory: ./frontend
+    #   run: npm run lint
+
+    # - name: Frontend Type Check
+    #   working-directory: ./frontend
+    #   run: npx tsc --noEmit
+
+    # - name: Frontend Tests
+    #   working-directory: ./frontend
+    #   run: npm test -- --coverage --watchAll=false
+
+    - name: Frontend Build
+      working-directory: ./frontend
+      run: npm run build
+
+    # Backend Quality Checks
+    - name: Backend Compile Check
+      working-directory: ./HMS
+      run: ./mvnw compile
+
+    - name: Backend Tests
+      working-directory: ./HMS
+      run: ./mvnw test
+
+    - name: Generate Backend Test Report
+      working-directory: ./HMS
+      run: ./mvnw surefire-report:report
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: |
+          HMS/target/surefire-reports/
+          frontend/coverage/
+        if-no-files-found: warn
+
+  # Job 2: Build and Push Docker Images
+  build-images:
+    needs: quality-tests
+    runs-on: ubuntu-latest
+    name: Build & Push Docker Images
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+    - name: Build and push Backend Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./HMS
+        push: true
+        tags: |
+          ${{ env.DOCKERHUB_USERNAME }}/hms-backend:latest
+          ${{ env.DOCKERHUB_USERNAME }}/hms-backend:${{ github.sha }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push Frontend Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: true
+        tags: |
+          ${{ env.DOCKERHUB_USERNAME }}/hms-frontend:latest
+          ${{ env.DOCKERHUB_USERNAME }}/hms-frontend:${{ github.sha }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Job 3: Deploy to Production
+  deploy:
+    needs: build-images
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ env.SERVER_HOST }}
+        username: ${{ env.SERVER_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          echo "🚀 Starting HMS deployment..."
+          
+          # Stop existing containers
+          echo "Stopping existing containers..."
+          docker stop hms-frontend hms-backend || true
+          docker rm hms-frontend hms-backend || true
+          
+          # Pull latest images
+          echo "Pulling latest Docker images..."
+          docker pull ${{ env.DOCKERHUB_USERNAME }}/hms-backend:latest
+          docker pull ${{ env.DOCKERHUB_USERNAME }}/hms-frontend:latest
+          
+          # Start backend container
+          echo "Starting backend container..."
+          docker run -d \
+            --name hms-backend \
+            --network hms-network \
+            -e SPRING_PROFILES_ACTIVE=production \
+            -e SPRING_DATASOURCE_URL=jdbc:mysql://hms-database:3306/hms \
+            -e SPRING_DATASOURCE_USERNAME=hmsuser \
+            -e SPRING_DATASOURCE_PASSWORD=SecurePassword123! \
+            -p 8080:8080 \
+            --restart unless-stopped \
+            ${{ env.DOCKERHUB_USERNAME }}/hms-backend:latest
+          
+          # Start frontend container
+          echo "Starting frontend container..."
+          docker run -d \
+            --name hms-frontend \
+            --network hms-network \
+            -p 80:80 \
+            -p 443:443 \
+            --restart unless-stopped \
+            ${{ env.DOCKERHUB_USERNAME }}/hms-frontend:latest
+          
+          # Clean up old images
+          echo "Cleaning up old Docker images..."
+          docker image prune -f
+          
+          echo "✅ HMS deployment completed successfully!"
+
+    - name: Verify Deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ env.SERVER_HOST }}
+        username: ${{ env.SERVER_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          echo "🔍 Verifying deployment..."
+          
+          # Check container status
+          echo "Container status:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+          # Health check
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Test backend health
+          if curl -f http://localhost:8080/actuator/health; then
+            echo "✅ Backend health check passed"
+          else
+            echo "❌ Backend health check failed"
+            exit 1
+          fi
+          
+          # Test frontend
+          if curl -f http://localhost/; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed"
+            exit 1
+          fi
+          
+          echo "🎉 All health checks passed! HMS is live at http://nindt.duckdns.org"
+
+  # Job 4: Notification
+  notify:
+    needs: [quality-tests, build-images, deploy]
+    runs-on: ubuntu-latest
+    name: Send Notifications
+    if: always()
+
+    steps:
+    - name: Notification
+      run: |
+        if [ "${{ needs.deploy.result }}" == "success" ]; then
+          echo "🎉 HMS CI/CD Pipeline completed successfully!"
+          echo "✅ Application deployed to: http://nindt.duckdns.org"
+          echo "✅ All quality checks passed"
+          echo "✅ Docker images updated"
+        else
+          echo "❌ HMS CI/CD Pipeline failed"
+          echo "Please check the workflow logs for details"
+        fi

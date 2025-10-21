@@ -1,0 +1,157 @@
+name: Security Scanning
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM UTC
+  workflow_dispatch: # Manual trigger
+  push:
+    paths:
+      - '**/package.json'
+      - '**/package-lock.json' 
+      - '**/pom.xml'
+      - '**/Dockerfile'
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    name: Dependency Security Scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    # Frontend Security Audit
+    - name: Frontend Security Audit
+      working-directory: ./frontend
+      run: |
+        echo "=== Frontend NPM Audit ==="
+        npm audit --json > npm-audit.json || true
+        npm audit
+
+    # Backend Security Check
+    - name: Backend Dependency Check
+      working-directory: ./HMS
+      run: |
+        echo "=== Maven Dependency Check ==="
+        ./mvnw dependency:tree
+        ./mvnw versions:display-dependency-updates || true
+
+    - name: Upload Security Reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          frontend/npm-audit.json
+          HMS/target/dependency-check-report.html
+
+  docker-security-scan:
+    runs-on: ubuntu-latest
+    name: Docker Image Security Scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker Images for Scanning
+      run: |
+        docker build -t hms-backend-scan ./HMS
+        docker build -t hms-frontend-scan ./frontend
+
+    - name: Run Trivy vulnerability scanner - Backend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'hms-backend-scan'
+        format: 'sarif'
+        output: 'backend-trivy-results.sarif'
+
+    - name: Run Trivy vulnerability scanner - Frontend  
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'hms-frontend-scan'
+        format: 'sarif'
+        output: 'frontend-trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: '.'
+
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    name: CodeQL Analysis
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      matrix:
+        language: ['java', 'javascript']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Set up Java (for Java analysis)
+      if: matrix.language == 'java'
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Build Java project
+      if: matrix.language == 'java'
+      working-directory: ./HMS
+      run: ./mvnw compile
+
+    - name: Set up Node.js (for JavaScript analysis)
+      if: matrix.language == 'javascript'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Build JavaScript project
+      if: matrix.language == 'javascript'
+      working-directory: ./frontend
+      run: |
+        npm ci
+        npm run build
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  security-report:
+    needs: [dependency-scan, docker-security-scan, codeql-analysis]
+    runs-on: ubuntu-latest
+    name: Security Summary Report
+    if: always()
+    
+    steps:
+    - name: Security Summary
+      run: |
+        echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Scan Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Dependency Scan**: ${{ needs.dependency-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Docker Security**: ${{ needs.docker-security-scan.result }}" >> $GITHUB_STEP_SUMMARY  
+        echo "- **CodeQL Analysis**: ${{ needs.codeql-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Security Dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "Check the [Security tab](https://github.com/${{ github.repository }}/security) for detailed vulnerability reports." >> $GITHUB_STEP_SUMMARY

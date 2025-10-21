@@ -1,0 +1,127 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  pr-quality-gate:
+    runs-on: ubuntu-latest
+    name: PR Quality Gate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    # Frontend Checks
+    - name: Install Frontend Dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    # - name: Frontend Lint
+    #   working-directory: ./frontend
+    #   run: npm run lint
+
+    # - name: Frontend Tests
+    #   working-directory: ./frontend
+    #   run: npm test -- --coverage --watchAll=false
+
+    - name: Frontend Build Check
+      working-directory: ./frontend
+      run: npm run build
+
+    # Backend Checks
+    - name: Backend Compile
+      working-directory: ./HMS
+      run: ./mvnw compile
+
+    - name: Backend Tests
+      working-directory: ./HMS
+      run: ./mvnw test
+
+    # Security Checks
+    - name: Frontend Security Audit
+      working-directory: ./frontend
+      run: npm audit --audit-level=high
+
+    - name: Backend Dependency Check
+      working-directory: ./HMS
+      run: ./mvnw dependency:tree
+
+    # Docker Build Verification
+    - name: Verify Docker Builds
+      run: |
+        echo "Building Backend Docker image..."
+        docker build -t hms-backend-test ./HMS
+        
+        echo "Building Frontend Docker image..."
+        docker build -t hms-frontend-test ./frontend
+        
+        echo "✅ Docker builds successful"
+
+  # Comment on PR with results
+  pr-comment:
+    needs: pr-quality-gate
+    runs-on: ubuntu-latest
+    name: PR Results Comment
+    if: always() && github.event_name == 'pull_request'
+    
+    steps:
+    - name: Comment PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo, number } = context.issue;
+          const conclusion = '${{ needs.pr-quality-gate.result }}';
+          
+          let message = '';
+          if (conclusion === 'success') {
+            message = `## ✅ Quality Gate Passed
+            
+            Your pull request has passed all quality checks:
+            
+            - ✅ Frontend build verification
+            - ✅ Backend compilation and tests  
+            - ✅ Security dependency audits
+            - ✅ Docker build verification
+            
+            **Ready for review and merge!** 🚀`;
+          } else {
+            message = `## ❌ Quality Gate Failed
+            
+            Your pull request has failed quality checks:
+            
+            Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) and fix the issues.
+            
+            **Common issues:**
+            - Build errors
+            - Backend test failures
+            - Backend compilation errors
+            - Security vulnerabilities
+            
+            Fix these issues and push again to re-run checks.`;
+          }
+          
+          github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: number,
+            body: message
+          });

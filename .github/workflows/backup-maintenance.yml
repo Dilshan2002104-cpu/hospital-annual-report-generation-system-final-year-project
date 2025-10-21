@@ -1,0 +1,153 @@
+name: Database Backup & Maintenance
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Daily at 2 AM UTC
+  workflow_dispatch: # Manual trigger
+
+env:
+  SERVER_HOST: 13.53.135.196
+  SERVER_USER: ubuntu
+
+jobs:
+  database-backup:
+    runs-on: ubuntu-latest
+    name: MySQL Database Backup
+    
+    steps:
+    - name: Database Backup
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ env.SERVER_HOST }}
+        username: ${{ env.SERVER_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          echo "🗄️ Starting HMS database backup..."
+          
+          # Create backup directory
+          mkdir -p /home/ubuntu/hms-backups
+          
+          # Generate timestamp
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          BACKUP_FILE="/home/ubuntu/hms-backups/hms_backup_${TIMESTAMP}.sql"
+          
+          # Create database backup
+          echo "Creating database backup..."
+          docker exec hms-database mysqldump \
+            -u hmsuser \
+            -p'SecurePassword123!' \
+            --single-transaction \
+            --routines \
+            --triggers \
+            hms > ${BACKUP_FILE}
+          
+          # Compress backup
+          echo "Compressing backup..."
+          gzip ${BACKUP_FILE}
+          
+          # Verify backup
+          if [ -f "${BACKUP_FILE}.gz" ]; then
+            BACKUP_SIZE=$(du -h "${BACKUP_FILE}.gz" | cut -f1)
+            echo "✅ Backup created successfully: ${BACKUP_FILE}.gz (${BACKUP_SIZE})"
+          else
+            echo "❌ Backup failed!"
+            exit 1
+          fi
+          
+          # Clean up old backups (keep last 7 days)
+          echo "Cleaning up old backups..."
+          find /home/ubuntu/hms-backups -name "hms_backup_*.sql.gz" -mtime +7 -delete
+          
+          # List current backups
+          echo "Current backups:"
+          ls -lh /home/ubuntu/hms-backups/
+
+  system-maintenance:
+    runs-on: ubuntu-latest
+    name: System Maintenance
+    needs: database-backup
+    
+    steps:
+    - name: System Cleanup & Health Check
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ env.SERVER_HOST }}
+        username: ${{ env.SERVER_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          echo "🧹 Starting system maintenance..."
+          
+          # Docker cleanup
+          echo "Cleaning up Docker resources..."
+          docker system prune -f
+          docker image prune -a -f
+          docker volume prune -f
+          
+          # Check disk space
+          echo "Disk space usage:"
+          df -h
+          
+          # Check container health
+          echo "Container status:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          
+          # Test HMS services
+          echo "Testing HMS services..."
+          
+          # Test backend
+          if curl -f -s http://localhost:8080/actuator/health > /dev/null; then
+            echo "✅ Backend health check passed"
+          else
+            echo "❌ Backend health check failed"
+          fi
+          
+          # Test frontend
+          if curl -f -s http://localhost/ > /dev/null; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed"
+          fi
+          
+          # Test database connection
+          if docker exec hms-database mysql -u hmsuser -p'SecurePassword123!' -e "SELECT 1;" hms > /dev/null 2>&1; then
+            echo "✅ Database connection test passed"
+          else
+            echo "❌ Database connection test failed"
+          fi
+          
+          # Memory usage
+          echo "Memory usage:"
+          free -h
+          
+          # System uptime
+          echo "System uptime:"
+          uptime
+          
+          echo "✅ System maintenance completed"
+
+  backup-report:
+    needs: [database-backup, system-maintenance]
+    runs-on: ubuntu-latest
+    name: Backup Report
+    if: always()
+    
+    steps:
+    - name: Generate Report
+      run: |
+        echo "## 🗄️ Database Backup Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Database Backup**: ${{ needs.database-backup.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **System Maintenance**: ${{ needs.system-maintenance.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.database-backup.result }}" == "success" ] && [ "${{ needs.system-maintenance.result }}" == "success" ]; then
+          echo "✅ **Status**: All backup and maintenance tasks completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "HMS system at nindt.duckdns.org is healthy and backed up." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Status**: Some tasks failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+        fi
